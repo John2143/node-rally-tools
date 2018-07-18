@@ -13,13 +13,31 @@ export const rallyFunctions = {
             console.timeEnd("test with " + i);
         }
     },
-    async uploadPresets(env, presets){
+    async uploadPresets(env, presets, createFunc = ()=>false){
         for(let preset of presets){
-            await preset.uploadCodeToEnv(env);
+            await preset.uploadCodeToEnv(env, createFunc);
         }
     },
     async getProviders(env){
-        let index = lib.indexPath(env, "/providerTypes");
-        log(index);
+        let providers = await lib.indexPath(env, "/providerTypes?page=1p50");
+        providers = providers.sort((a, b) => {
+            return a.attributes.category.localeCompare(b.attributes.category) ||
+                   a.attributes.name    .localeCompare(b.attributes.name);
+        });
+        return providers;
+    },
+    async getEditorConfig(env, provider){
+        let config = await lib.makeAPIRequest({env, path_full: provider.links.editorConfig});
+        let helpText = config.helpText;
+        config.helpText = () => helpText;
+        return config
+    },
+    async getRules(env){
+        let rules = await lib.indexPathFast(env, "/workflowRules?page=1p20");
+        return rules;
+    },
+    async getPresets(env){
+        let rules = await lib.indexPathFast(env, "/presets?page=1p20");
+        return rules;
     },
 }

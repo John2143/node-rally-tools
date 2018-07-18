@@ -5,248 +5,16 @@
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
 var rp = _interopDefault(require('request-promise'));
-var chalk = _interopDefault(require('chalk'));
+var chalk$1 = _interopDefault(require('chalk'));
 var fs = _interopDefault(require('fs'));
 var path = require('path');
+var argparse = _interopDefault(require('minimist'));
+var inquirer = _interopDefault(require('inquirer'));
 
-var minimist = function (args, opts) {
-    if (!opts) opts = {};
-    
-    var flags = { bools : {}, strings : {}, unknownFn: null };
-
-    if (typeof opts['unknown'] === 'function') {
-        flags.unknownFn = opts['unknown'];
-    }
-
-    if (typeof opts['boolean'] === 'boolean' && opts['boolean']) {
-      flags.allBools = true;
-    } else {
-      [].concat(opts['boolean']).filter(Boolean).forEach(function (key) {
-          flags.bools[key] = true;
-      });
-    }
-    
-    var aliases = {};
-    Object.keys(opts.alias || {}).forEach(function (key) {
-        aliases[key] = [].concat(opts.alias[key]);
-        aliases[key].forEach(function (x) {
-            aliases[x] = [key].concat(aliases[key].filter(function (y) {
-                return x !== y;
-            }));
-        });
-    });
-
-    [].concat(opts.string).filter(Boolean).forEach(function (key) {
-        flags.strings[key] = true;
-        if (aliases[key]) {
-            flags.strings[aliases[key]] = true;
-        }
-     });
-
-    var defaults = opts['default'] || {};
-    
-    var argv = { _ : [] };
-    Object.keys(flags.bools).forEach(function (key) {
-        setArg(key, defaults[key] === undefined ? false : defaults[key]);
-    });
-    
-    var notFlags = [];
-
-    if (args.indexOf('--') !== -1) {
-        notFlags = args.slice(args.indexOf('--')+1);
-        args = args.slice(0, args.indexOf('--'));
-    }
-
-    function argDefined(key, arg) {
-        return (flags.allBools && /^--[^=]+$/.test(arg)) ||
-            flags.strings[key] || flags.bools[key] || aliases[key];
-    }
-
-    function setArg (key, val, arg) {
-        if (arg && flags.unknownFn && !argDefined(key, arg)) {
-            if (flags.unknownFn(arg) === false) return;
-        }
-
-        var value = !flags.strings[key] && isNumber(val)
-            ? Number(val) : val
-        ;
-        setKey(argv, key.split('.'), value);
-        
-        (aliases[key] || []).forEach(function (x) {
-            setKey(argv, x.split('.'), value);
-        });
-    }
-
-    function setKey (obj, keys, value) {
-        var o = obj;
-        keys.slice(0,-1).forEach(function (key) {
-            if (o[key] === undefined) o[key] = {};
-            o = o[key];
-        });
-
-        var key = keys[keys.length - 1];
-        if (o[key] === undefined || flags.bools[key] || typeof o[key] === 'boolean') {
-            o[key] = value;
-        }
-        else if (Array.isArray(o[key])) {
-            o[key].push(value);
-        }
-        else {
-            o[key] = [ o[key], value ];
-        }
-    }
-    
-    function aliasIsBoolean(key) {
-      return aliases[key].some(function (x) {
-          return flags.bools[x];
-      });
-    }
-
-    for (var i = 0; i < args.length; i++) {
-        var arg = args[i];
-        
-        if (/^--.+=/.test(arg)) {
-            // Using [\s\S] instead of . because js doesn't support the
-            // 'dotall' regex modifier. See:
-            // http://stackoverflow.com/a/1068308/13216
-            var m = arg.match(/^--([^=]+)=([\s\S]*)$/);
-            var key = m[1];
-            var value = m[2];
-            if (flags.bools[key]) {
-                value = value !== 'false';
-            }
-            setArg(key, value, arg);
-        }
-        else if (/^--no-.+/.test(arg)) {
-            var key = arg.match(/^--no-(.+)/)[1];
-            setArg(key, false, arg);
-        }
-        else if (/^--.+/.test(arg)) {
-            var key = arg.match(/^--(.+)/)[1];
-            var next = args[i + 1];
-            if (next !== undefined && !/^-/.test(next)
-            && !flags.bools[key]
-            && !flags.allBools
-            && (aliases[key] ? !aliasIsBoolean(key) : true)) {
-                setArg(key, next, arg);
-                i++;
-            }
-            else if (/^(true|false)$/.test(next)) {
-                setArg(key, next === 'true', arg);
-                i++;
-            }
-            else {
-                setArg(key, flags.strings[key] ? '' : true, arg);
-            }
-        }
-        else if (/^-[^-]+/.test(arg)) {
-            var letters = arg.slice(1,-1).split('');
-            
-            var broken = false;
-            for (var j = 0; j < letters.length; j++) {
-                var next = arg.slice(j+2);
-                
-                if (next === '-') {
-                    setArg(letters[j], next, arg);
-                    continue;
-                }
-                
-                if (/[A-Za-z]/.test(letters[j]) && /=/.test(next)) {
-                    setArg(letters[j], next.split('=')[1], arg);
-                    broken = true;
-                    break;
-                }
-                
-                if (/[A-Za-z]/.test(letters[j])
-                && /-?\d+(\.\d*)?(e-?\d+)?$/.test(next)) {
-                    setArg(letters[j], next, arg);
-                    broken = true;
-                    break;
-                }
-                
-                if (letters[j+1] && letters[j+1].match(/\W/)) {
-                    setArg(letters[j], arg.slice(j+2), arg);
-                    broken = true;
-                    break;
-                }
-                else {
-                    setArg(letters[j], flags.strings[letters[j]] ? '' : true, arg);
-                }
-            }
-            
-            var key = arg.slice(-1)[0];
-            if (!broken && key !== '-') {
-                if (args[i+1] && !/^(-|--)[^-]/.test(args[i+1])
-                && !flags.bools[key]
-                && (aliases[key] ? !aliasIsBoolean(key) : true)) {
-                    setArg(key, args[i+1], arg);
-                    i++;
-                }
-                else if (args[i+1] && /true|false/.test(args[i+1])) {
-                    setArg(key, args[i+1] === 'true', arg);
-                    i++;
-                }
-                else {
-                    setArg(key, flags.strings[key] ? '' : true, arg);
-                }
-            }
-        }
-        else {
-            if (!flags.unknownFn || flags.unknownFn(arg) !== false) {
-                argv._.push(
-                    flags.strings['_'] || !isNumber(arg) ? arg : Number(arg)
-                );
-            }
-            if (opts.stopEarly) {
-                argv._.push.apply(argv._, args.slice(i + 1));
-                break;
-            }
-        }
-    }
-    
-    Object.keys(defaults).forEach(function (key) {
-        if (!hasKey(argv, key.split('.'))) {
-            setKey(argv, key.split('.'), defaults[key]);
-            
-            (aliases[key] || []).forEach(function (x) {
-                setKey(argv, x.split('.'), defaults[key]);
-            });
-        }
-    });
-    
-    if (opts['--']) {
-        argv['--'] = new Array();
-        notFlags.forEach(function(key) {
-            argv['--'].push(key);
-        });
-    }
-    else {
-        notFlags.forEach(function(key) {
-            argv._.push(key);
-        });
-    }
-
-    return argv;
-};
-
-function hasKey (obj, keys) {
-    var o = obj;
-    keys.slice(0,-1).forEach(function (key) {
-        o = (o[key] || {});
-    });
-
-    var key = keys[keys.length - 1];
-    return key in o;
-}
-
-function isNumber (x) {
-    if (typeof x === 'number') return true;
-    if (/^0x[0-9a-f]+$/i.test(x)) return true;
-    return /^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(e[-+]?\d+)?$/.test(x);
-}
-
-global.log = console.log;
-global.errorLog = text => log(chalk.red(text));
+global.chalk = chalk$1;
+global.log = text => console.log(text);
+global.write = text => process.stdout.write(text);
+global.errorLog = text => log(chalk$1.red(text));
 
 class lib{
     static async makeAPIRequest({env, path: path$$1, path_full, payload, body, json = true, method = "GET", qs, headers = {}, fullResponse = false}){
@@ -259,14 +27,17 @@ class lib{
         path$$1 = path_full || rally_api + path$$1;
         body = body || payload && JSON.stringify(payload);
 
-        if(!global.silentAPI){
-            log(chalk`${method} @ ${path$$1}`);
+        if(global.logAPI){
+            log(chalk$1`${method} @ ${path$$1}`);
             if(qs){
                 log(qs);
             }
         }
+        if(payload){
+            headers["Content-Type"] = "application/vnd.api+json";
+        }
 
-        let response = await rp({
+        let requestOptions = {
             method, body, qs, uri: path$$1,
             auth: {bearer: rally_api_key},
             headers: {
@@ -274,16 +45,16 @@ class lib{
                 ...headers,
             },
             simple: false, resolveWithFullResponse: true,
-        });
+        };
+        let response = await rp(requestOptions);
 
-        if(![200, 201, 204].includes(response.statusCode)){
-            errorLog(response);
-            throw new Error("Api result error");
+        if(!fullResponse && ![200, 201, 204].includes(response.statusCode)){
+            throw new APIError(response, requestOptions);
         }
-        if(json){
-            return JSON.parse(response.body);
-        }else if(fullResponse){
+        if(fullResponse){
             return response;
+        }else if(json){
+            return JSON.parse(response.body);
         }else{
             return response.body;
         }
@@ -295,7 +66,7 @@ class lib{
         let json = await this.makeAPIRequest({env, path: path$$1});
 
         let [numPages, pageSize] = this.numPages(json.links.last);
-        log(`num pages: ${numPages} * ${pageSize}`);
+        //log(`num pages: ${numPages} * ${pageSize}`);
 
         all = [...json.data];
         while(json.links.next){
@@ -327,7 +98,7 @@ class lib{
         const linkToPage = page => baselink.replace("page=1p", `page=${page}p`);
 
         let [numPages, pageSize] = this.numPages(json.links.last);
-        log(`num pages: ${numPages} * ${pageSize}`);
+        //log(`num pages: ${numPages} * ${pageSize}`);
 
         //Construct an array of all the requests that are done simultanously.
         //Assume that the content from the inital request is the first page.
@@ -348,12 +119,25 @@ class AbortError extends Error{
     constructor(message){
         super(message);
         Error.captureStackTrace(this, this.constructor);
+        this.name = "AbortError";
+    }
+}
+
+class APIError extends Error{
+    constructor(response, opts){
+        super(chalk$1`
+{reset Request returned} {yellow ${response.statusCode}}
+{green ${JSON.stringify(opts)}}
+{reset ${response.body}}
+        `);
+        Error.captureStackTrace(this, this.constructor);
+        this.name = "ApiError";
     }
 }
 
 let envs = {};
 class Preset{
-    constructor({path: path$$1, remote}){
+    constructor({path: path$$1, remote, data}){
         this.remote = remote;
         if(!this.remote){
             this.path = path$$1;
@@ -364,10 +148,15 @@ class Preset{
                 throw new AbortError("Could not load code of local file");
             }
             this.name = this.parseFilenameForName() || this.parseCodeForName();
+        }else{
+            this.name = data.attributes.name;
+            this.id = data.id;
+            this.rawData = data;
         }
     }
-    toString(){
-        return `<Preset ${this.name} on ${this.remote || "~local"}>`;
+    chalkPrint(){
+        let id = String(this.remote && this.remote + "-" + this.id || "Local").padStart(8);
+        return chalk`{green ${id}}: {blue ${this.name}}`;
     }
     parseFilenameForName(){
         if(this.path.endsWith(".jinja") || this.path.endsWith(".json")){
@@ -402,25 +191,60 @@ class Preset{
             return this.code;
         }
     }
-    async postPresetData(env, id){
+    async uploadPresetData(env, id){
+        let res = await lib.makeAPIRequest({
+            env, path: `/presets/${id}/providerData`,
+            body: this.code, method: "PUT", fullResponse: true
+        });
+        write(chalk`response {yellow ${res.statusCode}}`);
     }
-    async uploadCodeToEnv(env){
-        log(chalk`Uploading {green ${this.name}} to {green ${env}}`);
+    async uploadCodeToEnv(env, createFunction){
+        write(chalk`Uploading {green ${this.name}} to {green ${env}}: `);
+
+        //First query the api to see if this already exists.
         let res = await lib.makeAPIRequest({
             env, path: `/presets`,
-            qs: {filter: `name=${this.name}aaa`},
+            qs: {filter: `name=${this.name}`},
         });
         let remote = res.data[0];
+
         if(remote){
-            res = await lib.makeAPIRequest({
-                env, path: `/presets/${remote.id}/providerData`,
-                body: this.code,
-            });
-            log(res);
+            //If it exists we can replace it
+            write("replace, ");
+            await this.uploadPresetData(env, remote.id);
         }else{
-            log("Non existant");
-            //create if python
+            //If it needs to be created then we need to ask the user for metadata
+            write("create, ");
+            let metadata = await createFunction(this);
+            write("Posting to create preset... ");
+            let res = await lib.makeAPIRequest({
+                env, path: `/presets`, method: "POST",
+                payload: {data: metadata},
+            });
+            let id = res.data.id;
+            write(chalk`Created id {green ${id}}... Uploading Code... `);
+            await this.uploadPresetData(env, id);
         }
+        log();
+    }
+
+    constructMetadata(providerID){
+        return {
+            attributes: {
+                name: this.name,
+                //providerSettings: {
+                //},
+            },
+            relationships: {
+                providerType: {
+                    data: {
+                        id: providerID,
+                        type: "providerTypes",
+                    },
+                }
+            },
+            type: "presets"
+        };
     }
 
     getMetadata(){}
@@ -436,6 +260,18 @@ class Preset{
     }
 }
 
+class Rule{
+    constructor(data, remote){
+        this.rawData = data;
+        this.remote = remote;
+    }
+    chalkPrint(){
+        let D = this.rawData;
+        let id = String(this.remote + "-" + D.id).padStart(8);
+        return chalk`{green ${id}}: {blue ${D.attributes.name}}`;
+    }
+}
+
 const rallyFunctions = {
     async bestPagintation(){
         global.silentAPI = true;
@@ -445,23 +281,48 @@ const rallyFunctions = {
             console.timeEnd("test with " + i);
         }
     },
-    async uploadPresets(env, presets){
+    async uploadPresets(env, presets, createFunc = ()=>false){
         for(let preset of presets){
-            await preset.uploadCodeToEnv(env);
+            await preset.uploadCodeToEnv(env, createFunc);
         }
     },
     async getProviders(env){
-        let index = lib.indexPath(env, "/providerTypes");
-        log(index);
+        let providers = await lib.indexPath(env, "/providerTypes?page=1p50");
+        providers = providers.sort((a, b) => {
+            return a.attributes.category.localeCompare(b.attributes.category) ||
+                   a.attributes.name    .localeCompare(b.attributes.name);
+        });
+        return providers;
+    },
+    async getEditorConfig(env, provider){
+        let config = await lib.makeAPIRequest({env, path_full: provider.links.editorConfig});
+        let helpText = config.helpText;
+        config.helpText = () => helpText;
+        return config
+    },
+    async getRules(env){
+        let rules = await lib.indexPathFast(env, "/workflowRules?page=1p20");
+        return rules;
+    },
+    async getPresets(env){
+        let rules = await lib.indexPathFast(env, "/presets?page=1p20");
+        return rules;
     },
 };
 
-let argv = minimist(process.argv.slice(2), {
+require("source-map-support").install();
+
+let argv = argparse(process.argv.slice(2), {
     string: ["file", "env"],
     alias: {
         f: "file", e: "env",
     }
 });
+
+function prettyPrintProvider(pro){
+    let id = String(pro.id).padStart(4);
+    return chalk`{green ${id}}: {blue ${pro.attributes.category}} - {green ${pro.attributes.name}}`;
+}
 
 let cli = {
     async help(){
@@ -470,19 +331,83 @@ let cli = {
     async ["print-args"](args){
         log(args);
     },
-    async ["upload-preset"](args){
+    async preset(args){
         let env = args.env;
-        let files = args.file;
-        if(typeof args.file === "string") files = [files];
-        log(chalk`Uploading {green ${files.length}} preset(s) to {green ${env}}.`);
+        let arg = argv._[1];
+        if(arg === "upload"){
+            let files = args.file;
+            if(!files){
+                throw new AbortError("No files provided to upload (use --file argument)");
+            }
+            if(typeof files === "string") files = [files];
+            log(chalk`Uploading {green ${files.length}} preset(s) to {green ${env}}.`);
 
-        let presets = files.map(path$$1 => new Preset({path: path$$1, remote: false}));
-        await rallyFunctions.uploadPresets(args.env, presets);
+            let presets = files.map(path$$1 => new Preset({path: path$$1, remote: false}));
+            await rallyFunctions.uploadPresets(args.env, presets, async preset => {
+                log("asking... ");
+                let provider = await this["select-provider"](args);
+                return preset.constructMetadata(provider.id);
+            });
+        }else if(arg === "list"){
+            log("Loading...");
+            let presets = await rallyFunctions.getPresets(env);
+            log(chalk`{yellow ${presets.length}} presets on {green ${env}}.`);
+            for(let data of presets) log(new Preset({data, remote: env}).chalkPrint());
+        }else{
+            log("Unknown Action " + arg);
+        }
         //log(presets);
     },
-    async ["list-providers"](args){
+    async rule(args){
         let env = args.env;
-        rallyFunctions.getProviders(env);
+        let arg = argv._[1];
+
+        if(arg === "list"){
+            log("Loading...");
+            let rules = await rallyFunctions.getRules(env);
+            log(chalk`{yellow ${rules.length}} rules on {green ${env}}.`);
+            for(let data of rules) log(new Rule(data, env).chalkPrint());
+        }else{
+            log("Unknown Action " + arg);
+        }
+    },
+    async providers(args){
+        let env = args.env;
+        let ident = argv._[1];
+
+        let providers = await rallyFunctions.getProviders(env);
+
+        if(ident){
+            let pro = providers.find(x => x.id == ident || x.attributes.name.includes(ident));
+            if(!pro){
+                log(chalk`Couldn't find provider by {green ${ident}}`);
+            }else{
+                log(prettyPrintProvider(pro));
+                log(await rallyFunctions.getEditorConfig(env, pro));
+            }
+        }else{
+            for(let pro of providers) log(prettyPrintProvider(pro));
+        }
+    },
+    async ["select-provider"](args){
+        let env = args.env;
+
+        let providers = await rallyFunctions.getProviders(env);
+        let defaultProvider =  providers.find(x => x.attributes.name === "SdviEvaluate");
+        if(args.defaultSelect){
+            return defaultProvider;
+        }else{
+            let q = await inquirer.prompt([{
+                type: "list",
+                name: "provider",
+                default: defaultProvider,
+                choices: providers.map(x => ({
+                    name: prettyPrintProvider(x),
+                    value: x,
+                })),
+            },]);
+            return q.provider;
+        }
     },
 };
 
@@ -490,7 +415,11 @@ async function $main(){
     let func = argv._[0];
     if(cli[func]){
         try{
-            await cli[func](argv);
+            let ret = await cli[func](argv);
+            if(ret){
+                write(chalk.white("CLI returned: "));
+                log(ret);
+            }
         }catch(e){
             if(e instanceof AbortError){
                 log(chalk`{red CLI Aborted}: ${e.message}`);
@@ -512,3 +441,4 @@ async function main(...args){
 }
 
 main();
+//# sourceMappingURL=bundle.js.map

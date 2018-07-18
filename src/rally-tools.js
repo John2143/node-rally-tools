@@ -1,7 +1,9 @@
 import rp from "request-promise";
 import chalk from "chalk";
 
-global.log = console.log;
+global.chalk = chalk;
+global.log = text => console.log(text);
+global.write = text => process.stdout.write(text);
 global.errorLog = text => log(chalk.red(text));
 
 export class lib{
@@ -15,14 +17,17 @@ export class lib{
         path = path_full || rally_api + path;
         body = body || payload && JSON.stringify(payload);
 
-        if(!global.silentAPI){
+        if(global.logAPI){
             log(chalk`${method} @ ${path}`);
             if(qs){
                 log(qs)
             }
         }
+        if(payload){
+            headers["Content-Type"] = "application/vnd.api+json";
+        }
 
-        let response = await rp({
+        let requestOptions = {
             method, body, qs, uri: path,
             auth: {bearer: rally_api_key},
             headers: {
@@ -30,16 +35,16 @@ export class lib{
                 ...headers,
             },
             simple: false, resolveWithFullResponse: true,
-        });
+        };
+        let response = await rp(requestOptions);
 
-        if(![200, 201, 204].includes(response.statusCode)){
-            errorLog(response);
-            throw new Error("Api result error");
+        if(!fullResponse && ![200, 201, 204].includes(response.statusCode)){
+            throw new APIError(response, requestOptions);
         }
-        if(json){
-            return JSON.parse(response.body);
-        }else if(fullResponse){
+        if(fullResponse){
             return response;
+        }else if(json){
+            return JSON.parse(response.body);
         }else{
             return response.body;
         }
@@ -51,7 +56,7 @@ export class lib{
         let json = await this.makeAPIRequest({env, path});
 
         let [numPages, pageSize] = this.numPages(json.links.last);
-        log(`num pages: ${numPages} * ${pageSize}`);
+        //log(`num pages: ${numPages} * ${pageSize}`);
 
         all = [...json.data];
         while(json.links.next){
@@ -83,7 +88,7 @@ export class lib{
         const linkToPage = page => baselink.replace("page=1p", `page=${page}p`);
 
         let [numPages, pageSize] = this.numPages(json.links.last);
-        log(`num pages: ${numPages} * ${pageSize}`);
+        //log(`num pages: ${numPages} * ${pageSize}`);
 
         //Construct an array of all the requests that are done simultanously.
         //Assume that the content from the inital request is the first page.
@@ -105,5 +110,18 @@ export class AbortError extends Error{
     constructor(message){
         super(message);
         Error.captureStackTrace(this, this.constructor);
+        this.name = "AbortError";
+    }
+}
+
+export class APIError extends Error{
+    constructor(response, opts){
+        super(chalk`
+{reset Request returned} {yellow ${response.statusCode}}
+{green ${JSON.stringify(opts)}}
+{reset ${response.body}}
+        `);
+        Error.captureStackTrace(this, this.constructor);
+        this.name = "ApiError";
     }
 }

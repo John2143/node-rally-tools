@@ -12,7 +12,8 @@ Rally enviornment. Some features are:
 ## Installation
 
  - `npm install -g rally-tools`
- - `rally help`
+ - `rally`
+ - `rally config`
 
 ## Library usage
 

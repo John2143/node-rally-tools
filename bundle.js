@@ -340,7 +340,7 @@ const rallyFunctions = {
     }
 };
 
-var version = "1.1.4";
+var version = "1.1.5";
 
 var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _dec10, _dec11, _dec12, _dec13, _dec14, _dec15, _dec16, _dec17, _dec18, _dec19, _obj;
 

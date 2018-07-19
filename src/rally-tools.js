@@ -11,10 +11,13 @@ export class lib{
     static async makeAPIRequest({env, path, path_full, payload, body, json = true, method = "GET", qs, headers = {}, fullResponse = false}){
         //Keys are defined in enviornment variables
         let config = configObject.api[env];
+        if(!config) {
+            return false;
+        };
+
         let rally_api_key = config.key;
         let rally_api = config.url;
 
-        if(!rally_api && !path_full) return errorLog(`Unsupported env ${env}`);
 
         path = path_full || rally_api + path;
         body = body || payload && JSON.stringify(payload);

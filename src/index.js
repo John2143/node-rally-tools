@@ -42,6 +42,7 @@ export const rallyFunctions = {
     },
     async testAccess(env){
         let result = await lib.makeAPIRequest({env, path: "/providers?page=1p1", fullResponse: true});
+        if(!result) return 401;
         return result.statusCode;
     }
 }

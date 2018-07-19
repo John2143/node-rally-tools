@@ -15,13 +15,13 @@ var inquirer = _interopDefault(require('inquirer'));
 
 let configFile = os.homedir() + "/.rallyconfig";
 
-let configObject = null;
+let configObject = { api: {} };
 try {
     let json = fs.readFileSync(configFile);
     configObject = JSON.parse(json);
 } catch (e) {
-    if (e.code == "ENOENT") {
-        configObject = null;
+    if (e.code == "ENOENT") ; else {
+        throw e;
     }
 }
 
@@ -48,10 +48,11 @@ let lib = class lib {
     static async makeAPIRequest({ env, path: path$$1, path_full, payload, body, json = true, method = "GET", qs, headers = {}, fullResponse = false }) {
         //Keys are defined in enviornment variables
         let config = configObject.api[env];
+        if (!config) {
+            return false;
+        }
         let rally_api_key = config.key;
         let rally_api = config.url;
-
-        if (!rally_api && !path_full) return errorLog(`Unsupported env ${env}`);
 
         path$$1 = path_full || rally_api + path$$1;
         body = body || payload && JSON.stringify(payload);
@@ -334,6 +335,7 @@ const rallyFunctions = {
     },
     async testAccess(env) {
         let result = await lib.makeAPIRequest({ env, path: "/providers?page=1p1", fullResponse: true });
+        if (!result) return 401;
         return result.statusCode;
     }
 };

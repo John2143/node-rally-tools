@@ -4,6 +4,10 @@ import argparse from "minimist";
 import {rallyFunctions as funcs, Preset, Rule, AbortError} from "./index.js";
 import inquirer from "inquirer";
 
+import {version as packageVersion} from "../package.json";
+import {configFile, configObject} from "./config.js";
+import {writeFileSync, chmodSync} from "fs";
+
 let argv = argparse(process.argv.slice(2), {
     string: ["file", "env"],
     alias: {
@@ -162,6 +166,73 @@ let cli = {
             for(let pro of providers) log(prettyPrintProvider(pro));
         }
     },
+    @helpText(`First time config for rally tools`)
+    @usage("rally config")
+    async config(args){
+        let q = await inquirer.prompt([{
+            type: "confirm",
+            name: "ok",
+            message: `Would you like to create a new config file in ${configFile}`,
+        }]);
+        if(!q.ok) return;
+
+        q = await inquirer.prompt([{
+            type: "checkbox",
+            name: "envs",
+            message: `What enviornments would you like to configure?`,
+            choices: ["DEV", "UAT", "PROD"].map(name => ({name, checked:true})),
+        }]);
+
+        const defaults = {
+            DEV:  "https://discovery-dev.sdvi.com/api/v2",
+            UAT:  "https://discovery-uat.sdvi.com/api/v2",
+            PROD: "https://discovery.sdvi.com/api/v2",
+        };
+        let questions = q.envs.map(env => {
+            return [{
+                type: "input",
+                name: `${env}.url`,
+                message: `What is the url endpoint for ${env}`,
+                default: defaults[env],
+            }, {
+                type: "input",
+                name: `${env}.key`,
+                message: `What is your api key for ${env}`,
+                default: process.env[`rally_api_key_${env}`],
+            }];
+        });
+
+        //flatten and ask
+        questions = [].concat(...questions);
+        q = await inquirer.prompt(questions);
+
+        let newConfig = JSON.stringify({api: q}, null, 4);
+        log(newConfig);
+
+        q = await inquirer.prompt([{
+            type: "confirm",
+            name: "ok",
+            message: `Is this ok?`,
+        }]);
+
+        if(!q.ok) return;
+
+        writeFileSync(configFile, newConfig);
+
+        log(chalk`Created file {green ${configFile}}.`);
+
+        q = await inquirer.prompt([{
+            type: "confirm",
+            name: "ok",
+            message: `Chmod to 600?`,
+        }]);
+
+        if(!q.ok) return;
+
+        chmodSync(configFile, "600");
+
+        log(chalk`Changed file to user r/w only`);
+    },
     async ["select-provider"](args){
         let env = args.env;
 
@@ -184,6 +255,25 @@ let cli = {
     },
 };
 
+async function printBareHelp(){
+    write(chalk`
+Rally Tools {yellow v${packageVersion}} CLI
+by John Schmidt <John_Schmidt@discovery.com>
+
+API Status:
+`);
+    for(let env of ["UAT", "DEV", "PROD"]){
+        let result = await funcs.testAccess(env);
+
+        let resultStr = "{yellow ${result} <unknown>";
+             if(result === 200) resultStr = chalk`{green 200 OK}`;
+        else if(result === 401) resultStr = chalk`{red 401 No Access}`;
+        else if(result >= 500)  resultStr = chalk`{yellow ${result} API Down?}`;
+
+        log(chalk`   ${env}: ${resultStr}`);
+    }
+}
+
 async function $main(){
     let func = argv._[0];
     if(cli[func]){
@@ -201,7 +291,7 @@ async function $main(){
             }
         }
     }else{
-        log(`Unknown command '${func}'. Try 'help'`);
+        await printBareHelp();
     }
 }
 

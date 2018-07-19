@@ -1,5 +1,6 @@
 import rp from "request-promise";
 import chalk from "chalk";
+import {configObject} from "./config.js";
 
 global.chalk = chalk;
 global.log = text => console.log(text);
@@ -9,8 +10,9 @@ global.errorLog = text => log(chalk.red(text));
 export class lib{
     static async makeAPIRequest({env, path, path_full, payload, body, json = true, method = "GET", qs, headers = {}, fullResponse = false}){
         //Keys are defined in enviornment variables
-        let rally_api_key = process.env[`rally_api_key_${env}`];
-        let rally_api = process.env[`rally_api_url_${env}`];
+        let config = configObject.api[env];
+        let rally_api_key = config.key;
+        let rally_api = config.url;
 
         if(!rally_api && !path_full) return errorLog(`Unsupported env ${env}`);
 

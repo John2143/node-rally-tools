@@ -40,4 +40,8 @@ export const rallyFunctions = {
         let rules = await lib.indexPathFast(env, "/presets?page=1p20");
         return rules;
     },
+    async testAccess(env){
+        let result = await lib.makeAPIRequest({env, path: "/providers?page=1p1", fullResponse: true});
+        return result.statusCode;
+    }
 }

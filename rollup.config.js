@@ -1,5 +1,7 @@
 import nodeResolve from "rollup-plugin-node-resolve";
 import commonjs from "rollup-plugin-commonjs";
+import json from "rollup-plugin-json";
+import babel from "rollup-plugin-babel";
 
 export default {
     input: "src/cli.js",
@@ -23,6 +25,18 @@ export default {
         commonjs({
             include: "node_modules/**",
             extensions: [".js"],
+        }),
+        json(),
+        babel({
+            presets: [
+                ["env", {
+                    "targets": {
+                        "node": "current",
+                    },
+                    "modules": false,
+                }]
+            ],
+            plugins: ["transform-decorators-legacy", "transform-object-rest-spread"],
         }),
         //builtins(),
     ],

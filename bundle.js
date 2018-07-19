@@ -11,66 +11,67 @@ var path = require('path');
 var argparse = _interopDefault(require('minimist'));
 var inquirer = _interopDefault(require('inquirer'));
 
+var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+
 global.chalk = chalk$1;
 global.log = text => console.log(text);
 global.write = text => process.stdout.write(text);
 global.errorLog = text => log(chalk$1.red(text));
 
-class lib{
-    static async makeAPIRequest({env, path: path$$1, path_full, payload, body, json = true, method = "GET", qs, headers = {}, fullResponse = false}){
+let lib = class lib {
+    static async makeAPIRequest({ env, path: path$$1, path_full, payload, body, json = true, method = "GET", qs, headers = {}, fullResponse = false }) {
         //Keys are defined in enviornment variables
         let rally_api_key = process.env[`rally_api_key_${env}`];
         let rally_api = process.env[`rally_api_url_${env}`];
 
-        if(!rally_api && !path_full) return errorLog(`Unsupported env ${env}`);
+        if (!rally_api && !path_full) return errorLog(`Unsupported env ${env}`);
 
         path$$1 = path_full || rally_api + path$$1;
         body = body || payload && JSON.stringify(payload);
 
-        if(global.logAPI){
+        if (global.logAPI) {
             log(chalk$1`${method} @ ${path$$1}`);
-            if(qs){
+            if (qs) {
                 log(qs);
             }
         }
-        if(payload){
+        if (payload) {
             headers["Content-Type"] = "application/vnd.api+json";
         }
 
         let requestOptions = {
             method, body, qs, uri: path$$1,
-            auth: {bearer: rally_api_key},
-            headers: {
-                Accept: "application/vnd.api+json",
-                ...headers,
-            },
-            simple: false, resolveWithFullResponse: true,
+            auth: { bearer: rally_api_key },
+            headers: _extends({
+                Accept: "application/vnd.api+json"
+            }, headers),
+            simple: false, resolveWithFullResponse: true
         };
         let response = await rp(requestOptions);
 
-        if(!fullResponse && ![200, 201, 204].includes(response.statusCode)){
+        if (!fullResponse && ![200, 201, 204].includes(response.statusCode)) {
             throw new APIError(response, requestOptions);
         }
-        if(fullResponse){
+        if (fullResponse) {
             return response;
-        }else if(json){
+        } else if (json) {
             return JSON.parse(response.body);
-        }else{
+        } else {
             return response.body;
         }
     }
     //Index a json endpoint that returns a {links} field.
-    static async indexPath(env, path$$1){
+    static async indexPath(env, path$$1) {
         let all = [];
 
-        let json = await this.makeAPIRequest({env, path: path$$1});
+        let json = await this.makeAPIRequest({ env, path: path$$1 });
 
         let [numPages, pageSize] = this.numPages(json.links.last);
         //log(`num pages: ${numPages} * ${pageSize}`);
 
         all = [...json.data];
-        while(json.links.next){
-            json = await this.makeAPIRequest({env, path_full: json.links.next});
+        while (json.links.next) {
+            json = await this.makeAPIRequest({ env, path_full: json.links.next });
             all = [...all, ...json.data];
         }
 
@@ -78,8 +79,9 @@ class lib{
     }
 
     //Returns number of pages and pagination size
-    static numPages(str){
-        return /page=(\d+)p(\d+)/.exec(str).slice(1);
+    static numPages(str) {
+        return (/page=(\d+)p(\d+)/.exec(str).slice(1)
+        );
     }
 
     //Index a json endpoint that returns a {links} field.
@@ -90,10 +92,10 @@ class lib{
     //This function assumes that the content from the inital request is the
     //first page, so starting on another page may cause issues. Consider
     //indexPath for that.
-    static async indexPathFast(env, path$$1){
+    static async indexPathFast(env, path$$1) {
         let all = [];
 
-        let json = await this.makeAPIRequest({env, path: path$$1});
+        let json = await this.makeAPIRequest({ env, path: path$$1 });
         let baselink = json.links.first;
         const linkToPage = page => baselink.replace("page=1p", `page=${page}p`);
 
@@ -102,29 +104,29 @@ class lib{
 
         //Construct an array of all the requests that are done simultanously.
         //Assume that the content from the inital request is the first page.
-        let promises = [Promise.resolve(json),];
-        for(let i = 2; i <= numPages; i++){
-            let req = this.makeAPIRequest({env, path_full: linkToPage(i)});
+        let promises = [Promise.resolve(json)];
+        for (let i = 2; i <= numPages; i++) {
+            let req = this.makeAPIRequest({ env, path_full: linkToPage(i) });
             promises.push(req);
         }
 
-        for(let promise of promises){
+        for (let promise of promises) {
             all = [...all, ...(await promise).data];
         }
 
         return all;
     }
-}
-class AbortError extends Error{
-    constructor(message){
+};
+let AbortError = class AbortError extends Error {
+    constructor(message) {
         super(message);
         Error.captureStackTrace(this, this.constructor);
         this.name = "AbortError";
     }
-}
+};
 
-class APIError extends Error{
-    constructor(response, opts){
+let APIError = class APIError extends Error {
+    constructor(response, opts) {
         super(chalk$1`
 {reset Request returned} {yellow ${response.statusCode}}
 {green ${JSON.stringify(opts)}}
@@ -133,93 +135,91 @@ class APIError extends Error{
         Error.captureStackTrace(this, this.constructor);
         this.name = "ApiError";
     }
-}
+};
 
 let envs = {};
-class Preset{
-    constructor({path: path$$1, remote, data}){
+let Preset = class Preset {
+    constructor({ path: path$$1, remote, data }) {
         this.remote = remote;
-        if(!this.remote){
+        if (!this.remote) {
             this.path = path$$1;
-            try{
+            try {
                 this.code = this.getLocalCode();
-            }catch(e){
+            } catch (e) {
                 log(chalk`{red Node Error} e.message`);
                 throw new AbortError("Could not load code of local file");
             }
             this.name = this.parseFilenameForName() || this.parseCodeForName();
-        }else{
+        } else {
             this.name = data.attributes.name;
             this.id = data.id;
             this.rawData = data;
         }
     }
-    chalkPrint(){
+    chalkPrint() {
         let id = String(this.remote && this.remote + "-" + this.id || "Local").padStart(8);
         return chalk`{green ${id}}: {blue ${this.name}}`;
     }
-    parseFilenameForName(){
-        if(this.path.endsWith(".jinja") || this.path.endsWith(".json")){
-            return path.basename(this.path)
-                .replace("_", " ")
-                .replace("-", " ");
+    parseFilenameForName() {
+        if (this.path.endsWith(".jinja") || this.path.endsWith(".json")) {
+            return path.basename(this.path).replace("_", " ").replace("-", " ");
         }
     }
-    parseCodeForName(){
+    parseCodeForName() {
         const name_regex = /name:\s([\w\d. \/]+)[\r\s\n]*?/;
         const match = name_regex.exec(this.code);
-        if(match) return match[1];
+        if (match) return match[1];
     }
-    findStringsInCode(strings){
-        if(!this.code) return [];
+    findStringsInCode(strings) {
+        if (!this.code) return [];
 
         return strings.filter(str => {
             let regex = new Regexp(str);
             return !!this.code.match(regex);
         });
     }
-    getPath(){
+    getPath() {
         return `${process.env.rally_repo_path}/silo-presets/${this.name}.${this.ext}`;
     }
-    getMetadataPath(){
+    getMetadataPath() {
         return `${process.env.rally_repo_path}/silo-metadata/${this.name}.json`;
     }
-    codeBinary(){
-        if(this.code.startsWith("=BASE64=")){
+    codeBinary() {
+        if (this.code.startsWith("=BASE64=")) {
             return bota(this.code.substring(8));
-        }else{
+        } else {
             return this.code;
         }
     }
-    async uploadPresetData(env, id){
+    async uploadPresetData(env, id) {
         let res = await lib.makeAPIRequest({
             env, path: `/presets/${id}/providerData`,
             body: this.code, method: "PUT", fullResponse: true
         });
         write(chalk`response {yellow ${res.statusCode}}`);
     }
-    async uploadCodeToEnv(env, createFunction){
+    async uploadCodeToEnv(env, createFunction) {
         write(chalk`Uploading {green ${this.name}} to {green ${env}}: `);
 
         //First query the api to see if this already exists.
         let res = await lib.makeAPIRequest({
             env, path: `/presets`,
-            qs: {filter: `name=${this.name}`},
+            qs: { filter: `name=${this.name}` }
         });
         let remote = res.data[0];
 
-        if(remote){
+        if (remote) {
             //If it exists we can replace it
             write("replace, ");
             await this.uploadPresetData(env, remote.id);
-        }else{
+        } else {
             //If it needs to be created then we need to ask the user for metadata
             write("create, ");
             let metadata = await createFunction(this);
             write("Posting to create preset... ");
             let res = await lib.makeAPIRequest({
                 env, path: `/presets`, method: "POST",
-                payload: {data: metadata},
+                payload: { data: metadata }
             });
             let id = res.data.id;
             write(chalk`Created id {green ${id}}... Uploading Code... `);
@@ -228,10 +228,10 @@ class Preset{
         log();
     }
 
-    constructMetadata(providerID){
+    constructMetadata(providerID) {
         return {
             attributes: {
-                name: this.name,
+                name: this.name
                 //providerSettings: {
                 //},
             },
@@ -239,203 +239,294 @@ class Preset{
                 providerType: {
                     data: {
                         id: providerID,
-                        type: "providerTypes",
-                    },
+                        type: "providerTypes"
+                    }
                 }
             },
             type: "presets"
         };
     }
 
-    getMetadata(){}
-    getLocalCode(){
+    getMetadata() {}
+    getLocalCode() {
         return fs.readFileSync(this.path, "utf-8");
     }
 
-    static envs(env){
+    static envs(env) {
         return envs[env] = envs[env] || Preset.cache_envs(env);
     }
-    static cache_env(env){
+    static cache_env(env) {}
+};
 
-    }
-}
-
-class Rule{
-    constructor(data, remote){
+let Rule = class Rule {
+    constructor(data, remote) {
         this.rawData = data;
         this.remote = remote;
     }
-    chalkPrint(){
+    chalkPrint() {
         let D = this.rawData;
         let id = String(this.remote + "-" + D.id).padStart(8);
         return chalk`{green ${id}}: {blue ${D.attributes.name}}`;
     }
-}
+};
 
 const rallyFunctions = {
-    async bestPagintation(){
+    async bestPagintation() {
         global.silentAPI = true;
-        for(let i = 10; i <= 30; i+=5){
+        for (let i = 10; i <= 30; i += 5) {
             console.time("test with " + i);
             let dl = await lib.indexPathFast("DEV", `/workflowRules?page=1p${i}`);
             console.timeEnd("test with " + i);
         }
     },
-    async uploadPresets(env, presets, createFunc = ()=>false){
-        for(let preset of presets){
+    async uploadPresets(env, presets, createFunc = () => false) {
+        for (let preset of presets) {
             await preset.uploadCodeToEnv(env, createFunc);
         }
     },
-    async getProviders(env){
+    async getProviders(env) {
         let providers = await lib.indexPath(env, "/providerTypes?page=1p50");
         providers = providers.sort((a, b) => {
-            return a.attributes.category.localeCompare(b.attributes.category) ||
-                   a.attributes.name    .localeCompare(b.attributes.name);
+            return a.attributes.category.localeCompare(b.attributes.category) || a.attributes.name.localeCompare(b.attributes.name);
         });
         return providers;
     },
-    async getEditorConfig(env, provider){
-        let config = await lib.makeAPIRequest({env, path_full: provider.links.editorConfig});
+    async getEditorConfig(env, provider) {
+        let config = await lib.makeAPIRequest({ env, path_full: provider.links.editorConfig });
         let helpText = config.helpText;
         config.helpText = () => helpText;
-        return config
+        return config;
     },
-    async getRules(env){
+    async getRules(env) {
         let rules = await lib.indexPathFast(env, "/workflowRules?page=1p20");
         return rules;
     },
-    async getPresets(env){
+    async getPresets(env) {
         let rules = await lib.indexPathFast(env, "/presets?page=1p20");
         return rules;
-    },
+    }
 };
+
+var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _dec10, _dec11, _dec12, _dec13, _dec14, _dec15, _dec16, _dec17, _obj;
+
+function _applyDecoratedDescriptor(target, property, decorators, descriptor, context) {
+    var desc = {};
+    Object['ke' + 'ys'](descriptor).forEach(function (key) {
+        desc[key] = descriptor[key];
+    });
+    desc.enumerable = !!desc.enumerable;
+    desc.configurable = !!desc.configurable;
+
+    if ('value' in desc || desc.initializer) {
+        desc.writable = true;
+    }
+
+    desc = decorators.slice().reverse().reduce(function (desc, decorator) {
+        return decorator(target, property, desc) || desc;
+    }, desc);
+
+    if (context && desc.initializer !== void 0) {
+        desc.value = desc.initializer ? desc.initializer.call(context) : void 0;
+        desc.initializer = undefined;
+    }
+
+    if (desc.initializer === void 0) {
+        Object['define' + 'Property'](target, property, desc);
+        desc = null;
+    }
+
+    return desc;
+}
 
 require("source-map-support").install();
 
 let argv = argparse(process.argv.slice(2), {
     string: ["file", "env"],
     alias: {
-        f: "file", e: "env",
+        f: "file", e: "env"
     }
 });
 
-function prettyPrintProvider(pro){
+function prettyPrintProvider(pro) {
     let id = String(pro.id).padStart(4);
     return chalk`{green ${id}}: {blue ${pro.attributes.category}} - {green ${pro.attributes.name}}`;
 }
 
-let cli = {
-    async help(){
-        log(this);
+let help = {};
+
+let helpEntry = name => help[name] ? help[name] : help[name] = { name };
+
+function helpText(text) {
+    return function (func, name) {
+        helpEntry(name).text = text;
+        return func;
+    };
+}
+function arg(long, short, desc) {
+    return function (func, name) {
+        let args = helpEntry(name).args = helpEntry(name).args || [];
+        args.unshift({ long, short, desc });
+        return func;
+    };
+}
+function param(param, desc) {
+    return function (func, name) {
+        let params = helpEntry(name).params = helpEntry(name).params || [];
+        params.unshift({ param, desc });
+        return func;
+    };
+}
+function usage(usage) {
+    return function (func, name) {
+        usage = usage.replace(/[\[<](\w+)[\]>]/g, chalk`[{blue $1}]`);
+        helpEntry(name).usage = usage;
+        return func;
+    };
+}
+
+function printHelp(help, short) {
+    let helpText = chalk`
+{white ${help.name}}: ${help.text}
+    Usage: ${help.usage || "<unknown>"}
+`;
+    //Trim newlines
+    helpText = helpText.substring(1, helpText.length - 1);
+
+    if (!short) {
+        for (let param of help.params || []) {
+            helpText += chalk`\n    {blue ${param.param}}: ${param.desc}`;
+        }
+        for (let arg of help.args || []) {
+            helpText += chalk`\n    {blue ${arg.short}}, {blue ${arg.long}}: ${arg.desc}`;
+        }
+    }
+
+    return helpText;
+}
+
+let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [subhelp]`), _dec3 = param("subhelp", "The name of the command to see help for"), _dec4 = helpText(`Print input args, for debugging`), _dec5 = helpText(`Preset related actions`), _dec6 = usage(`rally preset [action] --env [enviornment] --file [file1] --file [file2] ...`), _dec7 = param("action", "The action to perform. Can be upload or list"), _dec8 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec9 = arg("-f", "--file", "A file to act on"), _dec10 = helpText(`Rule related actions`), _dec11 = usage(`rally rule [action] --env [enviornment]`), _dec12 = param("action", "The action to perform. Only list is supported right now"), _dec13 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec14 = helpText(`List all available providers, or find one by name/id`), _dec15 = usage(`rally providers [identifier] --env [env]`), _dec16 = param("identifier", "Either the name or id of the provider"), _dec17 = arg("-e", "--env", "The enviornment you wish to perform the action on"), (_obj = {
+    async help() {
+        let arg = argv._[1];
+        if (arg) {
+            log(printHelp(help[arg]));
+        } else {
+            for (let arg in help) {
+                log(printHelp(help[arg], true));
+            }
+        }
     },
-    async ["print-args"](args){
+
+    async printArgs(args) {
         log(args);
     },
-    async preset(args){
+
+    async preset(args) {
         let env = args.env;
         let arg = argv._[1];
-        if(arg === "upload"){
+        if (arg === "upload") {
             let files = args.file;
-            if(!files){
+            if (!files) {
                 throw new AbortError("No files provided to upload (use --file argument)");
             }
-            if(typeof files === "string") files = [files];
+            if (typeof files === "string") files = [files];
             log(chalk`Uploading {green ${files.length}} preset(s) to {green ${env}}.`);
 
-            let presets = files.map(path$$1 => new Preset({path: path$$1, remote: false}));
+            let presets = files.map(path$$1 => new Preset({ path: path$$1, remote: false }));
             await rallyFunctions.uploadPresets(args.env, presets, async preset => {
                 log("asking... ");
                 let provider = await this["select-provider"](args);
                 return preset.constructMetadata(provider.id);
             });
-        }else if(arg === "list"){
+        } else if (arg === "list") {
             log("Loading...");
             let presets = await rallyFunctions.getPresets(env);
             log(chalk`{yellow ${presets.length}} presets on {green ${env}}.`);
-            for(let data of presets) log(new Preset({data, remote: env}).chalkPrint());
-        }else{
-            log("Unknown Action " + arg);
+            for (let data of presets) log(new Preset({ data, remote: env }).chalkPrint());
+        } else {
+            log(chalk`Unknown action {red ${arg}} try '{white rally help preset}'`);
         }
         //log(presets);
     },
-    async rule(args){
+
+    async rule(args) {
         let env = args.env;
         let arg = argv._[1];
 
-        if(arg === "list"){
+        if (arg === "list") {
             log("Loading...");
             let rules = await rallyFunctions.getRules(env);
             log(chalk`{yellow ${rules.length}} rules on {green ${env}}.`);
-            for(let data of rules) log(new Rule(data, env).chalkPrint());
-        }else{
-            log("Unknown Action " + arg);
+            for (let data of rules) log(new Rule(data, env).chalkPrint());
+        } else {
+            log(chalk`Unknown action {red ${arg}} try '{white rally help rule}'`);
         }
     },
-    async providers(args){
+
+    async providers(args) {
         let env = args.env;
         let ident = argv._[1];
 
         let providers = await rallyFunctions.getProviders(env);
 
-        if(ident){
+        if (ident) {
             let pro = providers.find(x => x.id == ident || x.attributes.name.includes(ident));
-            if(!pro){
+            if (!pro) {
                 log(chalk`Couldn't find provider by {green ${ident}}`);
-            }else{
+            } else {
                 log(prettyPrintProvider(pro));
-                log(await rallyFunctions.getEditorConfig(env, pro));
+                log((await rallyFunctions.getEditorConfig(env, pro)));
             }
-        }else{
-            for(let pro of providers) log(prettyPrintProvider(pro));
+        } else {
+            for (let pro of providers) log(prettyPrintProvider(pro));
         }
     },
-    async ["select-provider"](args){
+    async ["select-provider"](args) {
         let env = args.env;
 
         let providers = await rallyFunctions.getProviders(env);
-        let defaultProvider =  providers.find(x => x.attributes.name === "SdviEvaluate");
-        if(args.defaultSelect){
+        let defaultProvider = providers.find(x => x.attributes.name === "SdviEvaluate");
+        if (args.defaultSelect) {
             return defaultProvider;
-        }else{
+        } else {
             let q = await inquirer.prompt([{
                 type: "list",
                 name: "provider",
                 default: defaultProvider,
                 choices: providers.map(x => ({
                     name: prettyPrintProvider(x),
-                    value: x,
-                })),
-            },]);
+                    value: x
+                }))
+            }]);
             return q.provider;
         }
-    },
-};
+    }
+}, (_applyDecoratedDescriptor(_obj, "help", [_dec, _dec2, _dec3], Object.getOwnPropertyDescriptor(_obj, "help"), _obj), _applyDecoratedDescriptor(_obj, "printArgs", [_dec4], Object.getOwnPropertyDescriptor(_obj, "printArgs"), _obj), _applyDecoratedDescriptor(_obj, "preset", [_dec5, _dec6, _dec7, _dec8, _dec9], Object.getOwnPropertyDescriptor(_obj, "preset"), _obj), _applyDecoratedDescriptor(_obj, "rule", [_dec10, _dec11, _dec12, _dec13], Object.getOwnPropertyDescriptor(_obj, "rule"), _obj), _applyDecoratedDescriptor(_obj, "providers", [_dec14, _dec15, _dec16, _dec17], Object.getOwnPropertyDescriptor(_obj, "providers"), _obj)), _obj));
 
-async function $main(){
+async function $main() {
     let func = argv._[0];
-    if(cli[func]){
-        try{
+    if (cli[func]) {
+        try {
             let ret = await cli[func](argv);
-            if(ret){
+            if (ret) {
                 write(chalk.white("CLI returned: "));
                 log(ret);
             }
-        }catch(e){
-            if(e instanceof AbortError){
+        } catch (e) {
+            if (e instanceof AbortError) {
                 log(chalk`{red CLI Aborted}: ${e.message}`);
-            }else{
+            } else {
                 throw e;
             }
         }
-    }else{
+    } else {
         log(`Unknown command '${func}'. Try 'help'`);
     }
 }
 
-async function main(...args){
-    try{
+async function main(...args) {
+    try {
         await $main(...args);
-    }catch(e){
+    } catch (e) {
         errorLog(e.stack);
     }
 }

@@ -16,13 +16,84 @@ function prettyPrintProvider(pro){
     return chalk`{green ${id}}: {blue ${pro.attributes.category}} - {green ${pro.attributes.name}}`;
 }
 
+let help = {
+};
+
+let helpEntry = name => help[name] ? help[name] : (help[name] = {name});
+
+function helpText(text){
+    return function(func, name){
+        helpEntry(name).text = text;
+        return func;
+    }
+}
+function arg(long, short, desc){
+    return function(func, name){
+        let args = helpEntry(name).args = helpEntry(name).args || [];
+        args.unshift({long, short, desc});
+        return func;
+    }
+}
+function param(param, desc){
+    return function(func, name){
+        let params = helpEntry(name).params = helpEntry(name).params || [];
+        params.unshift({param, desc});
+        return func;
+    }
+}
+function usage(usage){
+    return function(func, name){
+        usage = usage.replace(/[\[<](\w+)[\]>]/g, chalk`[{blue $1}]`);
+        helpEntry(name).usage = usage;
+        return func;
+    }
+}
+
+function printHelp(help, short){
+    let helpText = chalk`
+{white ${help.name}}: ${help.text}
+    Usage: ${help.usage || "<unknown>"}
+`
+    //Trim newlines
+    helpText = helpText.substring(1, helpText.length-1);
+
+    if(!short){
+        for(let param of help.params || []){
+            helpText += chalk`\n    {blue ${param.param}}: ${param.desc}`
+        }
+        for(let arg of help.args || []){
+            helpText += chalk`\n    {blue ${arg.short}}, {blue ${arg.long}}: ${arg.desc}`
+        }
+    }
+
+    return helpText;
+}
+
 let cli = {
+    @helpText(`Display the help menu`)
+    @usage(`rally help [subhelp]`)
+    @param("subhelp", "The name of the command to see help for")
     async help(){
-        log(this);
+        let arg = argv._[1];
+        if(arg){
+            log(printHelp(help[arg]));
+        }else{
+            for(let arg in help){
+                log(printHelp(help[arg], true));
+            }
+        }
     },
-    async ["print-args"](args){
+
+    @helpText(`Print input args, for debugging`)
+    async printArgs(args){
         log(args);
     },
+
+    @helpText(`Preset related actions`)
+    @usage(`rally preset [action] --env [enviornment] --file [file1] --file [file2] ...`)
+    @param("action", "The action to perform. Can be upload or list")
+    @arg("-e", "--env", "The enviornment you wish to perform the action on")
+    @arg("-f", "--file", "A file to act on")
     async preset(args){
         let env = args.env;
         let arg = argv._[1];
@@ -46,10 +117,15 @@ let cli = {
             log(chalk`{yellow ${presets.length}} presets on {green ${env}}.`);
             for(let data of presets) log(new Preset({data, remote: env}).chalkPrint());
         }else{
-            log("Unknown Action " + arg);
+            log(chalk`Unknown action {red ${arg}} try '{white rally help preset}'`);
         }
         //log(presets);
     },
+
+    @helpText(`Rule related actions`)
+    @usage(`rally rule [action] --env [enviornment]`)
+    @param("action", "The action to perform. Only list is supported right now")
+    @arg("-e", "--env", "The enviornment you wish to perform the action on")
     async rule(args){
         let env = args.env;
         let arg = argv._[1];
@@ -60,9 +136,14 @@ let cli = {
             log(chalk`{yellow ${rules.length}} rules on {green ${env}}.`);
             for(let data of rules) log(new Rule(data, env).chalkPrint());
         }else{
-            log("Unknown Action " + arg);
+            log(chalk`Unknown action {red ${arg}} try '{white rally help rule}'`);
         }
     },
+
+    @helpText(`List all available providers, or find one by name/id`)
+    @usage(`rally providers [identifier] --env [env]`)
+    @param("identifier", "Either the name or id of the provider")
+    @arg("-e", "--env", "The enviornment you wish to perform the action on")
     async providers(args){
         let env = args.env;
         let ident = argv._[1];

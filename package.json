@@ -1,6 +1,6 @@
 {
   "name": "rally-tools",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "The rally tools cli interface",
   "main": "src/index.js",
   "dependencies": {

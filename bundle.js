@@ -438,7 +438,7 @@ const rallyFunctions = (_obj = {
     }
 }, (_applyDecoratedDescriptor(_obj, "getProviders", [cached], Object.getOwnPropertyDescriptor(_obj, "getProviders"), _obj), _applyDecoratedDescriptor(_obj, "getRules", [cached], Object.getOwnPropertyDescriptor(_obj, "getRules"), _obj), _applyDecoratedDescriptor(_obj, "getPresets", [cached], Object.getOwnPropertyDescriptor(_obj, "getPresets"), _obj)), _obj);
 
-var version = "1.1.5";
+var version = "1.2.0";
 
 async function $api(propArray) {
     const defaults$$1 = {

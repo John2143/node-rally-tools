@@ -5,7 +5,7 @@ import babel from "rollup-plugin-babel";
 
 export default {
     input: "src/cli.js",
-    external: ["request-promise", "path", "fs", "chalk", "inquirer", "minimist", "os"],
+    external: ["request-promise", "path", "fs", "chalk", "inquirer", "minimist", "os", "tty"],
     output: {
         file: "bundle.js",
         format: "cjs",
@@ -39,7 +39,7 @@ export default {
             plugins: [
                 "transform-decorators-legacy",
                 "transform-object-rest-spread",
-                "external-helpers"
+                "external-helpers",
             ],
         }),
         //builtins(),

@@ -1,4 +1,5 @@
 import {lib} from "./rally-tools.js";
+import {cached} from "./decorators.js";
 
 export {default as Preset} from "./preset.js";
 export {default as Rule} from "./rule.js";
@@ -18,7 +19,7 @@ export const rallyFunctions = {
             await preset.uploadCodeToEnv(env, createFunc);
         }
     },
-    async getProviders(env){
+    @cached async getProviders(env){
         let providers = await lib.indexPath(env, "/providerTypes?page=1p50");
         providers = providers.sort((a, b) => {
             return a.attributes.category.localeCompare(b.attributes.category) ||
@@ -32,17 +33,18 @@ export const rallyFunctions = {
         config.helpText = () => helpText;
         return config
     },
-    async getRules(env){
+    @cached async getRules(env){
         let rules = await lib.indexPathFast(env, "/workflowRules?page=1p20");
         return rules;
     },
-    async getPresets(env){
+    @cached async getPresets(env){
         let rules = await lib.indexPathFast(env, "/presets?page=1p20");
         return rules;
     },
+    //Dummy test access
     async testAccess(env){
         let result = await lib.makeAPIRequest({env, path: "/providers?page=1p1", fullResponse: true});
         if(!result) return 401;
         return result.statusCode;
-    }
+    },
 }

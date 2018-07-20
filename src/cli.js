@@ -8,6 +8,10 @@ import {version as packageVersion} from "../package.json";
 import {configFile, configObject} from "./config.js";
 import {writeFileSync, chmodSync} from "fs";
 
+import {helpText, arg, param, usage, helpEntries} from "./decorators.js";
+
+import * as configHelpers from "./config-create.js";
+
 let argv = argparse(process.argv.slice(2), {
     string: ["file", "env"],
     alias: {
@@ -18,39 +22,6 @@ let argv = argparse(process.argv.slice(2), {
 function prettyPrintProvider(pro){
     let id = String(pro.id).padStart(4);
     return chalk`{green ${id}}: {blue ${pro.attributes.category}} - {green ${pro.attributes.name}}`;
-}
-
-let help = {
-};
-
-let helpEntry = name => help[name] ? help[name] : (help[name] = {name});
-
-function helpText(text){
-    return function(func, name){
-        helpEntry(name).text = text;
-        return func;
-    }
-}
-function arg(long, short, desc){
-    return function(func, name){
-        let args = helpEntry(name).args = helpEntry(name).args || [];
-        args.unshift({long, short, desc});
-        return func;
-    }
-}
-function param(param, desc){
-    return function(func, name){
-        let params = helpEntry(name).params = helpEntry(name).params || [];
-        params.unshift({param, desc});
-        return func;
-    }
-}
-function usage(usage){
-    return function(func, name){
-        usage = usage.replace(/[\[<](\w+)[\]>]/g, chalk`[{blue $1}]`);
-        helpEntry(name).usage = usage;
-        return func;
-    }
 }
 
 function printHelp(help, short){
@@ -80,26 +51,27 @@ let cli = {
     async help(){
         let arg = argv._[1];
         if(arg){
-            log(printHelp(help[arg]));
+            log(printHelp(helpEntries[arg]));
         }else{
-            for(let arg in help){
-                log(printHelp(help[arg], true));
+            for(let helpArg in helpEntries){
+                log(printHelp(helpEntries[helpArg], true));
             }
         }
     },
 
-    @helpText(`Print input args, for debugging`)
+    //@helpText(`Print input args, for debugging`)
     async printArgs(args){
         log(args);
     },
 
     @helpText(`Preset related actions`)
-    @usage(`rally preset [action] --env [enviornment] --file [file1] --file [file2] ...`)
+    @usage(`rally preset [action] --env <enviornment> --file [file1] --file [file2] ...`)
     @param("action", "The action to perform. Can be upload or list")
     @arg("-e", "--env", "The enviornment you wish to perform the action on")
     @arg("-f", "--file", "A file to act on")
     async preset(args){
         let env = args.env;
+        if(!env) return errorLog("No env supplied.");
         let arg = argv._[1];
         if(arg === "upload"){
             let files = args.file;
@@ -112,7 +84,8 @@ let cli = {
             let presets = files.map(path => new Preset({path, remote: false}));
             await funcs.uploadPresets(args.env, presets, async preset => {
                 log("asking... ");
-                let provider = await this["select-provider"](args);
+                let providers = await funcs.getProviders(env);
+                let provider = await configHelpers.selectProvider(env, providers);
                 return preset.constructMetadata(provider.id);
             });
         }else if(arg === "list"){
@@ -132,6 +105,7 @@ let cli = {
     @arg("-e", "--env", "The enviornment you wish to perform the action on")
     async rule(args){
         let env = args.env;
+        if(!env) return errorLog("No env supplied.");
         let arg = argv._[1];
 
         if(arg === "list"){
@@ -150,6 +124,7 @@ let cli = {
     @arg("-e", "--env", "The enviornment you wish to perform the action on")
     async providers(args){
         let env = args.env;
+        if(!env) return errorLog("No env supplied.");
         let ident = argv._[1];
 
         let providers = await funcs.getProviders(env);
@@ -166,105 +141,74 @@ let cli = {
             for(let pro of providers) log(prettyPrintProvider(pro));
         }
     },
-    @helpText(`First time config for rally tools`)
-    @usage("rally config")
+    @helpText(`Change config for rally tools`)
+    @usage("rally config [key]")
+    @param("key", chalk`Key you want to edit. For example, {green chalk} or {green api.DEV}`)
     async config(args){
-        let q = await inquirer.prompt([{
-            type: "confirm",
-            name: "ok",
-            message: `Would you like to create a new config file in ${configFile}`,
-        }]);
-        if(!q.ok) return;
+        let prop = argv._[1];
+        let propArray = prop && prop.split(".");
 
-        q = await inquirer.prompt([{
-            type: "checkbox",
-            name: "envs",
-            message: `What enviornments would you like to configure?`,
-            choices: ["DEV", "UAT", "PROD"].map(name => ({name, checked:true})),
-        }]);
+        //if(!await configHelpers.askQuestion(`Would you like to create a new config file in ${configFile}`)) return;
+        let newConfigObject;
 
-        const defaults = {
-            DEV:  "https://discovery-dev.sdvi.com/api/v2",
-            UAT:  "https://discovery-uat.sdvi.com/api/v2",
-            PROD: "https://discovery.sdvi.com/api/v2",
-        };
-        let questions = q.envs.map(env => {
-            return [{
-                type: "input",
-                name: `${env}.url`,
-                message: `What is the url endpoint for ${env}`,
-                default: defaults[env],
-            }, {
-                type: "input",
-                name: `${env}.key`,
-                message: `What is your api key for ${env}`,
-                default: process.env[`rally_api_key_${env}`],
-            }];
-        });
+        if(!prop){
+            log("Creating new config");
+            newConfigObject = {
+                ...configObject,
+            };
+            for(let helperName in configHelpers){
+                if(helperName.startsWith("$")){
+                    newConfigObject = {
+                        ...newConfigObject,
+                        ...(await configHelpers[helperName](false))
+                    }
+                }
+            }
+        }else{
+            log(chalk`Editing option {green ${prop}}`);
+            let ident = "$" + propArray[0];
 
-        //flatten and ask
-        questions = [].concat(...questions);
-        q = await inquirer.prompt(questions);
+            if(configHelpers[ident]){
+                newConfigObject = {
+                    ...configObject,
+                    ...(await configHelpers[ident](propArray))
+                };
+            }else{
+                log(chalk`No helper for {red ${ident}}`);
+                return;
+            }
+        }
 
-        let newConfig = JSON.stringify({api: q}, null, 4);
+        //Create readable json and make sure the user is ok with it
+        let newConfig = JSON.stringify(newConfigObject, null, 4);
         log(newConfig);
 
-        q = await inquirer.prompt([{
-            type: "confirm",
-            name: "ok",
-            message: `Is this ok?`,
-        }]);
-
-        if(!q.ok) return;
-
+        if(!await configHelpers.askQuestion("Write this config to disk?")) return;
         writeFileSync(configFile, newConfig);
-
         log(chalk`Created file {green ${configFile}}.`);
 
-        q = await inquirer.prompt([{
-            type: "confirm",
-            name: "ok",
-            message: `Chmod to 600?`,
-        }]);
-
-        if(!q.ok) return;
-
+        if(!await configHelpers.askQuestion("Chmod to 600")) return;
         chmodSync(configFile, "600");
-
         log(chalk`Changed file to user r/w only`);
-    },
-    async ["select-provider"](args){
-        let env = args.env;
-
-        let providers = await funcs.getProviders(env);
-        let defaultProvider =  providers.find(x => x.attributes.name === "SdviEvaluate");
-        if(args.defaultSelect){
-            return defaultProvider;
-        }else{
-            let q = await inquirer.prompt([{
-                type: "list",
-                name: "provider",
-                default: defaultProvider,
-                choices: providers.map(x => ({
-                    name: prettyPrintProvider(x),
-                    value: x,
-                })),
-            },]);
-            return q.provider;
-        }
     },
 };
 
-async function printBareHelp(){
+async function noCommand(){
     write(chalk`
 Rally Tools {yellow v${packageVersion}} CLI
 by John Schmidt <John_Schmidt@discovery.com>
-
-API Status:
 `);
+    if(!configObject){
+        write(chalk`
+It looks like you haven't setup the config yet. Please run '{green rally config}'.
+`);
+        return;
+    }
     for(let env of ["UAT", "DEV", "PROD"]){
+        //Test access. Returns HTTP response code
         let result = await funcs.testAccess(env);
 
+        //Create a colored display and response
         let resultStr = "{yellow ${result} <unknown>";
              if(result === 200) resultStr = chalk`{green 200 OK}`;
         else if(result === 401) resultStr = chalk`{red 401 No Access}`;
@@ -275,9 +219,23 @@ API Status:
 }
 
 async function $main(){
+    chalk.enabled = configObject ? configObject.chalk : true;
+    if(chalk.level === 0 || !chalk.enabled){
+        let force = argv["force-color"];
+        if(force){
+            chalk.enabled = true;
+            if(force === true && chalk.level === 0){
+                chalk.level = 1
+            }else if(Number(force)){
+                chalk.level = Number(force);
+            }
+        }
+    }
+
     let func = argv._[0];
     if(cli[func]){
         try{
+            //Call the cli function
             let ret = await cli[func](argv);
             if(ret){
                 write(chalk.white("CLI returned: "));
@@ -291,7 +249,7 @@ async function $main(){
             }
         }
     }else{
-        await printBareHelp();
+        await noCommand();
     }
 }
 

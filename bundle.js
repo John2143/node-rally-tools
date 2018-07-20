@@ -10,12 +10,12 @@ var fs__default = _interopDefault(fs);
 var rp = _interopDefault(require('request-promise'));
 var chalk$1 = _interopDefault(require('chalk'));
 var path = require('path');
-var argparse = _interopDefault(require('minimist'));
 var inquirer = _interopDefault(require('inquirer'));
+var argparse = _interopDefault(require('minimist'));
 
 let configFile = os.homedir() + "/.rallyconfig";
 
-let configObject = { api: {} };
+let configObject = null;
 try {
     let json = fs.readFileSync(configFile);
     configObject = JSON.parse(json);
@@ -165,6 +165,72 @@ let APIError = class APIError extends Error {
     }
 };
 
+let helpEntries = {};
+let helpEntry = name => helpEntries[name] ? helpEntries[name] : helpEntries[name] = { name };
+
+function helpText(text) {
+    return function (func, name) {
+        helpEntry(name).text = text;
+        return func;
+    };
+}
+function arg(long, short, desc) {
+    return function (func, name) {
+        let args = helpEntry(name).args = helpEntry(name).args || [];
+        args.unshift({ long, short, desc });
+        return func;
+    };
+}
+function param(param, desc) {
+    return function (func, name) {
+        let params = helpEntry(name).params = helpEntry(name).params || [];
+        params.unshift({ param, desc });
+        return func;
+    };
+}
+function usage(usage) {
+    return function (func, name) {
+        usage = usage.replace(/[\[<](\w+)[\]>]/g, chalk`[{blue $1}]`);
+        helpEntry(name).usage = usage;
+        return func;
+    };
+}
+
+function findValueInCache(args, cache) {
+    for (let [argsKey, value] of cache) {
+        if (args.length !== argsKey.length) continue;
+        for (let i in argsKey) {
+            if (args[i] === argsKey[i]) {
+                return { found: true, value };
+            }
+        }
+    }
+    return { found: false };
+}
+
+//This decorator takes a function and returns a function that remembers the
+//  value returned by given arguments
+function cached(target, key, desc) {
+    let oldFunc = desc.value;
+    let cachedValues = [];
+    function newFunc(...args) {
+        let { found, value } = findValueInCache(args, cachedValues);
+        if (!found) {
+            //Call the old function to find the value, then store it in the cache
+            value = oldFunc(...args);
+            cachedValues.push([args, value]);
+        }
+        return value;
+    }
+    newFunc.clearCache = function () {
+        cachedValues = [];
+    };
+
+    return _extends({}, desc, {
+        value: newFunc
+    });
+}
+
 let envs = {};
 let Preset = class Preset {
     constructor({ path: path$$1, remote, data }) {
@@ -298,7 +364,38 @@ let Rule = class Rule {
     }
 };
 
-const rallyFunctions = {
+var _obj;
+
+function _applyDecoratedDescriptor(target, property, decorators, descriptor, context) {
+    var desc = {};
+    Object['ke' + 'ys'](descriptor).forEach(function (key) {
+        desc[key] = descriptor[key];
+    });
+    desc.enumerable = !!desc.enumerable;
+    desc.configurable = !!desc.configurable;
+
+    if ('value' in desc || desc.initializer) {
+        desc.writable = true;
+    }
+
+    desc = decorators.slice().reverse().reduce(function (desc, decorator) {
+        return decorator(target, property, desc) || desc;
+    }, desc);
+
+    if (context && desc.initializer !== void 0) {
+        desc.value = desc.initializer ? desc.initializer.call(context) : void 0;
+        desc.initializer = undefined;
+    }
+
+    if (desc.initializer === void 0) {
+        Object['define' + 'Property'](target, property, desc);
+        desc = null;
+    }
+
+    return desc;
+}
+
+const rallyFunctions = (_obj = {
     async bestPagintation() {
         global.silentAPI = true;
         for (let i = 10; i <= 30; i += 5) {
@@ -321,8 +418,8 @@ const rallyFunctions = {
     },
     async getEditorConfig(env, provider) {
         let config = await lib.makeAPIRequest({ env, path_full: provider.links.editorConfig });
-        let helpText = config.helpText;
-        config.helpText = () => helpText;
+        let helpText$$1 = config.helpText;
+        config.helpText = () => helpText$$1;
         return config;
     },
     async getRules(env) {
@@ -333,18 +430,105 @@ const rallyFunctions = {
         let rules = await lib.indexPathFast(env, "/presets?page=1p20");
         return rules;
     },
+    //Dummy test access
     async testAccess(env) {
         let result = await lib.makeAPIRequest({ env, path: "/providers?page=1p1", fullResponse: true });
         if (!result) return 401;
         return result.statusCode;
     }
-};
+}, (_applyDecoratedDescriptor(_obj, "getProviders", [cached], Object.getOwnPropertyDescriptor(_obj, "getProviders"), _obj), _applyDecoratedDescriptor(_obj, "getRules", [cached], Object.getOwnPropertyDescriptor(_obj, "getRules"), _obj), _applyDecoratedDescriptor(_obj, "getPresets", [cached], Object.getOwnPropertyDescriptor(_obj, "getPresets"), _obj)), _obj);
 
 var version = "1.1.5";
 
-var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _dec10, _dec11, _dec12, _dec13, _dec14, _dec15, _dec16, _dec17, _dec18, _dec19, _obj;
+async function $api(propArray) {
+    const defaults$$1 = {
+        DEV: "https://discovery-dev.sdvi.com/api/v2",
+        UAT: "https://discovery-uat.sdvi.com/api/v2",
+        PROD: "https://discovery.sdvi.com/api/v2"
+    };
 
-function _applyDecoratedDescriptor(target, property, decorators, descriptor, context) {
+    let q;
+    if (propArray && propArray[1]) {
+        q = { envs: [propArray[1]] };
+    } else {
+        //Create a checkbox prompt to choose enviornments
+        q = await inquirer.prompt([{
+            type: "checkbox",
+            name: "envs",
+            message: `What enviornments would you like to configure?`,
+            choices: Object.keys(defaults$$1).map(name => ({ name, checked: true }))
+        }]);
+    }
+
+    //Each env should ask 2 for two things: The url and the key.
+    let questions = q.envs.map(env => {
+        let defaultKey = process.env[`rally_api_key_${env}`];
+        if (configObject && configObject.api && configObject.api[env]) {
+            defaultKey = configObject.api[env].key;
+        }
+
+        return [{
+            type: "input",
+            name: `api.${env}.url`,
+            message: `What is the url endpoint for ${env}`,
+            default: defaults$$1[env]
+        }, {
+            type: "input",
+            name: `api.${env}.key`,
+            message: `What is your api key for ${env}`,
+            default: defaultKey
+        }];
+    });
+
+    //flatten and ask
+    questions = [].concat(...questions);
+    q = await inquirer.prompt(questions);
+    if (propArray) {
+        q.api = _extends({}, configObject.api, q.api);
+    }
+    return q;
+}
+async function $chalk(propArray) {
+    return { chalk: await askQuestion("Would you like chalk enabled (for coloring)?") };
+}
+
+//Internal usage/testing
+async function selectProvider(env, providers) {
+    let defaultProvider = providers.find(x => x.attributes.name === "SdviEvaluate");
+    if (args.defaultSelect) {
+        return defaultProvider;
+    } else {
+        let q = await inquirer.prompt([{
+            type: "list",
+            name: "provider",
+            default: defaultProvider,
+            choices: providers.map(x => ({
+                name: prettyPrintProvider(x),
+                value: x
+            }))
+        }]);
+        return q.provider;
+    }
+}
+
+async function askQuestion(question) {
+    return (await inquirer.prompt([{
+        type: "confirm",
+        name: "ok",
+        message: question
+    }])).ok;
+}
+
+var configHelpers = /*#__PURE__*/Object.freeze({
+    $api: $api,
+    $chalk: $chalk,
+    selectProvider: selectProvider,
+    askQuestion: askQuestion
+});
+
+var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _dec10, _dec11, _dec12, _dec13, _dec14, _dec15, _dec16, _dec17, _dec18, _dec19, _obj$1;
+
+function _applyDecoratedDescriptor$1(target, property, decorators, descriptor, context) {
     var desc = {};
     Object['ke' + 'ys'](descriptor).forEach(function (key) {
         desc[key] = descriptor[key];
@@ -382,83 +566,53 @@ let argv = argparse(process.argv.slice(2), {
     }
 });
 
-function prettyPrintProvider(pro) {
+function prettyPrintProvider$1(pro) {
     let id = String(pro.id).padStart(4);
     return chalk`{green ${id}}: {blue ${pro.attributes.category}} - {green ${pro.attributes.name}}`;
 }
 
-let help = {};
-
-let helpEntry = name$$1 => help[name$$1] ? help[name$$1] : help[name$$1] = { name: name$$1 };
-
-function helpText(text) {
-    return function (func, name$$1) {
-        helpEntry(name$$1).text = text;
-        return func;
-    };
-}
-function arg(long, short, desc) {
-    return function (func, name$$1) {
-        let args = helpEntry(name$$1).args = helpEntry(name$$1).args || [];
-        args.unshift({ long, short, desc });
-        return func;
-    };
-}
-function param(param, desc) {
-    return function (func, name$$1) {
-        let params = helpEntry(name$$1).params = helpEntry(name$$1).params || [];
-        params.unshift({ param, desc });
-        return func;
-    };
-}
-function usage(usage) {
-    return function (func, name$$1) {
-        usage = usage.replace(/[\[<](\w+)[\]>]/g, chalk`[{blue $1}]`);
-        helpEntry(name$$1).usage = usage;
-        return func;
-    };
-}
-
 function printHelp(help, short) {
-    let helpText = chalk`
+    let helpText$$1 = chalk`
 {white ${help.name}}: ${help.text}
     Usage: ${help.usage || "<unknown>"}
 `;
     //Trim newlines
-    helpText = helpText.substring(1, helpText.length - 1);
+    helpText$$1 = helpText$$1.substring(1, helpText$$1.length - 1);
 
     if (!short) {
-        for (let param of help.params || []) {
-            helpText += chalk`\n    {blue ${param.param}}: ${param.desc}`;
+        for (let param$$1 of help.params || []) {
+            helpText$$1 += chalk`\n    {blue ${param$$1.param}}: ${param$$1.desc}`;
         }
-        for (let arg of help.args || []) {
-            helpText += chalk`\n    {blue ${arg.short}}, {blue ${arg.long}}: ${arg.desc}`;
+        for (let arg$$1 of help.args || []) {
+            helpText$$1 += chalk`\n    {blue ${arg$$1.short}}, {blue ${arg$$1.long}}: ${arg$$1.desc}`;
         }
     }
 
-    return helpText;
+    return helpText$$1;
 }
 
-let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [subhelp]`), _dec3 = param("subhelp", "The name of the command to see help for"), _dec4 = helpText(`Print input args, for debugging`), _dec5 = helpText(`Preset related actions`), _dec6 = usage(`rally preset [action] --env [enviornment] --file [file1] --file [file2] ...`), _dec7 = param("action", "The action to perform. Can be upload or list"), _dec8 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec9 = arg("-f", "--file", "A file to act on"), _dec10 = helpText(`Rule related actions`), _dec11 = usage(`rally rule [action] --env [enviornment]`), _dec12 = param("action", "The action to perform. Only list is supported right now"), _dec13 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec14 = helpText(`List all available providers, or find one by name/id`), _dec15 = usage(`rally providers [identifier] --env [env]`), _dec16 = param("identifier", "Either the name or id of the provider"), _dec17 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec18 = helpText(`First time config for rally tools`), _dec19 = usage("rally config"), (_obj = {
+let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [subhelp]`), _dec3 = param("subhelp", "The name of the command to see help for"), _dec4 = helpText(`Preset related actions`), _dec5 = usage(`rally preset [action] --env <enviornment> --file [file1] --file [file2] ...`), _dec6 = param("action", "The action to perform. Can be upload or list"), _dec7 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec8 = arg("-f", "--file", "A file to act on"), _dec9 = helpText(`Rule related actions`), _dec10 = usage(`rally rule [action] --env [enviornment]`), _dec11 = param("action", "The action to perform. Only list is supported right now"), _dec12 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec13 = helpText(`List all available providers, or find one by name/id`), _dec14 = usage(`rally providers [identifier] --env [env]`), _dec15 = param("identifier", "Either the name or id of the provider"), _dec16 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec17 = helpText(`Change config for rally tools`), _dec18 = usage("rally config [key]"), _dec19 = param("key", chalk`Key you want to edit. For example, {green chalk} or {green api.DEV}`), (_obj$1 = {
     async help() {
-        let arg = argv._[1];
-        if (arg) {
-            log(printHelp(help[arg]));
+        let arg$$1 = argv._[1];
+        if (arg$$1) {
+            log(printHelp(helpEntries[arg$$1]));
         } else {
-            for (let arg in help) {
-                log(printHelp(help[arg], true));
+            for (let helpArg in helpEntries) {
+                log(printHelp(helpEntries[helpArg], true));
             }
         }
     },
 
+    //@helpText(`Print input args, for debugging`)
     async printArgs(args) {
         log(args);
     },
 
     async preset(args) {
         let env = args.env;
-        let arg = argv._[1];
-        if (arg === "upload") {
+        if (!env) return errorLog("No env supplied.");
+        let arg$$1 = argv._[1];
+        if (arg$$1 === "upload") {
             let files = args.file;
             if (!files) {
                 throw new AbortError("No files provided to upload (use --file argument)");
@@ -469,36 +623,39 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
             let presets = files.map(path$$1 => new Preset({ path: path$$1, remote: false }));
             await rallyFunctions.uploadPresets(args.env, presets, async preset => {
                 log("asking... ");
-                let provider = await this["select-provider"](args);
+                let providers = await rallyFunctions.getProviders(env);
+                let provider = await selectProvider(env, providers);
                 return preset.constructMetadata(provider.id);
             });
-        } else if (arg === "list") {
+        } else if (arg$$1 === "list") {
             log("Loading...");
             let presets = await rallyFunctions.getPresets(env);
             log(chalk`{yellow ${presets.length}} presets on {green ${env}}.`);
             for (let data of presets) log(new Preset({ data, remote: env }).chalkPrint());
         } else {
-            log(chalk`Unknown action {red ${arg}} try '{white rally help preset}'`);
+            log(chalk`Unknown action {red ${arg$$1}} try '{white rally help preset}'`);
         }
         //log(presets);
     },
 
     async rule(args) {
         let env = args.env;
-        let arg = argv._[1];
+        if (!env) return errorLog("No env supplied.");
+        let arg$$1 = argv._[1];
 
-        if (arg === "list") {
+        if (arg$$1 === "list") {
             log("Loading...");
             let rules = await rallyFunctions.getRules(env);
             log(chalk`{yellow ${rules.length}} rules on {green ${env}}.`);
             for (let data of rules) log(new Rule(data, env).chalkPrint());
         } else {
-            log(chalk`Unknown action {red ${arg}} try '{white rally help rule}'`);
+            log(chalk`Unknown action {red ${arg$$1}} try '{white rally help rule}'`);
         }
     },
 
     async providers(args) {
         let env = args.env;
+        if (!env) return errorLog("No env supplied.");
         let ident = argv._[1];
 
         let providers = await rallyFunctions.getProviders(env);
@@ -508,111 +665,71 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
             if (!pro) {
                 log(chalk`Couldn't find provider by {green ${ident}}`);
             } else {
-                log(prettyPrintProvider(pro));
+                log(prettyPrintProvider$1(pro));
                 log((await rallyFunctions.getEditorConfig(env, pro)));
             }
         } else {
-            for (let pro of providers) log(prettyPrintProvider(pro));
+            for (let pro of providers) log(prettyPrintProvider$1(pro));
         }
     },
 
     async config(args) {
-        let q = await inquirer.prompt([{
-            type: "confirm",
-            name: "ok",
-            message: `Would you like to create a new config file in ${configFile}`
-        }]);
-        if (!q.ok) return;
+        let prop = argv._[1];
+        let propArray = prop && prop.split(".");
 
-        q = await inquirer.prompt([{
-            type: "checkbox",
-            name: "envs",
-            message: `What enviornments would you like to configure?`,
-            choices: ["DEV", "UAT", "PROD"].map(name$$1 => ({ name: name$$1, checked: true }))
-        }]);
+        //if(!await configHelpers.askQuestion(`Would you like to create a new config file in ${configFile}`)) return;
+        let newConfigObject;
 
-        const defaults = {
-            DEV: "https://discovery-dev.sdvi.com/api/v2",
-            UAT: "https://discovery-uat.sdvi.com/api/v2",
-            PROD: "https://discovery.sdvi.com/api/v2"
-        };
-        let questions = q.envs.map(env => {
-            return [{
-                type: "input",
-                name: `${env}.url`,
-                message: `What is the url endpoint for ${env}`,
-                default: defaults[env]
-            }, {
-                type: "input",
-                name: `${env}.key`,
-                message: `What is your api key for ${env}`,
-                default: process.env[`rally_api_key_${env}`]
-            }];
-        });
+        if (!prop) {
+            log("Creating new config");
+            newConfigObject = _extends({}, configObject);
+            for (let helperName in configHelpers) {
+                if (helperName.startsWith("$")) {
+                    newConfigObject = _extends({}, newConfigObject, (await configHelpers[helperName](false)));
+                }
+            }
+        } else {
+            log(chalk`Editing option {green ${prop}}`);
+            let ident = "$" + propArray[0];
 
-        //flatten and ask
-        questions = [].concat(...questions);
-        q = await inquirer.prompt(questions);
+            if (configHelpers[ident]) {
+                newConfigObject = _extends({}, configObject, (await configHelpers[ident](propArray)));
+            } else {
+                log(chalk`No helper for {red ${ident}}`);
+                return;
+            }
+        }
 
-        let newConfig = JSON.stringify({ api: q }, null, 4);
+        //Create readable json and make sure the user is ok with it
+        let newConfig = JSON.stringify(newConfigObject, null, 4);
         log(newConfig);
 
-        q = await inquirer.prompt([{
-            type: "confirm",
-            name: "ok",
-            message: `Is this ok?`
-        }]);
-
-        if (!q.ok) return;
-
+        if (!(await askQuestion("Write this config to disk?"))) return;
         fs.writeFileSync(configFile, newConfig);
-
         log(chalk`Created file {green ${configFile}}.`);
 
-        q = await inquirer.prompt([{
-            type: "confirm",
-            name: "ok",
-            message: `Chmod to 600?`
-        }]);
-
-        if (!q.ok) return;
-
+        if (!(await askQuestion("Chmod to 600"))) return;
         fs.chmodSync(configFile, "600");
-
         log(chalk`Changed file to user r/w only`);
-    },
-    async ["select-provider"](args) {
-        let env = args.env;
-
-        let providers = await rallyFunctions.getProviders(env);
-        let defaultProvider = providers.find(x => x.attributes.name === "SdviEvaluate");
-        if (args.defaultSelect) {
-            return defaultProvider;
-        } else {
-            let q = await inquirer.prompt([{
-                type: "list",
-                name: "provider",
-                default: defaultProvider,
-                choices: providers.map(x => ({
-                    name: prettyPrintProvider(x),
-                    value: x
-                }))
-            }]);
-            return q.provider;
-        }
     }
-}, (_applyDecoratedDescriptor(_obj, "help", [_dec, _dec2, _dec3], Object.getOwnPropertyDescriptor(_obj, "help"), _obj), _applyDecoratedDescriptor(_obj, "printArgs", [_dec4], Object.getOwnPropertyDescriptor(_obj, "printArgs"), _obj), _applyDecoratedDescriptor(_obj, "preset", [_dec5, _dec6, _dec7, _dec8, _dec9], Object.getOwnPropertyDescriptor(_obj, "preset"), _obj), _applyDecoratedDescriptor(_obj, "rule", [_dec10, _dec11, _dec12, _dec13], Object.getOwnPropertyDescriptor(_obj, "rule"), _obj), _applyDecoratedDescriptor(_obj, "providers", [_dec14, _dec15, _dec16, _dec17], Object.getOwnPropertyDescriptor(_obj, "providers"), _obj), _applyDecoratedDescriptor(_obj, "config", [_dec18, _dec19], Object.getOwnPropertyDescriptor(_obj, "config"), _obj)), _obj));
+}, (_applyDecoratedDescriptor$1(_obj$1, "help", [_dec, _dec2, _dec3], Object.getOwnPropertyDescriptor(_obj$1, "help"), _obj$1), _applyDecoratedDescriptor$1(_obj$1, "preset", [_dec4, _dec5, _dec6, _dec7, _dec8], Object.getOwnPropertyDescriptor(_obj$1, "preset"), _obj$1), _applyDecoratedDescriptor$1(_obj$1, "rule", [_dec9, _dec10, _dec11, _dec12], Object.getOwnPropertyDescriptor(_obj$1, "rule"), _obj$1), _applyDecoratedDescriptor$1(_obj$1, "providers", [_dec13, _dec14, _dec15, _dec16], Object.getOwnPropertyDescriptor(_obj$1, "providers"), _obj$1), _applyDecoratedDescriptor$1(_obj$1, "config", [_dec17, _dec18, _dec19], Object.getOwnPropertyDescriptor(_obj$1, "config"), _obj$1)), _obj$1));
 
-async function printBareHelp() {
+async function noCommand() {
     write(chalk`
 Rally Tools {yellow v${version}} CLI
 by John Schmidt <John_Schmidt@discovery.com>
-
-API Status:
 `);
+    if (!configObject) {
+        write(chalk`
+It looks like you haven't setup the config yet. Please run '{green rally config}'.
+`);
+        return;
+    }
     for (let env of ["UAT", "DEV", "PROD"]) {
+        //Test access. Returns HTTP response code
         let result = await rallyFunctions.testAccess(env);
 
+        //Create a colored display and response
         let resultStr = "{yellow ${result} <unknown>";
         if (result === 200) resultStr = chalk`{green 200 OK}`;else if (result === 401) resultStr = chalk`{red 401 No Access}`;else if (result >= 500) resultStr = chalk`{yellow ${result} API Down?}`;
 
@@ -621,9 +738,23 @@ API Status:
 }
 
 async function $main() {
+    chalk.enabled = configObject ? configObject.chalk : true;
+    if (chalk.level === 0 || !chalk.enabled) {
+        let force = argv["force-color"];
+        if (force) {
+            chalk.enabled = true;
+            if (force === true && chalk.level === 0) {
+                chalk.level = 1;
+            } else if (Number(force)) {
+                chalk.level = Number(force);
+            }
+        }
+    }
+
     let func = argv._[0];
     if (cli[func]) {
         try {
+            //Call the cli function
             let ret = await cli[func](argv);
             if (ret) {
                 write(chalk.white("CLI returned: "));
@@ -637,7 +768,7 @@ async function $main() {
             }
         }
     } else {
-        await printBareHelp();
+        await noCommand();
     }
 }
 

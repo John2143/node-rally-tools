@@ -1,0 +1,81 @@
+import inquirer from "inquirer";
+import {configObject} from "./config.js";
+
+export async function $api(propArray){
+    const defaults = {
+        DEV:  "https://discovery-dev.sdvi.com/api/v2",
+        UAT:  "https://discovery-uat.sdvi.com/api/v2",
+        PROD: "https://discovery.sdvi.com/api/v2",
+    };
+
+    let q;
+    if(propArray && propArray[1]){
+        q = {envs: [propArray[1]]};
+    }else{
+        //Create a checkbox prompt to choose enviornments
+        q = await inquirer.prompt([{
+            type: "checkbox",
+            name: "envs",
+            message: `What enviornments would you like to configure?`,
+            choices: Object.keys(defaults).map(name => ({name, checked:true})),
+        }]);
+    }
+
+    //Each env should ask 2 for two things: The url and the key.
+    let questions = q.envs.map(env => {
+        let defaultKey = process.env[`rally_api_key_${env}`];
+        if(configObject && configObject.api && configObject.api[env]){
+            defaultKey = configObject.api[env].key;
+        }
+
+        return [{
+            type: "input",
+            name: `api.${env}.url`,
+            message: `What is the url endpoint for ${env}`,
+            default: defaults[env],
+        }, {
+            type: "input",
+            name: `api.${env}.key`,
+            message: `What is your api key for ${env}`,
+            default: defaultKey,
+        }];
+    });
+
+    //flatten and ask
+    questions = [].concat(...questions);
+    q = await inquirer.prompt(questions);
+    if(propArray){
+        q.api = {...configObject.api, ...q.api};
+    }
+    return q;
+}
+export async function $chalk(propArray){
+    return {chalk: await askQuestion("Would you like chalk enabled (for coloring)?")};
+}
+
+//Internal usage/testing
+export async function selectProvider(env, providers){
+    let defaultProvider =  providers.find(x => x.attributes.name === "SdviEvaluate");
+    if(args.defaultSelect){
+        return defaultProvider;
+    }else{
+        let q = await inquirer.prompt([{
+            type: "list",
+            name: "provider",
+            default: defaultProvider,
+            choices: providers.map(x => ({
+                name: prettyPrintProvider(x),
+                value: x,
+            })),
+        }]);
+        return q.provider;
+    }
+}
+
+export async function askQuestion(question){
+    return (await inquirer.prompt([{
+        type: "confirm",
+        name: "ok",
+        message: question,
+    }])).ok;
+}

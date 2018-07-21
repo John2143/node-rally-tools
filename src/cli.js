@@ -1,12 +1,17 @@
 require("source-map-support").install();
 
 import argparse from "minimist";
-import {rallyFunctions as funcs, Preset, Rule, AbortError} from "./index.js";
+import {
+    rallyFunctions as funcs,
+    Preset, Rule, SupplyChain, Provider,
+    AbortError, UnconfiguredEnvError, Collection
+} from "./index.js";
+
 import inquirer from "inquirer";
 
 import {version as packageVersion} from "../package.json";
 import {configFile, configObject} from "./config.js";
-import {writeFileSync, chmodSync} from "fs";
+import {writeFileSync} from "fs";
 
 import {helpText, arg, param, usage, helpEntries} from "./decorators.js";
 
@@ -14,15 +19,11 @@ import * as configHelpers from "./config-create.js";
 
 let argv = argparse(process.argv.slice(2), {
     string: ["file", "env"],
+    boolean: ["no-protect"],
     alias: {
         f: "file", e: "env",
     }
 });
-
-function prettyPrintProvider(pro){
-    let id = String(pro.id).padStart(4);
-    return chalk`{green ${id}}: {blue ${pro.attributes.category}} - {green ${pro.attributes.name}}`;
-}
 
 function printHelp(help, short){
     let helpText = chalk`
@@ -44,14 +45,149 @@ function printHelp(help, short){
     return helpText;
 }
 
+let presetsub = {
+    async before(args){
+        this.env = args.env;
+        if(!this.env) throw new AbortError("No env supplied");
+
+        let files = args.file;
+        if(typeof files === "string") files = [files];
+        this.files = files;
+    },
+    async $list(args){
+        log("Loading...");
+        let presets = await Preset.getPresets(this.env);
+        if(configObject.rawOutput) return presets;
+
+        log(chalk`{yellow ${presets.length}} presets on {green ${this.env}}.`);
+        for(let preset of presets) log(preset.chalkPrint());
+    },
+    async $upload(args){
+        if(!this.files){
+            throw new AbortError("No files provided to upload (use --file argument)");
+        }
+
+        log(chalk`Uploading {green ${this.files.length}} preset(s) to {green ${this.env}}.`);
+
+        let presets = this.files.map(path => new Preset({path, remote: false}));
+        await funcs.uploadPresets(this.env, presets, async preset => {
+            log("asking... ");
+            let providers = await Provider.getProviders(this.env);
+            let provider = await configHelpers.selectProvider(this.env, providers);
+            return preset.constructMetadata(provider.id);
+        });
+    },
+    async $diff(args){
+    },
+    async unknown(arg, args){
+        log(chalk`Unknown action {red ${arg}} try '{white rally help preset}'`);
+    },
+}
+
+let rulesub = {
+    async before(args){
+        this.env = args.env;
+        if(!this.env) throw new AbortError("No env supplied");
+    },
+    async $list(args){
+        log("Loading...");
+        let rules = await Rule.getRules(this.env);
+        if(configObject.rawOutput) return rules;
+
+        log(chalk`{yellow ${rules.length}} rules on {green ${this.env}}.`);
+        for(let rule of rules) log(rule.chalkPrint());
+    },
+    async $upload(args){
+    },
+    async unknown(arg, args){
+        log(chalk`Unknown action {red ${arg}} try '{white rally help rule}'`);
+    },
+}
+
+let supplysub = {
+    async before(args){
+        this.env = args.env;
+        if(!this.env) throw new AbortError("No env supplied");
+    },
+    async $calc(args){
+        let name = args._[2];
+        let rules = await Rule.getRules(this.env);
+        let start;
+        for(let rule of rules){
+            if(rule.name.toLowerCase().includes(name.toLowerCase())){
+                start = rule;
+                break;
+            }
+        }
+        log(chalk`Analzying supply chain: ${start.chalkPrint(false)}`);
+
+        let chain = new SupplyChain(start);
+        await chain.calculate();
+        //log(chain);
+    },
+    async $magic(args){
+        let big = require("fs").readFileSync("test.json");
+        big = JSON.parse(big);
+
+        log(big.remote);
+        let presets = big.allPresets.arr.map(obj => {
+            let preset = new Preset({
+                data: obj.data, remote: big.remote
+            });
+            preset.code = obj._code;
+            return preset;
+        });
+        Preset.getPresets.cachePush([big.remote], new Collection(presets));
+
+        let rules = big.allRules.arr.map(obj => {
+            let rule = new Rule(
+                obj.data, big.remote
+            );
+            rule.code = obj._code;
+            return rule;
+        });
+        Rule.getRules.cachePush([big.remote], new Collection(rules));
+
+        return await this.$calc(args);
+    },
+    async unknown(arg, args){
+        log(chalk`Unknown action {red ${arg}} try '{white rally help supply}'`);
+    },
+}
+
+function subCommand(object){
+    object = {
+        before(){}, after(){}, unknown(){},
+        ...object
+    };
+    return async function(args){
+        let arg = args._[1];
+        let key = "$" + arg;
+        let ret;
+        if(object[key]){
+            await object.before(args);
+            ret = await object[key](args);
+            await object.after(args);
+        }else{
+            object.unknown(arg, args);
+        }
+        return ret;
+    }
+}
+
 let cli = {
     @helpText(`Display the help menu`)
     @usage(`rally help [subhelp]`)
     @param("subhelp", "The name of the command to see help for")
-    async help(){
-        let arg = argv._[1];
+    async help(args){
+        let arg = args._[1];
         if(arg){
-            log(printHelp(helpEntries[arg]));
+            let help = helpEntries[arg];
+            if(!help){
+                log(chalk`No help found for '{red ${arg}}'`);
+            }else{
+                log(printHelp(helpEntries[arg]));
+            }
         }else{
             for(let helpArg in helpEntries){
                 log(printHelp(helpEntries[helpArg], true));
@@ -70,33 +206,7 @@ let cli = {
     @arg("-e", "--env", "The enviornment you wish to perform the action on")
     @arg("-f", "--file", "A file to act on")
     async preset(args){
-        let env = args.env;
-        if(!env) return errorLog("No env supplied.");
-        let arg = argv._[1];
-        if(arg === "upload"){
-            let files = args.file;
-            if(!files){
-                throw new AbortError("No files provided to upload (use --file argument)");
-            }
-            if(typeof files === "string") files = [files];
-            log(chalk`Uploading {green ${files.length}} preset(s) to {green ${env}}.`);
-
-            let presets = files.map(path => new Preset({path, remote: false}));
-            await funcs.uploadPresets(args.env, presets, async preset => {
-                log("asking... ");
-                let providers = await funcs.getProviders(env);
-                let provider = await configHelpers.selectProvider(env, providers);
-                return preset.constructMetadata(provider.id);
-            });
-        }else if(arg === "list"){
-            log("Loading...");
-            let presets = await funcs.getPresets(env);
-            log(chalk`{yellow ${presets.length}} presets on {green ${env}}.`);
-            for(let data of presets) log(new Preset({data, remote: env}).chalkPrint());
-        }else{
-            log(chalk`Unknown action {red ${arg}} try '{white rally help preset}'`);
-        }
-        //log(presets);
+        return subCommand(presetsub)(args);
     },
 
     @helpText(`Rule related actions`)
@@ -104,54 +214,57 @@ let cli = {
     @param("action", "The action to perform. Only list is supported right now")
     @arg("-e", "--env", "The enviornment you wish to perform the action on")
     async rule(args){
-        let env = args.env;
-        if(!env) return errorLog("No env supplied.");
-        let arg = argv._[1];
+        return subCommand(rulesub)(args);
+    },
 
-        if(arg === "list"){
-            log("Loading...");
-            let rules = await funcs.getRules(env);
-            log(chalk`{yellow ${rules.length}} rules on {green ${env}}.`);
-            for(let data of rules) log(new Rule(data, env).chalkPrint());
-        }else{
-            log(chalk`Unknown action {red ${arg}} try '{white rally help rule}'`);
-        }
+    @helpText(`supply chain related actions`)
+    @usage(`rally supply [action] --env [enviornment]`)
+    @param("action", "The action to perform.")
+    @arg("-e", "--env", "The enviornment you wish to perform the action on")
+    async supply(args){
+        return subCommand(supplysub)(args);
     },
 
     @helpText(`List all available providers, or find one by name/id`)
-    @usage(`rally providers [identifier] --env [env]`)
+    @usage(`rally providers [identifier] --env [env] --raw`)
     @param("identifier", "Either the name or id of the provider")
     @arg("-e", "--env", "The enviornment you wish to perform the action on")
+    @arg("~", "--raw", "Raw output of command. If [identifier] is given, then print editorConfig too")
     async providers(args){
         let env = args.env;
         if(!env) return errorLog("No env supplied.");
-        let ident = argv._[1];
+        let ident = args._[1];
 
-        let providers = await funcs.getProviders(env);
+        let providers = await Provider.getProviders(env);
 
         if(ident){
-            let pro = providers.find(x => x.id == ident || x.attributes.name.includes(ident));
+            let pro = providers.find(x => x.id == ident || x.name.includes(ident));
             if(!pro){
                 log(chalk`Couldn't find provider by {green ${ident}}`);
             }else{
-                log(prettyPrintProvider(pro));
-                log(await funcs.getEditorConfig(env, pro));
+                log(pro.chalkPrint(false));
+                log(await pro.getEditorConfig());
+                if(args.raw) return pro;
             }
         }else{
-            for(let pro of providers) log(prettyPrintProvider(pro));
+            if(args.raw) return providers;
+            for(let pro of providers) log(pro.chalkPrint());
         }
     },
     @helpText(`Change config for rally tools`)
-    @usage("rally config [key]")
+    @usage("rally config [key] --set [value] --raw")
     @param("key", chalk`Key you want to edit. For example, {green chalk} or {green api.DEV}`)
+    @arg("~", "--set", "If this value is given, no interactive prompt will launch and the config option will change.")
+    @arg("~", "--raw", "Raw output of json config")
     async config(args){
-        let prop = argv._[1];
+        let prop = args._[1];
         let propArray = prop && prop.split(".");
 
         //if(!await configHelpers.askQuestion(`Would you like to create a new config file in ${configFile}`)) return;
         let newConfigObject;
 
         if(!prop){
+            if(configObject.rawOutput) return configObject;
             log("Creating new config");
             newConfigObject = {
                 ...configObject,
@@ -166,39 +279,45 @@ let cli = {
             }
         }else{
             log(chalk`Editing option {green ${prop}}`);
-            let ident = "$" + propArray[0];
-
-            if(configHelpers[ident]){
+            if(args.set){
                 newConfigObject = {
                     ...configObject,
-                    ...(await configHelpers[ident](propArray))
+                    [prop]: args.set,
                 };
             }else{
-                log(chalk`No helper for {red ${ident}}`);
-                return;
+                let ident = "$" + propArray[0];
+
+                if(configHelpers[ident]){
+                    newConfigObject = {
+                        ...configObject,
+                        ...(await configHelpers[ident](propArray))
+                    };
+                }else{
+                    log(chalk`No helper for {red ${ident}}`);
+                    return;
+                }
             }
         }
+
+        newConfigObject.hasConfig = true;
 
         //Create readable json and make sure the user is ok with it
         let newConfig = JSON.stringify(newConfigObject, null, 4);
         log(newConfig);
 
-        if(!await configHelpers.askQuestion("Write this config to disk?")) return;
-        writeFileSync(configFile, newConfig);
+        //-y or --set will make this not prompt
+        if(!args.y && !args.set && !await configHelpers.askQuestion("Write this config to disk?")) return;
+        writeFileSync(configFile, newConfig, {mode: 0o600});
         log(chalk`Created file {green ${configFile}}.`);
-
-        if(!await configHelpers.askQuestion("Chmod to 600")) return;
-        chmodSync(configFile, "600");
-        log(chalk`Changed file to user r/w only`);
     },
 };
 
 async function noCommand(){
     write(chalk`
-Rally Tools {yellow v${packageVersion}} CLI
+Rally Tools {yellow v${packageVersion} (alpha)} CLI
 by John Schmidt <John_Schmidt@discovery.com>
 `);
-    if(!configObject){
+    if(!configObject.hasConfig){
         write(chalk`
 It looks like you haven't setup the config yet. Please run '{green rally config}'.
 `);
@@ -206,30 +325,48 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
     }
     for(let env of ["UAT", "DEV", "PROD"]){
         //Test access. Returns HTTP response code
-        let result = await funcs.testAccess(env);
+        let resultStr;
+        try{
+            let result = await funcs.testAccess(env);
 
-        //Create a colored display and response
-        let resultStr = "{yellow ${result} <unknown>";
-             if(result === 200) resultStr = chalk`{green 200 OK}`;
-        else if(result === 401) resultStr = chalk`{red 401 No Access}`;
-        else if(result >= 500)  resultStr = chalk`{yellow ${result} API Down?}`;
+            //Create a colored display and response
+            resultStr = "{yellow ${result} <unknown>";
+            if(result === 200) resultStr = chalk`{green 200 OK}`;
+            else if(result === 401) resultStr = chalk`{red 401 No Access}`;
+            else if(result >= 500)  resultStr = chalk`{yellow ${result} API Down?}`;
+        }catch(e){
+            if(!e instanceof UnconfiguredEnvError) throw e;
+            resultStr = chalk`{yellow Unconfigured}`;
+        }
 
         log(chalk`   ${env}: ${resultStr}`);
     }
 }
 
 async function $main(){
-    chalk.enabled = configObject ? configObject.chalk : true;
+    chalk.enabled = configObject.hasConfig ? configObject.chalk : true;
     if(chalk.level === 0 || !chalk.enabled){
         let force = argv["force-color"];
         if(force){
             chalk.enabled = true;
             if(force === true && chalk.level === 0){
-                chalk.level = 1
+                chalk.level = 1;
             }else if(Number(force)){
                 chalk.level = Number(force);
             }
         }
+    }
+
+    configObject.dangerModify = argv["no-protect"];
+    if(argv["raw"]){
+        configObject.rawOutput = true;
+        global.log = ()=>{};
+        global.errorLog = ()=>{};
+        global.write = ()=>{};
+    }
+
+    if(configObject.defaultEnv){
+        argv.env = argv.env || configObject.defaultEnv;
     }
 
     let func = argv._[0];
@@ -239,7 +376,7 @@ async function $main(){
             let ret = await cli[func](argv);
             if(ret){
                 write(chalk.white("CLI returned: "));
-                log(ret);
+                console.log(JSON.stringify(ret, null, 4));
             }
         }catch(e){
             if(e instanceof AbortError){

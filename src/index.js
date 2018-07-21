@@ -1,8 +1,11 @@
 import {lib} from "./rally-tools.js";
 import {cached} from "./decorators.js";
 
+export {default as SupplyChain} from "./supply-chain.js";
 export {default as Preset} from "./preset.js";
 export {default as Rule} from "./rule.js";
+export {default as Provider} from "./providers.js";
+
 export * from "./rally-tools.js";
 
 export const rallyFunctions = {
@@ -19,32 +22,9 @@ export const rallyFunctions = {
             await preset.uploadCodeToEnv(env, createFunc);
         }
     },
-    @cached async getProviders(env){
-        let providers = await lib.indexPath(env, "/providerTypes?page=1p50");
-        providers = providers.sort((a, b) => {
-            return a.attributes.category.localeCompare(b.attributes.category) ||
-                   a.attributes.name    .localeCompare(b.attributes.name);
-        });
-        return providers;
-    },
-    async getEditorConfig(env, provider){
-        let config = await lib.makeAPIRequest({env, path_full: provider.links.editorConfig});
-        let helpText = config.helpText;
-        config.helpText = () => helpText;
-        return config
-    },
-    @cached async getRules(env){
-        let rules = await lib.indexPathFast(env, "/workflowRules?page=1p20");
-        return rules;
-    },
-    @cached async getPresets(env){
-        let rules = await lib.indexPathFast(env, "/presets?page=1p20");
-        return rules;
-    },
     //Dummy test access
     async testAccess(env){
         let result = await lib.makeAPIRequest({env, path: "/providers?page=1p1", fullResponse: true});
-        if(!result) return 401;
         return result.statusCode;
     },
 }

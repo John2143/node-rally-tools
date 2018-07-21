@@ -1,13 +1,17 @@
 
+//these are the help entries for each command
 export let helpEntries = {};
 let helpEntry = name => helpEntries[name] ? helpEntries[name] : (helpEntries[name] = {name});
 
+//short description
 export function helpText(text){
     return function(func, name){
         helpEntry(name).text = text;
         return func;
     }
 }
+
+//flag type argument like -f or --file
 export function arg(long, short, desc){
     return function(func, name){
         let args = helpEntry(name).args = helpEntry(name).args || [];
@@ -15,6 +19,8 @@ export function arg(long, short, desc){
         return func;
     }
 }
+
+//normal argument
 export function param(param, desc){
     return function(func, name){
         let params = helpEntry(name).params = helpEntry(name).params || [];
@@ -22,6 +28,8 @@ export function param(param, desc){
         return func;
     }
 }
+
+//usage string
 export function usage(usage){
     return function(func, name){
         usage = usage.replace(/[\[<](\w+)[\]>]/g, chalk`[{blue $1}]`);
@@ -72,9 +80,39 @@ export function cached(target, key, desc){
     newFunc.clearCache = function(){
         cachedValues = [];
     }
+    newFunc.cachePush = function(args, value){
+        cachedValues.push([args, value]);
+    }
 
     return {
         ...desc,
         value: newFunc,
     };
+}
+
+//Access a deep property of an object: if path is ["a", "b", "c"], then this
+//function retuns obj.a.b.c
+function deepAccess(obj, path){
+    let o = obj;
+    for(let key of path){
+        if(!o) return [];
+        o = o[key];
+    }
+    return o;
+}
+
+//This takes a class as the first argument, then adds a getter/setter pair that
+//corresponds to an object in this.data
+export function defineAssoc(classname, shortname, path){
+    path = path.split(".");
+    let lastKey = path.pop();
+
+    Object.defineProperty(classname.prototype, shortname, {
+        get(){
+            return deepAccess(this.data, path)[lastKey];
+        },
+        set(val){
+            deepAccess(this.data, path)[lastKey] = val;
+        },
+    });
 }

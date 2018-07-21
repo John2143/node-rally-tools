@@ -50,7 +50,27 @@ export async function $api(propArray){
     return q;
 }
 export async function $chalk(propArray){
-    return {chalk: await askQuestion("Would you like chalk enabled (for coloring)?")};
+    return {chalk: await askQuestion("Would you like chalk enabled (Adds coloring)?")};
+}
+export async function $restrictUAT(propArray){
+    return {restrictUAT: await askQuestion("Would you like to protect UAT?")};
+}
+export async function $repodir(propArray){
+    return await inquirer.prompt([{
+        type: "input",
+        name: `repodir`,
+        message: `Where is your rally repository?`,
+        default: process.env["rally_repo_path"],
+    }]);
+}
+
+export async function $defaultEnv(propArray){
+    return await inquirer.prompt([{
+        type: "input",
+        name: `defaultEnv`,
+        message: `Default enviornment?`,
+        default: "DEV",
+    }]);
 }
 
 //Internal usage/testing

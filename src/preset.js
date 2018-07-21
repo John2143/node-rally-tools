@@ -1,9 +1,15 @@
 import fs from "fs";
-import {lib, AbortError} from  "./rally-tools.js";
+import {lib, AbortError, Collection} from  "./rally-tools.js";
 import {basename} from "path";
+import {cached} from "./decorators.js";
+import {configObject} from "./config.js";
 
-let envs = {};
-export default class Preset{
+let presetShell = {
+    "attributes": {},
+    "relationships": {},
+};
+
+class Preset{
     constructor({path, remote, data}){
         this.remote = remote
         if(!this.remote){
@@ -18,9 +24,26 @@ export default class Preset{
         }else{
             this.name = data.attributes.name;
             this.id = data.id;
-            this.rawData = data;
+            this.data = data;
         }
     }
+    shellData(){
+        let data = Object.assign({}, presetShell);
+        return data;
+    }
+    async downloadCode(){
+        if(this.code) return this.code;
+        return this.code = await lib.makeAPIRequest({
+            env: this.remote,
+            path_full: this.data.links.providerData,
+            json: false,
+        });
+    }
+    get code(){
+        if(this._code) return this._code;
+    }
+    set code(v){this._code = v;}
+
     chalkPrint(){
         let id = String(this.remote && this.remote + "-" + this.id || "Local").padStart(8);
         return chalk`{green ${id}}: {blue ${this.name}}`;
@@ -32,6 +55,7 @@ export default class Preset{
                 .replace("-", " ");
         }
     }
+
     parseCodeForName(){
         const name_regex = /name:\s([\w\d. \/]+)[\r\s\n]*?/;
         const match = name_regex.exec(this.code);
@@ -119,10 +143,10 @@ export default class Preset{
         return fs.readFileSync(this.path, "utf-8");
     }
 
-    static envs(env){
-        return envs[env] = envs[env] || Preset.cache_envs(env);
-    }
-    static cache_env(env){
-
+    @cached static async getPresets(env){
+        let data = await lib.indexPathFast(env, "/presets?page=1p20");
+        return new Collection(data.map(dat => new Preset({remote: env, data: dat})));
     }
 }
+
+export default Preset;

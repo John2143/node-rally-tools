@@ -3,9 +3,14 @@ import commonjs from "rollup-plugin-commonjs";
 import json from "rollup-plugin-json";
 import babel from "rollup-plugin-babel";
 
+import packagejson from "./package.json";
+
 export default {
     input: "src/cli.js",
-    external: ["request-promise", "path", "fs", "chalk", "inquirer", "minimist", "os", "tty"],
+    external: [
+        ...Object.keys(packagejson.dependencies),
+        "path", "fs", "chalk", "os",
+    ],
     output: {
         file: "bundle.js",
         format: "cjs",

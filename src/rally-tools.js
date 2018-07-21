@@ -12,8 +12,15 @@ export class lib{
         //Keys are defined in enviornment variables
         let config = configObject.api[env];
         if(!config) {
-            return false;
+            throw new UnconfiguredEnvError(env);
         };
+        //Protect PROD and UAT(?) if the --no-protect flag was not set.
+        if(method !== "GET" && !configObject.dangerModify){
+            if(env === "UAT" && config.restrictUAT || env === "PROD"){
+                throw new ProtectedEnvError(env);
+            }
+        }
+
 
         let rally_api_key = config.key;
         let rally_api = config.url;
@@ -128,5 +135,37 @@ export class APIError extends Error{
         `);
         Error.captureStackTrace(this, this.constructor);
         this.name = "ApiError";
+    }
+}
+
+export class UnconfiguredEnvError extends AbortError{
+    constructor(env){
+        super(env);
+        this.name = "Unconfigured Env Error";
+    }
+}
+
+export class ProtectedEnvError extends AbortError{
+    constructor(env){
+        super(env);
+        this.name = "Protected Env Error";
+    }
+}
+
+export class Collection{
+    constructor(arr){
+        this.arr = arr;
+    }
+    [Symbol.iterator](){
+        return this.arr[Symbol.iterator]();
+    }
+    findById(id){
+        return this.arr.find(x => x.id == id);
+    }
+    findByName(name){
+        return this.arr.find(x => x.name == name);
+    }
+    findByNameContains(namec){
+        return this.arr.find(x => x.name.includes(name));
     }
 }

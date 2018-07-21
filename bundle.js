@@ -15,12 +15,15 @@ var argparse = _interopDefault(require('minimist'));
 
 let configFile = os.homedir() + "/.rallyconfig";
 
-let configObject = null;
+let configObject = { hasConfig: true };
 try {
     let json = fs.readFileSync(configFile);
     configObject = JSON.parse(json);
 } catch (e) {
-    if (e.code == "ENOENT") ; else {
+    if (e.code == "ENOENT") {
+        configObject.hasConfig = false;
+        //ok, they should probably make a config
+    } else {
         throw e;
     }
 }
@@ -49,8 +52,14 @@ let lib = class lib {
         //Keys are defined in enviornment variables
         let config = configObject.api[env];
         if (!config) {
-            return false;
+            throw new UnconfiguredEnvError(env);
+        }        //Protect PROD and UAT(?) if the --no-protect flag was not set.
+        if (method !== "GET" && !configObject.dangerModify) {
+            if (env === "UAT" && config.restrictUAT || env === "PROD") {
+                throw new ProtectedEnvError(env);
+            }
         }
+
         let rally_api_key = config.key;
         let rally_api = config.url;
 
@@ -165,15 +174,51 @@ let APIError = class APIError extends Error {
     }
 };
 
+let UnconfiguredEnvError = class UnconfiguredEnvError extends AbortError {
+    constructor(env) {
+        super(env);
+        this.name = "Unconfigured Env Error";
+    }
+};
+
+let ProtectedEnvError = class ProtectedEnvError extends AbortError {
+    constructor(env) {
+        super(env);
+        this.name = "Protected Env Error";
+    }
+};
+
+let Collection = class Collection {
+    constructor(arr) {
+        this.arr = arr;
+    }
+    [Symbol.iterator]() {
+        return this.arr[Symbol.iterator]();
+    }
+    findById(id) {
+        return this.arr.find(x => x.id == id);
+    }
+    findByName(name) {
+        return this.arr.find(x => x.name == name);
+    }
+    findByNameContains(namec) {
+        return this.arr.find(x => x.name.includes(name));
+    }
+};
+
+//these are the help entries for each command
 let helpEntries = {};
 let helpEntry = name => helpEntries[name] ? helpEntries[name] : helpEntries[name] = { name };
 
+//short description
 function helpText(text) {
     return function (func, name) {
         helpEntry(name).text = text;
         return func;
     };
 }
+
+//flag type argument like -f or --file
 function arg(long, short, desc) {
     return function (func, name) {
         let args = helpEntry(name).args = helpEntry(name).args || [];
@@ -181,6 +226,8 @@ function arg(long, short, desc) {
         return func;
     };
 }
+
+//normal argument
 function param(param, desc) {
     return function (func, name) {
         let params = helpEntry(name).params = helpEntry(name).params || [];
@@ -188,6 +235,8 @@ function param(param, desc) {
         return func;
     };
 }
+
+//usage string
 function usage(usage) {
     return function (func, name) {
         usage = usage.replace(/[\[<](\w+)[\]>]/g, chalk`[{blue $1}]`);
@@ -225,14 +274,79 @@ function cached(target, key, desc) {
     newFunc.clearCache = function () {
         cachedValues = [];
     };
+    newFunc.cachePush = function (args, value) {
+        cachedValues.push([args, value]);
+    };
 
     return _extends({}, desc, {
         value: newFunc
     });
 }
 
-let envs = {};
-let Preset = class Preset {
+//Access a deep property of an object: if path is ["a", "b", "c"], then this
+//function retuns obj.a.b.c
+function deepAccess(obj, path$$1) {
+    let o = obj;
+    for (let key of path$$1) {
+        if (!o) return [];
+        o = o[key];
+    }
+    return o;
+}
+
+//This takes a class as the first argument, then adds a getter/setter pair that
+//corresponds to an object in this.data
+function defineAssoc(classname, shortname, path$$1) {
+    path$$1 = path$$1.split(".");
+    let lastKey = path$$1.pop();
+
+    Object.defineProperty(classname.prototype, shortname, {
+        get() {
+            return deepAccess(this.data, path$$1)[lastKey];
+        },
+        set(val) {
+            deepAccess(this.data, path$$1)[lastKey] = val;
+        }
+    });
+}
+
+var _class;
+
+function _applyDecoratedDescriptor(target, property, decorators, descriptor, context) {
+    var desc = {};
+    Object['ke' + 'ys'](descriptor).forEach(function (key) {
+        desc[key] = descriptor[key];
+    });
+    desc.enumerable = !!desc.enumerable;
+    desc.configurable = !!desc.configurable;
+
+    if ('value' in desc || desc.initializer) {
+        desc.writable = true;
+    }
+
+    desc = decorators.slice().reverse().reduce(function (desc, decorator) {
+        return decorator(target, property, desc) || desc;
+    }, desc);
+
+    if (context && desc.initializer !== void 0) {
+        desc.value = desc.initializer ? desc.initializer.call(context) : void 0;
+        desc.initializer = undefined;
+    }
+
+    if (desc.initializer === void 0) {
+        Object['define' + 'Property'](target, property, desc);
+        desc = null;
+    }
+
+    return desc;
+}
+
+let presetShell = {
+    "attributes": {},
+    "relationships": {}
+};
+
+let Preset = (_class = class Preset {
     constructor({ path: path$$1, remote, data }) {
         this.remote = remote;
         if (!this.remote) {
@@ -247,9 +361,28 @@ let Preset = class Preset {
         } else {
             this.name = data.attributes.name;
             this.id = data.id;
-            this.rawData = data;
+            this.data = data;
         }
     }
+    shellData() {
+        let data = Object.assign({}, presetShell);
+        return data;
+    }
+    async downloadCode() {
+        if (this.code) return this.code;
+        return this.code = await lib.makeAPIRequest({
+            env: this.remote,
+            path_full: this.data.links.providerData,
+            json: false
+        });
+    }
+    get code() {
+        if (this._code) return this._code;
+    }
+    set code(v) {
+        this._code = v;
+    }
+
     chalkPrint() {
         let id = String(this.remote && this.remote + "-" + this.id || "Local").padStart(8);
         return chalk`{green ${id}}: {blue ${this.name}}`;
@@ -259,6 +392,7 @@ let Preset = class Preset {
             return path.basename(this.path).replace("_", " ").replace("-", " ");
         }
     }
+
     parseCodeForName() {
         const name_regex = /name:\s([\w\d. \/]+)[\r\s\n]*?/;
         const match = name_regex.exec(this.code);
@@ -346,27 +480,15 @@ let Preset = class Preset {
         return fs__default.readFileSync(this.path, "utf-8");
     }
 
-    static envs(env) {
-        return envs[env] = envs[env] || Preset.cache_envs(env);
+    static async getPresets(env) {
+        let data = await lib.indexPathFast(env, "/presets?page=1p20");
+        return new Collection(data.map(dat => new Preset({ remote: env, data: dat })));
     }
-    static cache_env(env) {}
-};
+}, (_applyDecoratedDescriptor(_class, "getPresets", [cached], Object.getOwnPropertyDescriptor(_class, "getPresets"), _class)), _class);
 
-let Rule = class Rule {
-    constructor(data, remote) {
-        this.rawData = data;
-        this.remote = remote;
-    }
-    chalkPrint() {
-        let D = this.rawData;
-        let id = String(this.remote + "-" + D.id).padStart(8);
-        return chalk`{green ${id}}: {blue ${D.attributes.name}}`;
-    }
-};
+var _class$1;
 
-var _obj;
-
-function _applyDecoratedDescriptor(target, property, decorators, descriptor, context) {
+function _applyDecoratedDescriptor$1(target, property, decorators, descriptor, context) {
     var desc = {};
     Object['ke' + 'ys'](descriptor).forEach(function (key) {
         desc[key] = descriptor[key];
@@ -395,7 +517,144 @@ function _applyDecoratedDescriptor(target, property, decorators, descriptor, con
     return desc;
 }
 
-const rallyFunctions = (_obj = {
+let Rule = (_class$1 = class Rule {
+    constructor(data, remote) {
+        this.data = data;
+        this.remote = remote;
+        this.isGeneric = !this.remote;
+        //this.cleanup();
+    }
+    async cleanup() {
+        for (let [key, val] of Object.entries(this.relationships)) {
+            delete val.links;
+        }
+    }
+    async resolveField(datum, name) {
+        let field = this.relationships[name];
+        if (!field) return;
+        if (!field.data) return;
+        for (let obj of datum) {
+            if (obj.id == field.data.id) {
+                return obj;
+            }
+        }
+    }
+    async resolve() {
+        let presets = await Preset.getPresets(this.remote);
+        let rules = await Rule.getRules(this.remote);
+        resolveField(presets, "preset");
+        resolveField(rules, "passNext");
+        resolveField(rules, "errorNext");
+    }
+
+    chalkPrint(pad = true) {
+        let id = String(this.remote + "-" + this.id);
+        if (pad) id = id.padStart(8);
+        return chalk`{green ${id}}: {blue ${this.name}}`;
+    }
+
+    static async getRules(env) {
+        let rules = await lib.indexPathFast(env, "/workflowRules?page=1p20");
+        return new Collection(rules.map(data => new Rule(data, env)));
+    }
+}, (_applyDecoratedDescriptor$1(_class$1, "getRules", [cached], Object.getOwnPropertyDescriptor(_class$1, "getRules"), _class$1)), _class$1);
+
+
+defineAssoc(Rule, "name", "attributes.name");
+defineAssoc(Rule, "id", "id");
+defineAssoc(Rule, "relationships", "relationships");
+
+let SupplyChain = class SupplyChain {
+    constructor(startingRule) {
+        this.startingRule = startingRule;
+        this.remote = startingRule.remote;
+    }
+    async calculate() {
+        write("Getting rules... ");
+        this.allRules = await Rule.getRules(this.remote);
+        log(this.allRules.length);
+
+        write("Getting presets... ");
+        this.allPresets = await Preset.getPresets(this.remote);
+        log(this.allPresets.length);
+
+        write("Downloading code... ");
+        await Promise.all(this.allPresets.arr.map(obj => obj.downloadCode()));
+        log("Done!");
+
+        fs__default.writeFileSync("test.json", JSON.stringify(this, null, 4));
+
+        //Now we have everything we need to find a whole supply chain
+
+        let ruleQueue = [this.startingRule];
+    }
+};
+
+var _class$2;
+
+function _applyDecoratedDescriptor$2(target, property, decorators, descriptor, context) {
+    var desc = {};
+    Object['ke' + 'ys'](descriptor).forEach(function (key) {
+        desc[key] = descriptor[key];
+    });
+    desc.enumerable = !!desc.enumerable;
+    desc.configurable = !!desc.configurable;
+
+    if ('value' in desc || desc.initializer) {
+        desc.writable = true;
+    }
+
+    desc = decorators.slice().reverse().reduce(function (desc, decorator) {
+        return decorator(target, property, desc) || desc;
+    }, desc);
+
+    if (context && desc.initializer !== void 0) {
+        desc.value = desc.initializer ? desc.initializer.call(context) : void 0;
+        desc.initializer = undefined;
+    }
+
+    if (desc.initializer === void 0) {
+        Object['define' + 'Property'](target, property, desc);
+        desc = null;
+    }
+
+    return desc;
+}
+
+let Provider = (_class$2 = class Provider {
+    constructor(data, env) {
+        this.data = data;
+        this.remote = env;
+    }
+    async getEditorConfig(env, provider) {
+        if (this.editorConfig) return this.editorConfig;
+
+        return this.editorConfig = await lib.makeAPIRequest({
+            env: this.remote,
+            path_full: this.data.links.editorConfig
+        });
+    }
+    static async getProviders(env) {
+        let providers = await lib.indexPath(env, "/providerTypes?page=1p50");
+        providers = providers.sort((a, b) => {
+            return a.attributes.category.localeCompare(b.attributes.category) || a.attributes.name.localeCompare(b.attributes.name);
+        });
+        return new Collection(providers.map(x => new Provider(x, env)));
+    }
+
+    chalkPrint(pad = true) {
+        let id = String(this.id);
+        if (pad) id = id.padStart(4);
+        return chalk`{green ${id}}: {blue ${this.category}} - {green ${this.name}}`;
+    }
+}, (_applyDecoratedDescriptor$2(_class$2, "getProviders", [cached], Object.getOwnPropertyDescriptor(_class$2, "getProviders"), _class$2)), _class$2);
+
+
+defineAssoc(Provider, "id", "id");
+defineAssoc(Provider, "name", "attributes.name");
+defineAssoc(Provider, "category", "attributes.category");
+
+const rallyFunctions = {
     async bestPagintation() {
         global.silentAPI = true;
         for (let i = 10; i <= 30; i += 5) {
@@ -409,36 +668,14 @@ const rallyFunctions = (_obj = {
             await preset.uploadCodeToEnv(env, createFunc);
         }
     },
-    async getProviders(env) {
-        let providers = await lib.indexPath(env, "/providerTypes?page=1p50");
-        providers = providers.sort((a, b) => {
-            return a.attributes.category.localeCompare(b.attributes.category) || a.attributes.name.localeCompare(b.attributes.name);
-        });
-        return providers;
-    },
-    async getEditorConfig(env, provider) {
-        let config = await lib.makeAPIRequest({ env, path_full: provider.links.editorConfig });
-        let helpText$$1 = config.helpText;
-        config.helpText = () => helpText$$1;
-        return config;
-    },
-    async getRules(env) {
-        let rules = await lib.indexPathFast(env, "/workflowRules?page=1p20");
-        return rules;
-    },
-    async getPresets(env) {
-        let rules = await lib.indexPathFast(env, "/presets?page=1p20");
-        return rules;
-    },
     //Dummy test access
     async testAccess(env) {
         let result = await lib.makeAPIRequest({ env, path: "/providers?page=1p1", fullResponse: true });
-        if (!result) return 401;
         return result.statusCode;
     }
-}, (_applyDecoratedDescriptor(_obj, "getProviders", [cached], Object.getOwnPropertyDescriptor(_obj, "getProviders"), _obj), _applyDecoratedDescriptor(_obj, "getRules", [cached], Object.getOwnPropertyDescriptor(_obj, "getRules"), _obj), _applyDecoratedDescriptor(_obj, "getPresets", [cached], Object.getOwnPropertyDescriptor(_obj, "getPresets"), _obj)), _obj);
+};
 
-var version = "1.2.3";
+var version = "1.3.0";
 
 async function $api(propArray) {
     const defaults$$1 = {
@@ -489,7 +726,27 @@ async function $api(propArray) {
     return q;
 }
 async function $chalk(propArray) {
-    return { chalk: await askQuestion("Would you like chalk enabled (for coloring)?") };
+    return { chalk: await askQuestion("Would you like chalk enabled (Adds coloring)?") };
+}
+async function $restrictUAT(propArray) {
+    return { restrictUAT: await askQuestion("Would you like to protect UAT?") };
+}
+async function $repodir(propArray) {
+    return await inquirer.prompt([{
+        type: "input",
+        name: `repodir`,
+        message: `Where is your rally repository?`,
+        default: process.env["rally_repo_path"]
+    }]);
+}
+
+async function $defaultEnv(propArray) {
+    return await inquirer.prompt([{
+        type: "input",
+        name: `defaultEnv`,
+        message: `Default enviornment?`,
+        default: "DEV"
+    }]);
 }
 
 //Internal usage/testing
@@ -522,13 +779,16 @@ async function askQuestion(question) {
 var configHelpers = /*#__PURE__*/Object.freeze({
     $api: $api,
     $chalk: $chalk,
+    $restrictUAT: $restrictUAT,
+    $repodir: $repodir,
+    $defaultEnv: $defaultEnv,
     selectProvider: selectProvider,
     askQuestion: askQuestion
 });
 
-var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _dec10, _dec11, _dec12, _dec13, _dec14, _dec15, _dec16, _dec17, _dec18, _dec19, _obj$1;
+var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _dec10, _dec11, _dec12, _dec13, _dec14, _dec15, _dec16, _dec17, _dec18, _dec19, _dec20, _dec21, _dec22, _dec23, _dec24, _dec25, _dec26, _obj;
 
-function _applyDecoratedDescriptor$1(target, property, decorators, descriptor, context) {
+function _applyDecoratedDescriptor$3(target, property, decorators, descriptor, context) {
     var desc = {};
     Object['ke' + 'ys'](descriptor).forEach(function (key) {
         desc[key] = descriptor[key];
@@ -561,15 +821,11 @@ require("source-map-support").install();
 
 let argv = argparse(process.argv.slice(2), {
     string: ["file", "env"],
+    boolean: ["no-protect"],
     alias: {
         f: "file", e: "env"
     }
 });
-
-function prettyPrintProvider$1(pro) {
-    let id = String(pro.id).padStart(4);
-    return chalk`{green ${id}}: {blue ${pro.attributes.category}} - {green ${pro.attributes.name}}`;
-}
 
 function printHelp(help, short) {
     let helpText$$1 = chalk`
@@ -591,11 +847,141 @@ function printHelp(help, short) {
     return helpText$$1;
 }
 
-let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [subhelp]`), _dec3 = param("subhelp", "The name of the command to see help for"), _dec4 = helpText(`Preset related actions`), _dec5 = usage(`rally preset [action] --env <enviornment> --file [file1] --file [file2] ...`), _dec6 = param("action", "The action to perform. Can be upload or list"), _dec7 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec8 = arg("-f", "--file", "A file to act on"), _dec9 = helpText(`Rule related actions`), _dec10 = usage(`rally rule [action] --env [enviornment]`), _dec11 = param("action", "The action to perform. Only list is supported right now"), _dec12 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec13 = helpText(`List all available providers, or find one by name/id`), _dec14 = usage(`rally providers [identifier] --env [env]`), _dec15 = param("identifier", "Either the name or id of the provider"), _dec16 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec17 = helpText(`Change config for rally tools`), _dec18 = usage("rally config [key]"), _dec19 = param("key", chalk`Key you want to edit. For example, {green chalk} or {green api.DEV}`), (_obj$1 = {
-    async help() {
-        let arg$$1 = argv._[1];
+let presetsub = {
+    async before(args) {
+        this.env = args.env;
+        if (!this.env) throw new AbortError("No env supplied");
+
+        let files = args.file;
+        if (typeof files === "string") files = [files];
+        this.files = files;
+    },
+    async $list(args) {
+        log("Loading...");
+        let presets = await Preset.getPresets(this.env);
+        if (configObject.rawOutput) return presets;
+
+        log(chalk`{yellow ${presets.length}} presets on {green ${this.env}}.`);
+        for (let preset of presets) log(preset.chalkPrint());
+    },
+    async $upload(args) {
+        if (!this.files) {
+            throw new AbortError("No files provided to upload (use --file argument)");
+        }
+
+        log(chalk`Uploading {green ${this.files.length}} preset(s) to {green ${this.env}}.`);
+
+        let presets = this.files.map(path$$1 => new Preset({ path: path$$1, remote: false }));
+        await rallyFunctions.uploadPresets(this.env, presets, async preset => {
+            log("asking... ");
+            let providers = await Provider.getProviders(this.env);
+            let provider = await selectProvider(this.env, providers);
+            return preset.constructMetadata(provider.id);
+        });
+    },
+    async $diff(args) {},
+    async unknown(arg$$1, args) {
+        log(chalk`Unknown action {red ${arg$$1}} try '{white rally help preset}'`);
+    }
+};
+
+let rulesub = {
+    async before(args) {
+        this.env = args.env;
+        if (!this.env) throw new AbortError("No env supplied");
+    },
+    async $list(args) {
+        log("Loading...");
+        let rules = await Rule.getRules(this.env);
+        if (configObject.rawOutput) return rules;
+
+        log(chalk`{yellow ${rules.length}} rules on {green ${this.env}}.`);
+        for (let rule of rules) log(rule.chalkPrint());
+    },
+    async $upload(args) {},
+    async unknown(arg$$1, args) {
+        log(chalk`Unknown action {red ${arg$$1}} try '{white rally help rule}'`);
+    }
+};
+
+let supplysub = {
+    async before(args) {
+        this.env = args.env;
+        if (!this.env) throw new AbortError("No env supplied");
+    },
+    async $calc(args) {
+        let name = args._[2];
+        let rules = await Rule.getRules(this.env);
+        let start;
+        for (let rule of rules) {
+            if (rule.name.toLowerCase().includes(name.toLowerCase())) {
+                start = rule;
+                break;
+            }
+        }
+        log(chalk`Analzying supply chain: ${start.chalkPrint(false)}`);
+
+        let chain = new SupplyChain(start);
+        await chain.calculate();
+        //log(chain);
+    },
+    async $magic(args) {
+        let big = require("fs").readFileSync("test.json");
+        big = JSON.parse(big);
+
+        log(big.remote);
+        let presets = big.allPresets.arr.map(obj => {
+            let preset = new Preset({
+                data: obj.data, remote: big.remote
+            });
+            preset.code = obj._code;
+            return preset;
+        });
+        Preset.getPresets.cachePush([big.remote], new Collection(presets));
+
+        let rules = big.allRules.arr.map(obj => {
+            let rule = new Rule(obj.data, big.remote);
+            rule.code = obj._code;
+            return rule;
+        });
+        Rule.getRules.cachePush([big.remote], new Collection(rules));
+
+        return await this.$calc(args);
+    },
+    async unknown(arg$$1, args) {
+        log(chalk`Unknown action {red ${arg$$1}} try '{white rally help supply}'`);
+    }
+};
+
+function subCommand(object) {
+    object = _extends({
+        before() {}, after() {}, unknown() {}
+    }, object);
+    return async function (args) {
+        let arg$$1 = args._[1];
+        let key = "$" + arg$$1;
+        let ret;
+        if (object[key]) {
+            await object.before(args);
+            ret = await object[key](args);
+            await object.after(args);
+        } else {
+            object.unknown(arg$$1, args);
+        }
+        return ret;
+    };
+}
+
+let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [subhelp]`), _dec3 = param("subhelp", "The name of the command to see help for"), _dec4 = helpText(`Preset related actions`), _dec5 = usage(`rally preset [action] --env <enviornment> --file [file1] --file [file2] ...`), _dec6 = param("action", "The action to perform. Can be upload or list"), _dec7 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec8 = arg("-f", "--file", "A file to act on"), _dec9 = helpText(`Rule related actions`), _dec10 = usage(`rally rule [action] --env [enviornment]`), _dec11 = param("action", "The action to perform. Only list is supported right now"), _dec12 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec13 = helpText(`supply chain related actions`), _dec14 = usage(`rally supply [action] --env [enviornment]`), _dec15 = param("action", "The action to perform."), _dec16 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec17 = helpText(`List all available providers, or find one by name/id`), _dec18 = usage(`rally providers [identifier] --env [env] --raw`), _dec19 = param("identifier", "Either the name or id of the provider"), _dec20 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec21 = arg("~", "--raw", "Raw output of command. If [identifier] is given, then print editorConfig too"), _dec22 = helpText(`Change config for rally tools`), _dec23 = usage("rally config [key] --set [value] --raw"), _dec24 = param("key", chalk`Key you want to edit. For example, {green chalk} or {green api.DEV}`), _dec25 = arg("~", "--set", "If this value is given, no interactive prompt will launch and the config option will change."), _dec26 = arg("~", "--raw", "Raw output of json config"), (_obj = {
+    async help(args) {
+        let arg$$1 = args._[1];
         if (arg$$1) {
-            log(printHelp(helpEntries[arg$$1]));
+            let help = helpEntries[arg$$1];
+            if (!help) {
+                log(chalk`No help found for '{red ${arg$$1}}'`);
+            } else {
+                log(printHelp(helpEntries[arg$$1]));
+            }
         } else {
             for (let helpArg in helpEntries) {
                 log(printHelp(helpEntries[helpArg], true));
@@ -609,78 +995,48 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
     },
 
     async preset(args) {
-        let env = args.env;
-        if (!env) return errorLog("No env supplied.");
-        let arg$$1 = argv._[1];
-        if (arg$$1 === "upload") {
-            let files = args.file;
-            if (!files) {
-                throw new AbortError("No files provided to upload (use --file argument)");
-            }
-            if (typeof files === "string") files = [files];
-            log(chalk`Uploading {green ${files.length}} preset(s) to {green ${env}}.`);
-
-            let presets = files.map(path$$1 => new Preset({ path: path$$1, remote: false }));
-            await rallyFunctions.uploadPresets(args.env, presets, async preset => {
-                log("asking... ");
-                let providers = await rallyFunctions.getProviders(env);
-                let provider = await selectProvider(env, providers);
-                return preset.constructMetadata(provider.id);
-            });
-        } else if (arg$$1 === "list") {
-            log("Loading...");
-            let presets = await rallyFunctions.getPresets(env);
-            log(chalk`{yellow ${presets.length}} presets on {green ${env}}.`);
-            for (let data of presets) log(new Preset({ data, remote: env }).chalkPrint());
-        } else {
-            log(chalk`Unknown action {red ${arg$$1}} try '{white rally help preset}'`);
-        }
-        //log(presets);
+        return subCommand(presetsub)(args);
     },
 
     async rule(args) {
-        let env = args.env;
-        if (!env) return errorLog("No env supplied.");
-        let arg$$1 = argv._[1];
+        return subCommand(rulesub)(args);
+    },
 
-        if (arg$$1 === "list") {
-            log("Loading...");
-            let rules = await rallyFunctions.getRules(env);
-            log(chalk`{yellow ${rules.length}} rules on {green ${env}}.`);
-            for (let data of rules) log(new Rule(data, env).chalkPrint());
-        } else {
-            log(chalk`Unknown action {red ${arg$$1}} try '{white rally help rule}'`);
-        }
+    async supply(args) {
+        return subCommand(supplysub)(args);
     },
 
     async providers(args) {
         let env = args.env;
         if (!env) return errorLog("No env supplied.");
-        let ident = argv._[1];
+        let ident = args._[1];
 
-        let providers = await rallyFunctions.getProviders(env);
+        let providers = await Provider.getProviders(env);
 
         if (ident) {
-            let pro = providers.find(x => x.id == ident || x.attributes.name.includes(ident));
+            let pro = providers.find(x => x.id == ident || x.name.includes(ident));
             if (!pro) {
                 log(chalk`Couldn't find provider by {green ${ident}}`);
             } else {
-                log(prettyPrintProvider$1(pro));
-                log((await rallyFunctions.getEditorConfig(env, pro)));
+                log(pro.chalkPrint(false));
+                log((await pro.getEditorConfig()));
+                if (args.raw) return pro;
             }
         } else {
-            for (let pro of providers) log(prettyPrintProvider$1(pro));
+            if (args.raw) return providers;
+            for (let pro of providers) log(pro.chalkPrint());
         }
     },
 
     async config(args) {
-        let prop = argv._[1];
+        let prop = args._[1];
         let propArray = prop && prop.split(".");
 
         //if(!await configHelpers.askQuestion(`Would you like to create a new config file in ${configFile}`)) return;
         let newConfigObject;
 
         if (!prop) {
+            if (configObject.rawOutput) return configObject;
             log("Creating new config");
             newConfigObject = _extends({}, configObject);
             for (let helperName in configHelpers) {
@@ -690,36 +1046,41 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
             }
         } else {
             log(chalk`Editing option {green ${prop}}`);
-            let ident = "$" + propArray[0];
-
-            if (configHelpers[ident]) {
-                newConfigObject = _extends({}, configObject, (await configHelpers[ident](propArray)));
+            if (args.set) {
+                newConfigObject = _extends({}, configObject, {
+                    [prop]: args.set
+                });
             } else {
-                log(chalk`No helper for {red ${ident}}`);
-                return;
+                let ident = "$" + propArray[0];
+
+                if (configHelpers[ident]) {
+                    newConfigObject = _extends({}, configObject, (await configHelpers[ident](propArray)));
+                } else {
+                    log(chalk`No helper for {red ${ident}}`);
+                    return;
+                }
             }
         }
+
+        newConfigObject.hasConfig = true;
 
         //Create readable json and make sure the user is ok with it
         let newConfig = JSON.stringify(newConfigObject, null, 4);
         log(newConfig);
 
-        if (!(await askQuestion("Write this config to disk?"))) return;
-        fs.writeFileSync(configFile, newConfig);
+        //-y or --set will make this not prompt
+        if (!args.y && !args.set && !(await askQuestion("Write this config to disk?"))) return;
+        fs.writeFileSync(configFile, newConfig, { mode: 0o600 });
         log(chalk`Created file {green ${configFile}}.`);
-
-        if (!(await askQuestion("Chmod to 600"))) return;
-        fs.chmodSync(configFile, "600");
-        log(chalk`Changed file to user r/w only`);
     }
-}, (_applyDecoratedDescriptor$1(_obj$1, "help", [_dec, _dec2, _dec3], Object.getOwnPropertyDescriptor(_obj$1, "help"), _obj$1), _applyDecoratedDescriptor$1(_obj$1, "preset", [_dec4, _dec5, _dec6, _dec7, _dec8], Object.getOwnPropertyDescriptor(_obj$1, "preset"), _obj$1), _applyDecoratedDescriptor$1(_obj$1, "rule", [_dec9, _dec10, _dec11, _dec12], Object.getOwnPropertyDescriptor(_obj$1, "rule"), _obj$1), _applyDecoratedDescriptor$1(_obj$1, "providers", [_dec13, _dec14, _dec15, _dec16], Object.getOwnPropertyDescriptor(_obj$1, "providers"), _obj$1), _applyDecoratedDescriptor$1(_obj$1, "config", [_dec17, _dec18, _dec19], Object.getOwnPropertyDescriptor(_obj$1, "config"), _obj$1)), _obj$1));
+}, (_applyDecoratedDescriptor$3(_obj, "help", [_dec, _dec2, _dec3], Object.getOwnPropertyDescriptor(_obj, "help"), _obj), _applyDecoratedDescriptor$3(_obj, "preset", [_dec4, _dec5, _dec6, _dec7, _dec8], Object.getOwnPropertyDescriptor(_obj, "preset"), _obj), _applyDecoratedDescriptor$3(_obj, "rule", [_dec9, _dec10, _dec11, _dec12], Object.getOwnPropertyDescriptor(_obj, "rule"), _obj), _applyDecoratedDescriptor$3(_obj, "supply", [_dec13, _dec14, _dec15, _dec16], Object.getOwnPropertyDescriptor(_obj, "supply"), _obj), _applyDecoratedDescriptor$3(_obj, "providers", [_dec17, _dec18, _dec19, _dec20, _dec21], Object.getOwnPropertyDescriptor(_obj, "providers"), _obj), _applyDecoratedDescriptor$3(_obj, "config", [_dec22, _dec23, _dec24, _dec25, _dec26], Object.getOwnPropertyDescriptor(_obj, "config"), _obj)), _obj));
 
 async function noCommand() {
     write(chalk`
-Rally Tools {yellow v${version}} CLI
+Rally Tools {yellow v${version} (alpha)} CLI
 by John Schmidt <John_Schmidt@discovery.com>
 `);
-    if (!configObject) {
+    if (!configObject.hasConfig) {
         write(chalk`
 It looks like you haven't setup the config yet. Please run '{green rally config}'.
 `);
@@ -727,18 +1088,24 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
     }
     for (let env of ["UAT", "DEV", "PROD"]) {
         //Test access. Returns HTTP response code
-        let result = await rallyFunctions.testAccess(env);
+        let resultStr;
+        try {
+            let result = await rallyFunctions.testAccess(env);
 
-        //Create a colored display and response
-        let resultStr = "{yellow ${result} <unknown>";
-        if (result === 200) resultStr = chalk`{green 200 OK}`;else if (result === 401) resultStr = chalk`{red 401 No Access}`;else if (result >= 500) resultStr = chalk`{yellow ${result} API Down?}`;
+            //Create a colored display and response
+            resultStr = "{yellow ${result} <unknown>";
+            if (result === 200) resultStr = chalk`{green 200 OK}`;else if (result === 401) resultStr = chalk`{red 401 No Access}`;else if (result >= 500) resultStr = chalk`{yellow ${result} API Down?}`;
+        } catch (e) {
+            if (!e instanceof UnconfiguredEnvError) throw e;
+            resultStr = chalk`{yellow Unconfigured}`;
+        }
 
         log(chalk`   ${env}: ${resultStr}`);
     }
 }
 
 async function $main() {
-    chalk.enabled = configObject ? configObject.chalk : true;
+    chalk.enabled = configObject.hasConfig ? configObject.chalk : true;
     if (chalk.level === 0 || !chalk.enabled) {
         let force = argv["force-color"];
         if (force) {
@@ -751,6 +1118,18 @@ async function $main() {
         }
     }
 
+    configObject.dangerModify = argv["no-protect"];
+    if (argv["raw"]) {
+        configObject.rawOutput = true;
+        global.log = () => {};
+        global.errorLog = () => {};
+        global.write = () => {};
+    }
+
+    if (configObject.defaultEnv) {
+        argv.env = argv.env || configObject.defaultEnv;
+    }
+
     let func = argv._[0];
     if (cli[func]) {
         try {
@@ -758,7 +1137,7 @@ async function $main() {
             let ret = await cli[func](argv);
             if (ret) {
                 write(chalk.white("CLI returned: "));
-                log(ret);
+                console.log(JSON.stringify(ret, null, 4));
             }
         } catch (e) {
             if (e instanceof AbortError) {

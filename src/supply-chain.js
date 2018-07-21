@@ -21,14 +21,14 @@ export default class SupplyChain{
         await Promise.all(this.allPresets.arr.map(obj => obj.downloadCode()));
         log("Done!");
 
-        fs.writeFileSync("test.json", JSON.stringify(this, null, 4))
+        //fs.writeFileSync("test.json", JSON.stringify(this, null, 4))
 
         //Now we have everything we need to find a whole supply chain
 
         let ruleQueue = [this.startingRule];
         let presetQueue = [];
         for(let currentRule of ruleQueue){
-            log(await currentRule.resolve());
+            let {eNext, pNext, preset} = await currentRule.resolve();
         }
     }
 }

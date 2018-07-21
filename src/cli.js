@@ -143,7 +143,6 @@ let supplysub = {
             let rule = new Rule(
                 obj.data, big.remote
             );
-            rule.code = obj._code;
             return rule;
         });
         Rule.getRules.cachePush([big.remote], new Collection(rules));
@@ -310,6 +309,9 @@ let cli = {
         writeFileSync(configFile, newConfig, {mode: 0o600});
         log(chalk`Created file {green ${configFile}}.`);
     },
+    noop(){
+        return true;
+    }
 };
 
 async function noCommand(){

@@ -1,3 +1,5 @@
+require("source-map-support").install();
+
 import {lib} from "./rally-tools.js";
 import {cached} from "./decorators.js";
 

@@ -34,7 +34,7 @@ export default {
         json(),
         babel({
             presets: [
-                ["env", {
+                ["@babel/env", {
                     "targets": {
                         "node": "10.0.0",
                     },
@@ -42,9 +42,8 @@ export default {
                 }]
             ],
             plugins: [
-                "transform-decorators-legacy",
-                "transform-object-rest-spread",
-                "external-helpers",
+                ["@babel/proposal-decorators", {legacy: true}],
+                "@babel/proposal-optional-chaining",
             ],
         }),
     ],

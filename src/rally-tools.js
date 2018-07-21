@@ -10,7 +10,7 @@ global.errorLog = text => log(chalk.red(text));
 export class lib{
     static async makeAPIRequest({env, path, path_full, payload, body, json = true, method = "GET", qs, headers = {}, fullResponse = false}){
         //Keys are defined in enviornment variables
-        let config = configObject.api[env];
+        let config = configObject?.api?.[env];
         if(!config) {
             throw new UnconfiguredEnvError(env);
         };

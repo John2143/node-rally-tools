@@ -17,8 +17,7 @@ class Rule{
     }
     resolveField(datum, name){
         let field = this.relationships[name];
-        if(!field) return;
-        if(!field.data) return;
+        if(!field?.data) return;
 
         return datum.findById(field.data.id);
     }

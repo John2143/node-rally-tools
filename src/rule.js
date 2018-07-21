@@ -15,22 +15,21 @@ class Rule{
             delete val.links;
         }
     }
-    async resolveField(datum, name){
+    resolveField(datum, name){
         let field = this.relationships[name];
         if(!field) return;
         if(!field.data) return;
-        for(let obj of datum){
-            if(obj.id == field.data.id){
-                return obj;
-            }
-        }
+
+        return datum.findById(field.data.id);
     }
     async resolve(){
         let presets = await Preset.getPresets(this.remote);
         let rules = await Rule.getRules(this.remote);
-        resolveField(presets, "preset");
-        resolveField(rules, "passNext");
-        resolveField(rules, "errorNext");
+        let preset = this.resolveField(presets, "preset");
+        let pNext  = this.resolveField(rules, "passNext");
+        let eNext  = this.resolveField(rules, "errorNext");
+
+        return {preset, pNext, eNext};
     }
 
     chalkPrint(pad=true){

@@ -204,6 +204,9 @@ let Collection = class Collection {
     findByNameContains(namec) {
         return this.arr.find(x => x.name.includes(name));
     }
+    get length() {
+        return this.arr.length;
+    }
 };
 
 //these are the help entries for each command
@@ -529,22 +532,21 @@ let Rule = (_class$1 = class Rule {
             delete val.links;
         }
     }
-    async resolveField(datum, name) {
+    resolveField(datum, name) {
         let field = this.relationships[name];
         if (!field) return;
         if (!field.data) return;
-        for (let obj of datum) {
-            if (obj.id == field.data.id) {
-                return obj;
-            }
-        }
+
+        return datum.findById(field.data.id);
     }
     async resolve() {
         let presets = await Preset.getPresets(this.remote);
         let rules = await Rule.getRules(this.remote);
-        resolveField(presets, "preset");
-        resolveField(rules, "passNext");
-        resolveField(rules, "errorNext");
+        let preset = this.resolveField(presets, "preset");
+        let pNext = this.resolveField(rules, "passNext");
+        let eNext = this.resolveField(rules, "errorNext");
+
+        return { preset, pNext, eNext };
     }
 
     chalkPrint(pad = true) {
@@ -587,6 +589,9 @@ let SupplyChain = class SupplyChain {
         //Now we have everything we need to find a whole supply chain
 
         let ruleQueue = [this.startingRule];
+        for (let currentRule of ruleQueue) {
+            log((await currentRule.resolve()));
+        }
     }
 };
 
@@ -675,7 +680,7 @@ const rallyFunctions = {
     }
 };
 
-var version = "1.3.0";
+var version = "1.4.1";
 
 async function $api(propArray) {
     const defaults$$1 = {

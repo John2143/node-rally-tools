@@ -28,7 +28,7 @@ export default class SupplyChain{
         let ruleQueue = [this.startingRule];
         let presetQueue = [];
         for(let currentRule of ruleQueue){
-            currentRule
+            log(await currentRule.resolve());
         }
     }
 }

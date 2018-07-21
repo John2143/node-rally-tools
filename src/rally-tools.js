@@ -168,4 +168,5 @@ export class Collection{
     findByNameContains(namec){
         return this.arr.find(x => x.name.includes(name));
     }
+    get length(){return this.arr.length;}
 }

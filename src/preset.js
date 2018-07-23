@@ -44,7 +44,7 @@ class Preset extends RallyBase{
         delete this.attributes["updatedAt"];
     }
     async acclimatize(env){
-        let providers = await Providers.getProviders(env);
+        let providers = await Provider.getProviders(env);
         let ptype = this.relationships["providerType"].data;
         let provider = providers.findByName(ptype.name);
         ptype.id = provider.id;
@@ -132,6 +132,9 @@ class Preset extends RallyBase{
     get localmetadatapath(){
         return path.join(configObject.repodir, "silo-metadata", this.name + ".json");
     }
+    get immutable(){
+        return this.name.includes("Constant");
+    }
     async uploadPresetData(env, id){
         let res = await lib.makeAPIRequest({
             env, path: `/presets/${id}/providerData`,
@@ -141,6 +144,11 @@ class Preset extends RallyBase{
     }
     async uploadCodeToEnv(env, includeMetadata){
         write(chalk`Uploading {green ${this.name}} to {green ${env}}: `);
+
+        if(this.immutable){
+            log(chalk`{magenta IMMUTABLE}. Nothing to do.`);
+            return;
+        }
 
         //First query the api to see if this already exists.
         let res = await lib.makeAPIRequest({
@@ -168,7 +176,7 @@ class Preset extends RallyBase{
             write("Posting to create preset... ");
             let res = await lib.makeAPIRequest({
                 env, path: `/presets`, method: "POST",
-                payload: {data: metadata},
+                payload: metadata,
             });
             let id = res.data.id;
             write(chalk`Created id {green ${id}}... Uploading Code... `);

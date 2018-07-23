@@ -5,14 +5,14 @@ import babel from "rollup-plugin-babel";
 
 import packagejson from "./package.json";
 
-export default {
-    input: "src/cli.js",
+let config = {
+    input: "-----",
     external: [
         ...Object.keys(packagejson.dependencies),
         "path", "fs", "chalk", "os",
     ],
     output: {
-        file: "bundle.js",
+        file: "----",
         format: "cjs",
 
         banner: `
@@ -42,7 +42,7 @@ const importLazy = require("import-lazy")(require);
             presets: [
                 ["@babel/env", {
                     "targets": {
-                        "node": "10.0.0",
+                        "node": "8.11.3",
                     },
                     "modules": false,
                 }]
@@ -54,3 +54,17 @@ const importLazy = require("import-lazy")(require);
         }),
     ],
 }
+
+function newConfig(input, output){
+    let newOut = {...config.output};
+    newOut.file = output;
+    let c = {
+        ...config,
+        input, output: newOut,
+    }
+    return c;
+}
+
+export default [
+    newConfig("src/cli.js", "./bundle.js"),
+];

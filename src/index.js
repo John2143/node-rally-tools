@@ -9,6 +9,8 @@ export {default as Rule} from "./rule.js";
 export {default as Provider} from "./providers.js";
 export {default as Notification} from "./notification.js";
 
+export * from "./config.js";
+
 export * from "./rally-tools.js";
 
 export const rallyFunctions = {

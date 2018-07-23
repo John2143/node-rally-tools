@@ -7,7 +7,6 @@ global.log = text => console.log(text);
 global.write = text => process.stdout.write(text);
 global.errorLog = text => log(chalk.red(text));
 
-
 export class lib{
     static async makeAPIRequest({env, path, path_full, payload, body, json = true, method = "GET", qs, headers = {}, fullResponse = false}){
         //Keys are defined in enviornment variables
@@ -17,7 +16,7 @@ export class lib{
         };
         //Protect PROD and UAT(?) if the --no-protect flag was not set.
         if(method !== "GET" && !configObject.dangerModify){
-            if(env === "UAT" && config.restrictUAT || env === "PROD"){
+            if(env === "UAT" && configObject.restrictUAT || env === "PROD"){
                 throw new ProtectedEnvError(env);
             }
         }
@@ -28,7 +27,9 @@ export class lib{
 
 
         path = path_full || rally_api + path;
-        body = body || payload && JSON.stringify(payload);
+        if(payload){
+            body = JSON.stringify(payload);
+        }
 
         if(global.logAPI){
             log(chalk`${method} @ ${path}`);
@@ -48,6 +49,7 @@ export class lib{
                 ...headers,
             },
             simple: false, resolveWithFullResponse: true,
+            payloadOBJ: payload
         };
         let response = await rp(requestOptions);
 
@@ -57,7 +59,12 @@ export class lib{
         if(fullResponse){
             return response;
         }else if(json){
-            return JSON.parse(response.body);
+            try{
+                return JSON.parse(response.body);
+            }catch(e){
+                log(response.body);
+                throw new AbortError("Body is not valid json: ");
+            }
         }else{
             return response.body;
         }
@@ -134,7 +141,7 @@ export class APIError extends Error{
     constructor(response, opts){
         super(chalk`
 {reset Request returned} {yellow ${response.statusCode}}{
-{green ${JSON.stringify(opts)}}
+{green ${JSON.stringify(opts, null, 4)}}
 {reset ${response.body}}
         `);
         Error.captureStackTrace(this, this.constructor);

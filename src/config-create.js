@@ -1,5 +1,5 @@
-import inquirer from "inquirer";
 import {configObject} from "./config.js";
+const inquirer = importLazy("inquirer");
 
 export async function $api(propArray){
     const defaults = {

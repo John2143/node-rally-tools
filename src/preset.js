@@ -1,8 +1,9 @@
 import fs from "fs";
 import {lib, AbortError, Collection} from  "./rally-tools.js";
 import {basename} from "path";
-import {cached} from "./decorators.js";
+import {cached, defineAssoc} from "./decorators.js";
 import {configObject} from "./config.js";
+import Provider from "./providers.js";
 
 let presetShell = {
     "attributes": {},
@@ -13,6 +14,7 @@ class Preset{
     constructor({path, remote, data}){
         this.remote = remote
         if(!this.remote){
+            this.data = Object.assign({}, presetShell);
             this.path = path;
             try{
                 this.code = this.getLocalCode();
@@ -21,12 +23,33 @@ class Preset{
                 throw new AbortError("Could not load code of local file");
             }
             this.name = this.parseFilenameForName() || this.parseCodeForName();
+            this.isGeneric = true;
+            this.ext = "py";
         }else{
-            this.name = data.attributes.name;
-            this.id = data.id;
             this.data = data;
+            //this.name = data.attributes.name;
+            //this.id = data.id;
+            this.isGeneric = false;
         }
     }
+    cleanup(){
+        delete this.relationships.organization;
+        delete this.data.id;
+        delete this.data.links;
+    }
+    async resolve(){
+        //TODO resolve protype
+    }
+    async save(){
+        if(!this.isGeneric){
+            await this.resolve();
+        }
+
+        this.cleanup();
+        fs.writeFileSync(this.localmetadatapath, JSON.stringify(this.data, null, 4));
+        fs.writeFileSync(this.localpath, this.code);
+    }
+
     shellData(){
         let data = Object.assign({}, presetShell);
         return data;
@@ -44,8 +67,9 @@ class Preset{
     }
     set code(v){this._code = v;}
 
-    chalkPrint(){
-        let id = String(this.remote && this.remote + "-" + this.id || "Local").padStart(8);
+    chalkPrint(pad=true){
+        let id = String("P-" + (this.remote && this.remote + "-" + this.id) || "Local")
+        if(pad) id = id.padStart(10);
         return chalk`{green ${id}}: {blue ${this.name}}`;
     }
     parseFilenameForName(){
@@ -65,22 +89,15 @@ class Preset{
         if(!this.code) return [];
 
         return strings.filter(str => {
-            let regex = new Regexp(str);
+            let regex = new RegExp(str);
             return !!this.code.match(regex);
         });
     }
-    getPath(){
-        return `${process.env.rally_repo_path}/silo-presets/${this.name}.${this.ext}`;
+    get localpath(){
+        return `${configObject.repodir}/silo-presets/${this.name}.${this.ext}`;
     }
-    getMetadataPath(){
-        return `${process.env.rally_repo_path}/silo-metadata/${this.name}.json`;
-    }
-    codeBinary(){
-        if(this.code.startsWith("=BASE64=")){
-            return bota(this.code.substring(8));
-        }else{
-            return this.code;
-        }
+    get localmetadatapath(){
+        return `${configObject.repodir}/silo-metadata/${this.name}.json`;
     }
     async uploadPresetData(env, id){
         let res = await lib.makeAPIRequest({
@@ -138,15 +155,21 @@ class Preset{
         };
     }
 
-    getMetadata(){}
+    getMetadata(){
+    }
     getLocalCode(){
         return fs.readFileSync(this.path, "utf-8");
     }
+
 
     @cached static async getPresets(env){
         let data = await lib.indexPathFast(env, "/presets?page=1p20");
         return new Collection(data.map(dat => new Preset({remote: env, data: dat})));
     }
 }
+
+defineAssoc(Preset, "name", "attributes.name");
+defineAssoc(Preset, "id", "id");
+defineAssoc(Preset, "relationships", "relationships");
 
 export default Preset;

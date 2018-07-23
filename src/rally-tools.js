@@ -1,6 +1,6 @@
-import rp from "request-promise";
 import chalk from "chalk";
 import {configObject} from "./config.js";
+const rp = importLazy("request-promise")
 
 global.chalk = chalk;
 global.log = text => console.log(text);
@@ -140,14 +140,14 @@ export class APIError extends Error{
 
 export class UnconfiguredEnvError extends AbortError{
     constructor(env){
-        super(env);
+        super("Unconfigured enviornment: " + env);
         this.name = "Unconfigured Env Error";
     }
 }
 
 export class ProtectedEnvError extends AbortError{
     constructor(env){
-        super(env);
+        super("Protected enviornment: " + env);
         this.name = "Protected Env Error";
     }
 }
@@ -165,8 +165,11 @@ export class Collection{
     findByName(name){
         return this.arr.find(x => x.name == name);
     }
-    findByNameContains(namec){
+    findByNameContains(name){
         return this.arr.find(x => x.name.includes(name));
+    }
+    log(){
+        for(let d of this) log(d.chalkPrint(true));
     }
     get length(){return this.arr.length;}
 }

@@ -1,13 +1,12 @@
 require("source-map-support").install();
 
 import argparse from "minimist";
+import * as allIndexBundle from "./index.js"
 import {
     rallyFunctions as funcs,
     Preset, Rule, SupplyChain, Provider,
-    AbortError, UnconfiguredEnvError, Collection
+    AbortError, UnconfiguredEnvError, Collection,
 } from "./index.js";
-
-import inquirer from "inquirer";
 
 import {version as packageVersion} from "../package.json";
 import {configFile, configObject} from "./config.js";
@@ -97,8 +96,6 @@ let rulesub = {
         log(chalk`{yellow ${rules.length}} rules on {green ${this.env}}.`);
         for(let rule of rules) log(rule.chalkPrint());
     },
-    async $upload(args){
-    },
     async unknown(arg, args){
         log(chalk`Unknown action {red ${arg}} try '{white rally help rule}'`);
     },
@@ -110,26 +107,29 @@ let supplysub = {
         if(!this.env) throw new AbortError("No env supplied");
     },
     async $calc(args){
-        let name = args._[2];
-        let rules = await Rule.getRules(this.env);
-        let start;
-        for(let rule of rules){
-            if(rule.name.toLowerCase().includes(name.toLowerCase())){
-                start = rule;
-                break;
-            }
+        let name = args._.shift();
+        if(!name){
+            throw new AbortError("No starting rule supplied");
         }
+
+        let rules = await Rule.getRules(this.env);
+        let start = rules.findByNameContains(name);
+
+        if(!start){
+            throw new AbortError(chalk`No starting rule found by name {blue ${name}}`);
+        }
+
         log(chalk`Analzying supply chain: ${start.chalkPrint(false)}`);
 
         let chain = new SupplyChain(start);
         await chain.calculate();
-        //log(chain);
+        await start.save();
+        await chain.presets.arr[0].save();
     },
     async $magic(args){
         let big = require("fs").readFileSync("test.json");
         big = JSON.parse(big);
 
-        log(big.remote);
         let presets = big.allPresets.arr.map(obj => {
             let preset = new Preset({
                 data: obj.data, remote: big.remote
@@ -160,7 +160,7 @@ function subCommand(object){
         ...object
     };
     return async function(args){
-        let arg = args._[1];
+        let arg = args._.shift();
         let key = "$" + arg;
         let ret;
         if(object[key]){
@@ -168,6 +168,7 @@ function subCommand(object){
             ret = await object[key](args);
             await object.after(args);
         }else{
+            if(arg === undefined) arg = "(None)";
             object.unknown(arg, args);
         }
         return ret;
@@ -179,7 +180,7 @@ let cli = {
     @usage(`rally help [subhelp]`)
     @param("subhelp", "The name of the command to see help for")
     async help(args){
-        let arg = args._[1];
+        let arg = args._.shift();
         if(arg){
             let help = helpEntries[arg];
             if(!help){
@@ -232,18 +233,28 @@ let cli = {
     async providers(args){
         let env = args.env;
         if(!env) return errorLog("No env supplied.");
-        let ident = args._[1];
+        let ident = args._.shift();
 
         let providers = await Provider.getProviders(env);
 
         if(ident){
-            let pro = providers.find(x => x.id == ident || x.name.includes(ident));
+            let pro = providers.arr.find(x => x.id == ident || x.name.includes(ident));
             if(!pro){
                 log(chalk`Couldn't find provider by {green ${ident}}`);
             }else{
                 log(pro.chalkPrint(false));
-                log(await pro.getEditorConfig());
-                if(args.raw) return pro;
+                let econfig = await pro.getEditorConfig();
+                if(args.raw){
+                    return pro;
+                }else{
+                    if(econfig.helpText.length > 100){
+                        econfig.helpText = "<too long to display>";
+                    }
+                    if(econfig.completions.length > 5){
+                        econfig.completions = "<too long to display>";
+                    }
+                    log(econfig);
+                }
             }
         }else{
             if(args.raw) return providers;
@@ -256,7 +267,7 @@ let cli = {
     @arg("~", "--set", "If this value is given, no interactive prompt will launch and the config option will change.")
     @arg("~", "--raw", "Raw output of json config")
     async config(args){
-        let prop = args._[1];
+        let prop = args._.shift();
         let propArray = prop && prop.split(".");
 
         //if(!await configHelpers.askQuestion(`Would you like to create a new config file in ${configFile}`)) return;
@@ -313,6 +324,9 @@ let cli = {
         return true;
     }
 };
+async function unknownCommand(cmd){
+    log(chalk`Unknown command {red ${cmd}}.`);
+}
 
 async function noCommand(){
     write(chalk`
@@ -371,8 +385,14 @@ async function $main(){
         argv.env = argv.env || configObject.defaultEnv;
     }
 
-    let func = argv._[0];
-    if(cli[func]){
+    if(argv["verbose"]){
+        configObject.verbose = argv["verbose"]
+    }
+
+    argv._old = argv._.slice();
+    let func = argv._.shift();
+    if(func){
+        if(!cli[func]) return await unknownCommand(func);
         try{
             //Call the cli function
             let ret = await cli[func](argv);
@@ -400,4 +420,8 @@ async function main(...args){
     }
 }
 
-main();
+if(require.main === module){
+    main();
+}else{
+    module.exports = allIndexBundle;
+}

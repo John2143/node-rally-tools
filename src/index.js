@@ -26,6 +26,10 @@ export const rallyFunctions = {
     },
     //Dummy test access
     async testAccess(env){
+        if(lib.isLocalEnv(env)){
+            //TODO
+            return true;
+        }
         let result = await lib.makeAPIRequest({env, path: "/providers?page=1p1", fullResponse: true});
         return result.statusCode;
     },

@@ -98,4 +98,12 @@ export default class SupplyChain{
         requiredNotifications.delete(undefined);
         this.notifications = [...requiredNotifications];
     }
+    async syncTo(env){
+        for(let preset of this.presets){
+            await preset.save(env);
+        }
+        for(let rule of this.rules){
+            await rule.save(env);
+        }
+    }
 }

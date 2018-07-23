@@ -123,8 +123,9 @@ let supplysub = {
 
         let chain = new SupplyChain(start);
         await chain.calculate();
-        await start.save();
-        await chain.presets.arr[0].save();
+        if(args["to"]){
+            await chain.syncTo(args["to"]);
+        }
     },
     async $magic(args){
         let big = require("fs").readFileSync("test.json");
@@ -339,17 +340,19 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
 `);
         return;
     }
-    for(let env of ["UAT", "DEV", "PROD"]){
+    for(let env of ["UAT", "DEV", "PROD", "LOCAL"]){
         //Test access. Returns HTTP response code
         let resultStr;
         try{
             let result = await funcs.testAccess(env);
 
             //Create a colored display and response
-            resultStr = "{yellow ${result} <unknown>";
+            resultStr = chalk`{yellow ${result} <unknown>}`;
             if(result === 200) resultStr = chalk`{green 200 OK}`;
             else if(result === 401) resultStr = chalk`{red 401 No Access}`;
             else if(result >= 500)  resultStr = chalk`{yellow ${result} API Down?}`;
+            else if(result === true) resultStr = chalk`{green OK}`;
+            else if(result === false) resultStr = chalk`{red BAD}`;
         }catch(e){
             if(!e instanceof UnconfiguredEnvError) throw e;
             resultStr = chalk`{yellow Unconfigured}`;

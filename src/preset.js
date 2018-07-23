@@ -1,20 +1,22 @@
-import fs from "fs";
-import {lib, AbortError, Collection} from  "./rally-tools.js";
+import {RallyBase, lib, AbortError, Collection} from  "./rally-tools.js";
 import {basename} from "path";
 import {cached, defineAssoc} from "./decorators.js";
 import {configObject} from "./config.js";
 import Provider from "./providers.js";
+
+import fs from "fs";
+import path from "path";
 
 let presetShell = {
     "attributes": {},
     "relationships": {},
 };
 
-class Preset{
+class Preset extends RallyBase{
     constructor({path, remote, data}){
+        super();
         this.remote = remote
-        if(!this.remote){
-            this.data = Object.assign({}, presetShell);
+        if(lib.isLocalEnv(this.remote)){
             this.path = path;
             try{
                 this.code = this.getLocalCode();
@@ -22,7 +24,12 @@ class Preset{
                 log(chalk`{red Node Error} e.message`);
                 throw new AbortError("Could not load code of local file");
             }
-            this.name = this.parseFilenameForName() || this.parseCodeForName();
+            let name = this.parseFilenameForName() || this.parseCodeForName();
+            try{
+                this.data = this.getLocalMetadata();
+            }catch(e){
+                this.data = Object.assign({}, presetShell);
+            }
             this.isGeneric = true;
             this.ext = "py";
         }else{
@@ -36,24 +43,47 @@ class Preset{
         delete this.relationships.organization;
         delete this.data.id;
         delete this.data.links;
+
+        delete this.attributes["createdAt"];
+        delete this.attributes["updatedAt"];
+    }
+    async acclimatize(env){
+        let providers = await Providers.getProviders(env);
+        let ptype = this.relationships["providerType"].data;
+        let provider = providers.findByName(ptype.name);
+        ptype.id = provider.id;
     }
     async resolve(){
-        //TODO resolve protype
+        if(this.isGeneric) return;
+
+        let providers = await Provider.getProviders(this.remote);
+
+        let proType = this.resolveField(providers, "providerType");
+
+        this.isGeneric = true;
+
+        return {proType};
     }
-    async save(){
+    async saveLocal(){
+        fs.writeFileSync(this.localmetadatapath, JSON.stringify(this.data, null, 4));
+        fs.writeFileSync(this.localpath, this.code);
+    }
+    async uploadRemote(env){
+        await this.uploadCodeToEnv(env, true);
+    }
+    async save(env){
         if(!this.isGeneric){
             await this.resolve();
         }
 
         this.cleanup();
-        fs.writeFileSync(this.localmetadatapath, JSON.stringify(this.data, null, 4));
-        fs.writeFileSync(this.localpath, this.code);
+        if(lib.isLocalEnv(env)){
+            await this.saveLocal();
+        }else{
+            await this.uploadRemote(env);
+        }
     }
 
-    shellData(){
-        let data = Object.assign({}, presetShell);
-        return data;
-    }
     async downloadCode(){
         if(this.code) return this.code;
         return this.code = await lib.makeAPIRequest({
@@ -62,6 +92,7 @@ class Preset{
             json: false,
         });
     }
+
     get code(){
         if(this._code) return this._code;
     }
@@ -94,10 +125,17 @@ class Preset{
         });
     }
     get localpath(){
+        return path.join(configObject.repodir, "silo-metadata", this.name + "." + this.ext);
         return `${configObject.repodir}/silo-presets/${this.name}.${this.ext}`;
     }
+    get path(){
+        if(this._path) return this._path;
+    }
+    set path(val){
+        this._path = val;
+    }
     get localmetadatapath(){
-        return `${configObject.repodir}/silo-metadata/${this.name}.json`;
+        return path.join(configObject.repodir, "silo-metadata", this.name + ".json");
     }
     async uploadPresetData(env, id){
         let res = await lib.makeAPIRequest({
@@ -106,7 +144,7 @@ class Preset{
         });
         write(chalk`response {yellow ${res.statusCode}}`);
     }
-    async uploadCodeToEnv(env, createFunction){
+    async uploadCodeToEnv(env, includeMetadata){
         write(chalk`Uploading {green ${this.name}} to {green ${env}}: `);
 
         //First query the api to see if this already exists.
@@ -119,11 +157,19 @@ class Preset{
         if(remote){
             //If it exists we can replace it
             write("replace, ");
+            if(includeMetadata){
+                await lib.makeAPIRequest({
+                    env, path: `/presets/${remote.id}`, method: "PATCH",
+                    payload: {data: {attributes: this.data.attributes, type: "presets"}},
+                });
+                write("metadata OK, ");
+            }
+
             await this.uploadPresetData(env, remote.id);
         }else{
-            //If it needs to be created then we need to ask the user for metadata
             write("create, ");
-            let metadata = await createFunction(this);
+            let metadata = {data: this.data};
+            await this.acclimatize(env);
             write("Posting to create preset... ");
             let res = await lib.makeAPIRequest({
                 env, path: `/presets`, method: "POST",
@@ -155,7 +201,8 @@ class Preset{
         };
     }
 
-    getMetadata(){
+    getLocalMetadata(){
+        return fs.readFileSync(this.localmetadatapath, "utf-8");
     }
     getLocalCode(){
         return fs.readFileSync(this.path, "utf-8");
@@ -170,6 +217,7 @@ class Preset{
 
 defineAssoc(Preset, "name", "attributes.name");
 defineAssoc(Preset, "id", "id");
+defineAssoc(Preset, "attributes", "attributes");
 defineAssoc(Preset, "relationships", "relationships");
 
 export default Preset;

@@ -212,6 +212,10 @@ class lib {
     return all;
   }
 
+  static isLocalEnv(env) {
+    return !env || env === "LOCAL" || env === "LOC";
+  }
+
 }
 class AbortError extends Error {
   constructor(message) {
@@ -224,7 +228,7 @@ class AbortError extends Error {
 class APIError extends Error {
   constructor(response, opts) {
     super(chalk$1`
-{reset Request returned} {yellow ${response.statusCode}}
+{reset Request returned} {yellow ${response.statusCode}}{
 {green ${JSON.stringify(opts)}}
 {reset ${response.body}}
         `);
@@ -274,6 +278,31 @@ class Collection {
 
   get length() {
     return this.arr.length;
+  }
+
+}
+class RallyBase {
+  constructor() {}
+
+  resolveApply(datum, dataObj) {
+    let obj = datum.findById(dataObj.id);
+
+    if (obj) {
+      dataObj.name = obj.name;
+    }
+
+    return obj;
+  }
+
+  resolveField(datum, name, isArray = false) {
+    let field = this.relationships[name];
+    if (!(field === null || field === void 0 ? void 0 : field.data)) return;
+
+    if (isArray) {
+      return field.data.map(o => this.resolveApply(datum, o));
+    } else {
+      return this.resolveApply(datum, field.data);
+    }
   }
 
 }
@@ -411,14 +440,17 @@ let Provider = (_class = class Provider {
   constructor(data, env) {
     this.data = data;
     this.remote = env;
-  }
+  } //TODO env is unused...
 
-  async getEditorConfig(env, provider) {
+
+  async getEditorConfig() {
     if (this.editorConfig) return this.editorConfig;
-    return this.editorConfig = await lib.makeAPIRequest({
+    this.editorConfig = await lib.makeAPIRequest({
       env: this.remote,
       path_full: this.data.links.editorConfig
     });
+    this.editorConfig.fileExt = await this.getFileExtension();
+    return this.editorConfig;
   }
 
   static async getProviders(env) {
@@ -427,6 +459,22 @@ let Provider = (_class = class Provider {
       return a.attributes.category.localeCompare(b.attributes.category) || a.attributes.name.localeCompare(b.attributes.name);
     });
     return new Collection(providers.map(x => new Provider(x, env)));
+  }
+
+  async getFileExtension() {
+    let config = await this.getEditorConfig();
+    let map = {
+      python: "py",
+      text: "txt",
+
+      getmap(key) {
+        if (this.name === "Aurora") return "zip";
+        if (this[key]) return this[key];
+        return key;
+      }
+
+    };
+    return map.getmap(config.lang);
   }
 
   chalkPrint(pad = true) {
@@ -445,16 +493,16 @@ let presetShell = {
   "attributes": {},
   "relationships": {}
 };
-let Preset = (_class$1 = class Preset {
+let Preset = (_class$1 = class Preset extends RallyBase {
   constructor({
     path: path$$1,
     remote,
     data
   }) {
+    super();
     this.remote = remote;
 
-    if (!this.remote) {
-      this.data = Object.assign({}, presetShell);
+    if (lib.isLocalEnv(this.remote)) {
       this.path = path$$1;
 
       try {
@@ -464,7 +512,14 @@ let Preset = (_class$1 = class Preset {
         throw new AbortError("Could not load code of local file");
       }
 
-      this.name = this.parseFilenameForName() || this.parseCodeForName();
+      let name = this.parseFilenameForName() || this.parseCodeForName();
+
+      try {
+        this.data = this.getLocalMetadata();
+      } catch (e) {
+        this.data = Object.assign({}, presetShell);
+      }
+
       this.isGeneric = true;
       this.ext = "py";
     } else {
@@ -479,24 +534,48 @@ let Preset = (_class$1 = class Preset {
     delete this.relationships.organization;
     delete this.data.id;
     delete this.data.links;
+    delete this.attributes["createdAt"];
+    delete this.attributes["updatedAt"];
   }
 
-  async resolve() {//TODO resolve protype
+  async acclimatize(env) {
+    let providers = await Providers.getProviders(env);
+    let ptype = this.relationships["providerType"].data;
+    let provider = providers.findByName(ptype.name);
+    ptype.id = provider.id;
   }
 
-  async save() {
+  async resolve() {
+    if (this.isGeneric) return;
+    let providers = await Provider.getProviders(this.remote);
+    let proType = this.resolveField(providers, "providerType");
+    this.isGeneric = true;
+    return {
+      proType
+    };
+  }
+
+  async saveLocal() {
+    fs__default.writeFileSync(this.localmetadatapath, JSON.stringify(this.data, null, 4));
+    fs__default.writeFileSync(this.localpath, this.code);
+  }
+
+  async uploadRemote(env) {
+    await this.uploadCodeToEnv(env, true);
+  }
+
+  async save(env) {
     if (!this.isGeneric) {
       await this.resolve();
     }
 
     this.cleanup();
-    fs__default.writeFileSync(this.localmetadatapath, JSON.stringify(this.data, null, 4));
-    fs__default.writeFileSync(this.localpath, this.code);
-  }
 
-  shellData() {
-    let data = Object.assign({}, presetShell);
-    return data;
+    if (lib.isLocalEnv(env)) {
+      await this.saveLocal();
+    } else {
+      await this.uploadRemote(env);
+    }
   }
 
   async downloadCode() {
@@ -543,11 +622,20 @@ let Preset = (_class$1 = class Preset {
   }
 
   get localpath() {
+    return path__default.join(configObject.repodir, "silo-metadata", this.name + "." + this.ext);
     return `${configObject.repodir}/silo-presets/${this.name}.${this.ext}`;
   }
 
+  get path() {
+    if (this._path) return this._path;
+  }
+
+  set path(val) {
+    this._path = val;
+  }
+
   get localmetadatapath() {
-    return `${configObject.repodir}/silo-metadata/${this.name}.json`;
+    return path__default.join(configObject.repodir, "silo-metadata", this.name + ".json");
   }
 
   async uploadPresetData(env, id) {
@@ -561,7 +649,7 @@ let Preset = (_class$1 = class Preset {
     write(chalk`response {yellow ${res.statusCode}}`);
   }
 
-  async uploadCodeToEnv(env, createFunction) {
+  async uploadCodeToEnv(env, includeMetadata) {
     write(chalk`Uploading {green ${this.name}} to {green ${env}}: `); //First query the api to see if this already exists.
 
     let res = await lib.makeAPIRequest({
@@ -576,11 +664,29 @@ let Preset = (_class$1 = class Preset {
     if (remote) {
       //If it exists we can replace it
       write("replace, ");
+
+      if (includeMetadata) {
+        await lib.makeAPIRequest({
+          env,
+          path: `/presets/${remote.id}`,
+          method: "PATCH",
+          payload: {
+            data: {
+              attributes: this.data.attributes,
+              type: "presets"
+            }
+          }
+        });
+        write("metadata OK, ");
+      }
+
       await this.uploadPresetData(env, remote.id);
     } else {
-      //If it needs to be created then we need to ask the user for metadata
       write("create, ");
-      let metadata = await createFunction(this);
+      let metadata = {
+        data: this.data
+      };
+      await this.acclimatize(env);
       write("Posting to create preset... ");
       let res = await lib.makeAPIRequest({
         env,
@@ -617,7 +723,9 @@ let Preset = (_class$1 = class Preset {
     };
   }
 
-  getMetadata() {}
+  getLocalMetadata() {
+    return fs__default.readFileSync(this.localmetadatapath, "utf-8");
+  }
 
   getLocalCode() {
     return fs__default.readFileSync(this.path, "utf-8");
@@ -634,6 +742,7 @@ let Preset = (_class$1 = class Preset {
 }, (_applyDecoratedDescriptor(_class$1, "getPresets", [cached], Object.getOwnPropertyDescriptor(_class$1, "getPresets"), _class$1)), _class$1);
 defineAssoc(Preset, "name", "attributes.name");
 defineAssoc(Preset, "id", "id");
+defineAssoc(Preset, "attributes", "attributes");
 defineAssoc(Preset, "relationships", "relationships");
 
 var _class$2;
@@ -664,8 +773,9 @@ defineAssoc(Notification, "address", "attributes.address");
 defineAssoc(Notification, "type", "attributes.type");
 
 var _class$3;
-let Rule = (_class$3 = class Rule {
+let Rule = (_class$3 = class Rule extends RallyBase {
   constructor(data, remote) {
+    super();
     this.data = data;
     this.remote = remote;
     this.isGeneric = !this.remote;
@@ -699,28 +809,7 @@ let Rule = (_class$3 = class Rule {
   }
 
   get localpath() {
-    return path__default.join(configObject.repodir, this.name + ".json");
-  }
-
-  resolveApply(datum, dataObj) {
-    let obj = datum.findById(dataObj.id);
-
-    if (obj) {
-      dataObj.name = obj.name;
-    }
-
-    return obj;
-  }
-
-  resolveField(datum, name, isArray = false) {
-    let field = this.relationships[name];
-    if (!(field === null || field === void 0 ? void 0 : field.data)) return;
-
-    if (isArray) {
-      return field.data.map(o => this.resolveApply(datum, o));
-    } else {
-      return this.resolveApply(datum, field.data);
-    }
+    return path__default.join(configObject.repodir, "silo-rules", this.name + ".json");
   }
 
   async resolve() {
@@ -847,6 +936,16 @@ class SupplyChain {
     this.notifications = [...requiredNotifications];
   }
 
+  async syncTo(env) {
+    for (let preset of this.presets) {
+      await preset.save(env);
+    }
+
+    for (let rule of this.rules) {
+      await rule.save(env);
+    }
+  }
+
 }
 
 require("source-map-support").install();
@@ -869,6 +968,11 @@ const rallyFunctions = {
 
   //Dummy test access
   async testAccess(env) {
+    if (lib.isLocalEnv(env)) {
+      //TODO
+      return true;
+    }
+
     let result = await lib.makeAPIRequest({
       env,
       path: "/providers?page=1p1",
@@ -890,7 +994,8 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   APIError: APIError,
   UnconfiguredEnvError: UnconfiguredEnvError,
   ProtectedEnvError: ProtectedEnvError,
-  Collection: Collection
+  Collection: Collection,
+  RallyBase: RallyBase
 });
 
 var version = "1.4.1";
@@ -1135,8 +1240,10 @@ let supplysub = {
     log(chalk`Analzying supply chain: ${start.chalkPrint(false)}`);
     let chain = new SupplyChain(start);
     await chain.calculate();
-    await start.save();
-    await chain.presets.arr[0].save();
+
+    if (args["to"]) {
+      await chain.syncTo(args["to"]);
+    }
   },
 
   async $magic(args) {
@@ -1345,15 +1452,15 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
     return;
   }
 
-  for (let env of ["UAT", "DEV", "PROD"]) {
+  for (let env of ["UAT", "DEV", "PROD", "LOCAL"]) {
     //Test access. Returns HTTP response code
     let resultStr;
 
     try {
       let result = await rallyFunctions.testAccess(env); //Create a colored display and response
 
-      resultStr = "{yellow ${result} <unknown>";
-      if (result === 200) resultStr = chalk`{green 200 OK}`;else if (result === 401) resultStr = chalk`{red 401 No Access}`;else if (result >= 500) resultStr = chalk`{yellow ${result} API Down?}`;
+      resultStr = chalk`{yellow ${result} <unknown>}`;
+      if (result === 200) resultStr = chalk`{green 200 OK}`;else if (result === 401) resultStr = chalk`{red 401 No Access}`;else if (result >= 500) resultStr = chalk`{yellow ${result} API Down?}`;else if (result === true) resultStr = chalk`{green OK}`;else if (result === false) resultStr = chalk`{red BAD}`;
     } catch (e) {
       if (!e instanceof UnconfiguredEnvError) throw e;
       resultStr = chalk`{yellow Unconfigured}`;

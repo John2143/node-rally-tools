@@ -7,6 +7,7 @@ global.log = text => console.log(text);
 global.write = text => process.stdout.write(text);
 global.errorLog = text => log(chalk.red(text));
 
+
 export class lib{
     static async makeAPIRequest({env, path, path_full, payload, body, json = true, method = "GET", qs, headers = {}, fullResponse = false}){
         //Keys are defined in enviornment variables
@@ -116,6 +117,9 @@ export class lib{
 
         return all;
     }
+    static isLocalEnv(env){
+        return !env || env === "LOCAL" || env === "LOC";
+    }
 };
 
 export class AbortError extends Error{
@@ -129,7 +133,7 @@ export class AbortError extends Error{
 export class APIError extends Error{
     constructor(response, opts){
         super(chalk`
-{reset Request returned} {yellow ${response.statusCode}}
+{reset Request returned} {yellow ${response.statusCode}}{
 {green ${JSON.stringify(opts)}}
 {reset ${response.body}}
         `);
@@ -172,4 +176,26 @@ export class Collection{
         for(let d of this) log(d.chalkPrint(true));
     }
     get length(){return this.arr.length;}
+}
+
+
+export class RallyBase{
+    constructor(){}
+    resolveApply(datum, dataObj){
+        let obj = datum.findById(dataObj.id);
+        if(obj){
+            dataObj.name = obj.name
+        }
+        return obj;
+    }
+    resolveField(datum, name, isArray=false){
+        let field = this.relationships[name];
+        if(!field?.data) return;
+
+        if(isArray){
+            return field.data.map(o => this.resolveApply(datum, o));
+        }else{
+            return this.resolveApply(datum, field.data);
+        }
+    }
 }

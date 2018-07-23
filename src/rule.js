@@ -1,5 +1,5 @@
 import {cached, defineAssoc} from "./decorators.js";
-import {lib, Collection} from  "./rally-tools.js";
+import {RallyBase, lib, Collection} from  "./rally-tools.js";
 import {configObject} from "./config.js";
 import Preset from "./preset.js";
 import Provider from "./providers.js";
@@ -8,8 +8,9 @@ import Notification from "./notification.js";
 import fs from "fs";
 import path from "path";
 
-class Rule{
+class Rule extends RallyBase{
     constructor(data, remote){
+        super();
         this.data = data;
         this.remote = remote;
         this.isGeneric = !this.remote;
@@ -39,25 +40,7 @@ class Rule{
     }
 
     get localpath(){
-        return path.join(configObject.repodir, this.name + ".json");
-    }
-
-    resolveApply(datum, dataObj){
-        let obj = datum.findById(dataObj.id);
-        if(obj){
-            dataObj.name = obj.name
-        }
-        return obj;
-    }
-    resolveField(datum, name, isArray=false){
-        let field = this.relationships[name];
-        if(!field?.data) return;
-
-        if(isArray){
-            return field.data.map(o => this.resolveApply(datum, o));
-        }else{
-            return this.resolveApply(datum, field.data);
-        }
+        return path.join(configObject.repodir, "silo-rules", this.name + ".json");
     }
 
     async resolve(){

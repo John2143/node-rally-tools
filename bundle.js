@@ -305,6 +305,24 @@ class RallyBase {
     }
   }
 
+  cleanup() {
+    for (let [key, val] of Object.entries(this.relationships)) {
+      if (val.data) {
+        if (val.data.id) {
+          delete val.data.id;
+        } else if (val.data[0]) {
+          for (let x of val.data) delete x.id;
+        }
+      }
+
+      delete val.links;
+    }
+
+    delete this.relationships.organization;
+    delete this.data.id;
+    delete this.data.links;
+  }
+
 }
 
 //these are the help entries for each command
@@ -521,7 +539,6 @@ let Preset = (_class$1 = class Preset extends RallyBase {
       }
 
       this.isGeneric = true;
-      this.ext = "py";
     } else {
       this.data = data; //this.name = data.attributes.name;
       //this.id = data.id;
@@ -531,9 +548,7 @@ let Preset = (_class$1 = class Preset extends RallyBase {
   }
 
   cleanup() {
-    delete this.relationships.organization;
-    delete this.data.id;
-    delete this.data.links;
+    super.cleanup();
     delete this.attributes["createdAt"];
     delete this.attributes["updatedAt"];
   }
@@ -549,6 +564,7 @@ let Preset = (_class$1 = class Preset extends RallyBase {
     if (this.isGeneric) return;
     let providers = await Provider.getProviders(this.remote);
     let proType = this.resolveField(providers, "providerType");
+    this.ext = await proType.getFileExtension();
     this.isGeneric = true;
     return {
       proType
@@ -622,8 +638,7 @@ let Preset = (_class$1 = class Preset extends RallyBase {
   }
 
   get localpath() {
-    return path__default.join(configObject.repodir, "silo-metadata", this.name + "." + this.ext);
-    return `${configObject.repodir}/silo-presets/${this.name}.${this.ext}`;
+    return path__default.join(configObject.repodir, "silo-presets", this.name + "." + this.ext);
   }
 
   get path() {
@@ -779,24 +794,6 @@ let Rule = (_class$3 = class Rule extends RallyBase {
     this.data = data;
     this.remote = remote;
     this.isGeneric = !this.remote;
-  }
-
-  cleanup() {
-    for (let [key, val] of Object.entries(this.relationships)) {
-      if (val.data) {
-        if (val.data.id) {
-          delete val.data.id;
-        } else if (val.data[0]) {
-          for (let x of val.data) delete x.id;
-        }
-      }
-
-      delete val.links;
-    }
-
-    delete this.relationships.organization;
-    delete this.data.id;
-    delete this.data.links;
   }
 
   async save() {
@@ -989,6 +986,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   Preset: Preset,
   Rule: Rule,
   Provider: Provider,
+  Notification: Notification,
   lib: lib,
   AbortError: AbortError,
   APIError: APIError,
@@ -998,7 +996,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   RallyBase: RallyBase
 });
 
-var version = "1.4.1";
+var version = "1.5.0";
 
 const inquirer = importLazy("inquirer");
 async function $api(propArray) {

@@ -31,7 +31,6 @@ class Preset extends RallyBase{
                 this.data = Object.assign({}, presetShell);
             }
             this.isGeneric = true;
-            this.ext = "py";
         }else{
             this.data = data;
             //this.name = data.attributes.name;
@@ -40,10 +39,7 @@ class Preset extends RallyBase{
         }
     }
     cleanup(){
-        delete this.relationships.organization;
-        delete this.data.id;
-        delete this.data.links;
-
+        super.cleanup();
         delete this.attributes["createdAt"];
         delete this.attributes["updatedAt"];
     }
@@ -57,8 +53,8 @@ class Preset extends RallyBase{
         if(this.isGeneric) return;
 
         let providers = await Provider.getProviders(this.remote);
-
         let proType = this.resolveField(providers, "providerType");
+        this.ext = await proType.getFileExtension();
 
         this.isGeneric = true;
 
@@ -125,8 +121,7 @@ class Preset extends RallyBase{
         });
     }
     get localpath(){
-        return path.join(configObject.repodir, "silo-metadata", this.name + "." + this.ext);
-        return `${configObject.repodir}/silo-presets/${this.name}.${this.ext}`;
+        return path.join(configObject.repodir, "silo-presets", this.name + "." + this.ext);
     }
     get path(){
         if(this._path) return this._path;

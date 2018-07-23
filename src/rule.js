@@ -15,21 +15,6 @@ class Rule extends RallyBase{
         this.remote = remote;
         this.isGeneric = !this.remote;
     }
-    cleanup(){
-        for(let [key, val] of Object.entries(this.relationships)){
-            if(val.data){
-                if(val.data.id){
-                    delete val.data.id;
-                }else if(val.data[0]){
-                    for(let x of val.data) delete x.id;
-                }
-            }
-            delete val.links;
-        }
-        delete this.relationships.organization;
-        delete this.data.id;
-        delete this.data.links;
-    }
     async save(){
         if(!this.isGeneric){
             await this.resolve();

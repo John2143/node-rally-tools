@@ -72,13 +72,30 @@ global.write = text => process.stdout.write(text);
 global.errorLog = text => log(chalk$1.red(text));
 
 class lib {
+  //This function takes 2 required arguemnts:
+  // env: the enviornment you wish to use
+  // and either:
+  //  'path', the short path to the resource. ex '/presets/'
+  //  'path_full', the full path to the resource like 'https://discovery-dev.sdvi.com/presets'
+  //
+  // If the method is anything but GET, either payload or body should be set.
+  // payload should be a javascript object to be turned into json as the request body
+  // body should be a string that is passed as the body. for example: the python code of a preset.
+  //
+  // qs are the querystring parameters, in a key: value object.
+  // {filter: "name=test name"} becomes something like 'filter=name=test+name'
+  //
+  // headers are the headers of the request. "Content-Type" is already set if
+  //   payload is given as a parameter
+  //
+  // fullResponse should be true if you want to receive the request object,
+  //  not just the returned data.
   static async makeAPIRequest({
     env,
     path: path$$1,
     path_full,
     payload,
     body,
-    json = true,
     method = "GET",
     qs,
     headers = {},
@@ -128,22 +145,25 @@ class lib {
         bearer: rally_api_key
       },
       headers: {
+        //SDVI ignores this header sometimes.
         Accept: "application/vnd.api+json",
         ...headers
       },
       simple: false,
-      resolveWithFullResponse: true,
-      payloadOBJ: payload
+      resolveWithFullResponse: true
     };
-    let response = await rp(requestOptions);
+    let response = await rp(requestOptions); //Throw an error for any 5xx or 4xx
 
     if (!fullResponse && ![200, 201, 204].includes(response.statusCode)) {
-      throw new APIError(response, requestOptions);
+      throw new APIError(response, requestOptions, body);
     }
+
+    let contentType = response.headers["content-type"];
+    let isJSONResponse = contentType === "application/vnd.api+json" || contentType === "application/json";
 
     if (fullResponse) {
       return response;
-    } else if (json) {
+    } else if (isJSONResponse) {
       try {
         return JSON.parse(response.body);
       } catch (e) {
@@ -154,14 +174,16 @@ class lib {
       return response.body;
     }
   } //Index a json endpoint that returns a {links} field.
+  //This function returns the merged data objects as an array
+  //
 
 
   static async indexPath(env, path$$1) {
     let all = [];
-    let json = await this.makeAPIRequest({
+    let json = await this.makeAPIRequest(typeof env === "string" ? {
       env,
       path: path$$1
-    });
+    } : env);
     let [numPages, pageSize] = this.numPages(json.links.last); //log(`num pages: ${numPages} * ${pageSize}`);
 
     all = [...json.data];
@@ -192,10 +214,10 @@ class lib {
 
   static async indexPathFast(env, path$$1) {
     let all = [];
-    let json = await this.makeAPIRequest({
+    let json = await this.makeAPIRequest(typeof env === "string" ? {
       env,
       path: path$$1
-    });
+    } : env);
     let baselink = json.links.first;
 
     const linkToPage = page => baselink.replace("page=1p", `page=${page}p`);
@@ -235,10 +257,11 @@ class AbortError extends Error {
 
 }
 class APIError extends Error {
-  constructor(response, opts) {
+  constructor(response, opts, body) {
     super(chalk$1`
 {reset Request returned} {yellow ${response.statusCode}}{
 {green ${JSON.stringify(opts, null, 4)}}
+{green ${body}}
 {reset ${response.body}}
         `);
     Error.captureStackTrace(this, this.constructor);
@@ -531,6 +554,8 @@ let Preset = (_class$1 = class Preset extends RallyBase {
 
     if (lib.isLocalEnv(this.remote)) {
       this.path = path$$1;
+      let pathspl = this.path.split(".");
+      this.ext = pathspl[pathspl.length - 1];
 
       try {
         this.code = this.getLocalCode();
@@ -547,6 +572,7 @@ let Preset = (_class$1 = class Preset extends RallyBase {
         this.data = Object.assign({}, presetShell);
       }
 
+      this.name = name;
       this.isGeneric = true;
     } else {
       this.data = data; //this.name = data.attributes.name;
@@ -720,6 +746,11 @@ let Preset = (_class$1 = class Preset extends RallyBase {
       let metadata = {
         data: this.data
       };
+
+      if (!this.relationships) {
+        throw AbortError("Cannot acclimatize shelled presets");
+      }
+
       await this.acclimatize(env);
       write("Posting to create preset... ");
       let res = await lib.makeAPIRequest({
@@ -763,7 +794,26 @@ let Preset = (_class$1 = class Preset extends RallyBase {
     return fs__default.readFileSync(this.path, "utf-8");
   }
 
+  static async getByName(env, name) {
+    if (Preset.hasLoadedAll) {
+      return (await Preset.getPresets(env)).findByName(name);
+    } else {
+      let data = await lib.makeAPIRequest({
+        env,
+        path: "/presets",
+        qs: {
+          filter: `name=${name}`
+        }
+      });
+      return new Preset({
+        data: data.data[0],
+        remote: env
+      });
+    }
+  }
+
   static async getPresets(env) {
+    Preset.hasLoadedAll = true;
     let data = await lib.indexPathFast(env, "/presets?page=1p20");
     return new Collection(data.map(dat => new Preset({
       remote: env,
@@ -771,7 +821,7 @@ let Preset = (_class$1 = class Preset extends RallyBase {
     })));
   }
 
-}, (_applyDecoratedDescriptor(_class$1, "getPresets", [cached], Object.getOwnPropertyDescriptor(_class$1, "getPresets"), _class$1)), _class$1);
+}, (_applyDecoratedDescriptor(_class$1, "getByName", [cached], Object.getOwnPropertyDescriptor(_class$1, "getByName"), _class$1), _applyDecoratedDescriptor(_class$1, "getPresets", [cached], Object.getOwnPropertyDescriptor(_class$1, "getPresets"), _class$1)), _class$1);
 defineAssoc(Preset, "name", "attributes.name");
 defineAssoc(Preset, "id", "id");
 defineAssoc(Preset, "attributes", "attributes");
@@ -891,6 +941,7 @@ class SupplyChain {
     //Now we have everything we need to find a whole supply chain
 
     write("Calculating Supply chain... ");
+    log(this.startingRule.chalkPrint());
     let allRuleNames = this.allRules.arr.map(x => x.name).filter(x => x.length >= 4);
     let allPresetNames = this.allPresets.arr.map(x => x.name).filter(x => x.length >= 4);
     let allNotifNames = this.allNotifications.arr.map(x => x.name).filter(x => x.length >= 4);
@@ -907,6 +958,7 @@ class SupplyChain {
         errorNotif,
         enterNotif
       } = await currentRule.resolve();
+      log(currentRule.data);
       requiredNotifications.add(passNotif);
       requiredNotifications.add(enterNotif);
       requiredNotifications.add(errorNotif);
@@ -923,6 +975,9 @@ class SupplyChain {
       for (let p of neededRules) if (!ruleQueue.includes(p)) ruleQueue.push(p);
 
       if (configObject.verbose) {
+        write(currentRule.chalkPrint(false));
+        log(":");
+        write("  ");
         write(preset.chalkPrint(false));
         log(":");
         write("  Pass Next: ");
@@ -1015,7 +1070,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   RallyBase: RallyBase
 });
 
-var version = "1.5.0";
+var version = "1.5.1";
 
 const inquirer = importLazy("inquirer");
 async function $api(propArray) {
@@ -1138,17 +1193,20 @@ var configHelpers = /*#__PURE__*/Object.freeze({
   askQuestion: askQuestion
 });
 
-var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _dec10, _dec11, _dec12, _dec13, _dec14, _dec15, _dec16, _dec17, _dec18, _dec19, _dec20, _dec21, _dec22, _dec23, _dec24, _dec25, _dec26, _obj;
+var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _dec10, _dec11, _dec12, _dec13, _dec14, _dec15, _dec16, _dec17, _dec18, _dec19, _dec20, _dec21, _dec22, _dec23, _dec24, _dec25, _dec26, _dec27, _dec28, _obj;
 
 require("source-map-support").install();
 let argv = argparse(process.argv.slice(2), {
   string: ["file", "env"],
-  boolean: ["no-protect"],
+  //boolean: ["no-protect"],
+  default: {
+    protect: true
+  },
   alias: {
     f: "file",
     e: "env"
   }
-});
+}); //help menu helper
 
 function printHelp(help, short) {
   let helpText$$1 = chalk`
@@ -1207,7 +1265,38 @@ let presetsub = {
     });
   },
 
-  async $diff(args) {},
+  async $diff(args) {
+    let file = this.files[0];
+
+    if (!this.files) {
+      throw new AbortError("No files provided to diff (use --file argument)");
+    }
+
+    let preset = new Preset({
+      path: file,
+      remote: false
+    });
+    let preset2 = await Preset.getByName(this.env, preset.name);
+    await preset2.downloadCode();
+
+    let tempfile = require("tempy").file;
+
+    let temp = tempfile({
+      extension: preset.ext
+    });
+    fs.writeFileSync(temp, preset2.code);
+    let ptr = `${file},${temp}`; //raw output returns "file1" "file2"
+
+    if (configObject.rawOutput) return ptr; //standard diff
+
+    argv.command = argv.command || "diff";
+
+    const spawn = require("child_process").spawn;
+
+    await spawn(argv.command, [file, temp], {
+      stdio: "inherit"
+    });
+  },
 
   async unknown(arg$$1, args) {
     log(chalk`Unknown action {red ${arg$$1}} try '{white rally help preset}'`);
@@ -1240,6 +1329,7 @@ let supplysub = {
     if (!this.env) throw new AbortError("No env supplied");
   },
 
+  //Calculate a supply chain based on a starting rule at the top of the stack
   async $calc(args) {
     let name$$1 = args._.shift();
 
@@ -1301,6 +1391,7 @@ function subCommand(object) {
     ...object
   };
   return async function (args) {
+    //Grab the next arg on the stack, find a function tied to it, and run
     let arg$$1 = args._.shift();
 
     let key = "$" + arg$$1;
@@ -1319,7 +1410,7 @@ function subCommand(object) {
   };
 }
 
-let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [subhelp]`), _dec3 = param("subhelp", "The name of the command to see help for"), _dec4 = helpText(`Preset related actions`), _dec5 = usage(`rally preset [action] --env <enviornment> --file [file1] --file [file2] ...`), _dec6 = param("action", "The action to perform. Can be upload or list"), _dec7 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec8 = arg("-f", "--file", "A file to act on"), _dec9 = helpText(`Rule related actions`), _dec10 = usage(`rally rule [action] --env [enviornment]`), _dec11 = param("action", "The action to perform. Only list is supported right now"), _dec12 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec13 = helpText(`supply chain related actions`), _dec14 = usage(`rally supply [action] --env [enviornment]`), _dec15 = param("action", "The action to perform."), _dec16 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec17 = helpText(`List all available providers, or find one by name/id`), _dec18 = usage(`rally providers [identifier] --env [env] --raw`), _dec19 = param("identifier", "Either the name or id of the provider"), _dec20 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec21 = arg("~", "--raw", "Raw output of command. If [identifier] is given, then print editorConfig too"), _dec22 = helpText(`Change config for rally tools`), _dec23 = usage("rally config [key] --set [value] --raw"), _dec24 = param("key", chalk`Key you want to edit. For example, {green chalk} or {green api.DEV}`), _dec25 = arg("~", "--set", "If this value is given, no interactive prompt will launch and the config option will change."), _dec26 = arg("~", "--raw", "Raw output of json config"), (_obj = {
+let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [subhelp]`), _dec3 = param("subhelp", "The name of the command to see help for"), _dec4 = helpText(`Preset related actions`), _dec5 = usage(`rally preset [action] --env <enviornment> --file [file1] --file [file2] ...`), _dec6 = param("action", "The action to perform. Can be upload, diff, list"), _dec7 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec8 = arg("-f", "--file", "A file to act on"), _dec9 = arg("~", "--command", "If the action is diff, this is the command to run instead of diff"), _dec10 = helpText(`Rule related actions`), _dec11 = usage(`rally rule [action] --env [enviornment]`), _dec12 = param("action", "The action to perform. Only list is supported right now"), _dec13 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec14 = helpText(`supply chain related actions`), _dec15 = usage(`rally supply [action] [identifier] --env [enviornment]`), _dec16 = param("action", "The action to perform. Can be calc."), _dec17 = param("identifier", "If the action is calc, then this identifier should be the first rule in the chain."), _dec18 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec19 = helpText(`List all available providers, or find one by name/id`), _dec20 = usage(`rally providers [identifier] --env [env] --raw`), _dec21 = param("identifier", "Either the name or id of the provider"), _dec22 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec23 = arg("~", "--raw", "Raw output of command. If [identifier] is given, then print editorConfig too"), _dec24 = helpText(`Change config for rally tools`), _dec25 = usage("rally config [key] --set [value] --raw"), _dec26 = param("key", chalk`Key you want to edit. For example, {green chalk} or {green api.DEV}`), _dec27 = arg("~", "--set", "If this value is given, no interactive prompt will launch and the config option will change."), _dec28 = arg("~", "--raw", "Raw output of json config"), (_obj = {
   async help(args) {
     let arg$$1 = args._.shift();
 
@@ -1446,11 +1537,12 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
     log(chalk`Created file {green ${configFile}}.`);
   },
 
+  //Used to test startup and teardown speed.
   noop() {
     return true;
   }
 
-}, (_applyDecoratedDescriptor(_obj, "help", [_dec, _dec2, _dec3], Object.getOwnPropertyDescriptor(_obj, "help"), _obj), _applyDecoratedDescriptor(_obj, "preset", [_dec4, _dec5, _dec6, _dec7, _dec8], Object.getOwnPropertyDescriptor(_obj, "preset"), _obj), _applyDecoratedDescriptor(_obj, "rule", [_dec9, _dec10, _dec11, _dec12], Object.getOwnPropertyDescriptor(_obj, "rule"), _obj), _applyDecoratedDescriptor(_obj, "supply", [_dec13, _dec14, _dec15, _dec16], Object.getOwnPropertyDescriptor(_obj, "supply"), _obj), _applyDecoratedDescriptor(_obj, "providers", [_dec17, _dec18, _dec19, _dec20, _dec21], Object.getOwnPropertyDescriptor(_obj, "providers"), _obj), _applyDecoratedDescriptor(_obj, "config", [_dec22, _dec23, _dec24, _dec25, _dec26], Object.getOwnPropertyDescriptor(_obj, "config"), _obj)), _obj));
+}, (_applyDecoratedDescriptor(_obj, "help", [_dec, _dec2, _dec3], Object.getOwnPropertyDescriptor(_obj, "help"), _obj), _applyDecoratedDescriptor(_obj, "preset", [_dec4, _dec5, _dec6, _dec7, _dec8, _dec9], Object.getOwnPropertyDescriptor(_obj, "preset"), _obj), _applyDecoratedDescriptor(_obj, "rule", [_dec10, _dec11, _dec12, _dec13], Object.getOwnPropertyDescriptor(_obj, "rule"), _obj), _applyDecoratedDescriptor(_obj, "supply", [_dec14, _dec15, _dec16, _dec17, _dec18], Object.getOwnPropertyDescriptor(_obj, "supply"), _obj), _applyDecoratedDescriptor(_obj, "providers", [_dec19, _dec20, _dec21, _dec22, _dec23], Object.getOwnPropertyDescriptor(_obj, "providers"), _obj), _applyDecoratedDescriptor(_obj, "config", [_dec24, _dec25, _dec26, _dec27, _dec28], Object.getOwnPropertyDescriptor(_obj, "config"), _obj)), _obj));
 
 async function unknownCommand(cmd) {
   log(chalk`Unknown command {red ${cmd}}.`);
@@ -1460,14 +1552,15 @@ async function noCommand() {
   write(chalk`
 Rally Tools {yellow v${version} (alpha)} CLI
 by John Schmidt <John_Schmidt@discovery.com>
-`);
+`); //Prompt users to setup one time config.
 
   if (!configObject.hasConfig) {
     write(chalk`
 It looks like you haven't setup the config yet. Please run '{green rally config}'.
 `);
     return;
-  }
+  } //API Access tests
+
 
   for (let env of ["UAT", "DEV", "PROD", "LOCAL"]) {
     //Test access. Returns HTTP response code
@@ -1488,6 +1581,8 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
 }
 
 async function $main() {
+  // First we need to decide if the user wants color or not. If they do want
+  // color, we need to make sure we use the right mode
   chalk.enabled = configObject.hasConfig ? configObject.chalk : true;
 
   if (chalk.level === 0 || !chalk.enabled) {
@@ -1502,9 +1597,13 @@ async function $main() {
         chalk.level = Number(force);
       }
     }
-  }
+  } //This flag being true allows you to modify UAT and PROD
 
-  configObject.dangerModify = argv["no-protect"];
+
+  if (!argv["protect"]) {
+    configObject.dangerModify = true;
+  } //This enables raw output for some functions
+
 
   if (argv["raw"]) {
     configObject.rawOutput = true;
@@ -1514,17 +1613,22 @@ async function $main() {
     global.errorLog = () => {};
 
     global.write = () => {};
-  }
+  } //Default enviornment should normally be from config, but it can be
+  //overridden by the -e/--env flag
+
 
   if (configObject.defaultEnv) {
     argv.env = argv.env || configObject.defaultEnv;
-  }
+  } //Enable verbose logging in some places.
+
 
   if (argv["verbose"]) {
     configObject.verbose = argv["verbose"];
-  }
+  } //copy argument array to new object to allow modification
 
-  argv._old = argv._.slice();
+
+  argv._old = argv._.slice(); //Take first argument after `node bundle.js`
+  //If there is no argument, display the default version info and API access.
 
   let func = argv._.shift();
 
@@ -1536,8 +1640,13 @@ async function $main() {
       let ret = await cli[func](argv);
 
       if (ret) {
-        write(chalk.white("CLI returned: "));
-        console.log(JSON.stringify(ret, null, 4));
+        write(chalk.white("CLI returned: ")); //Directly use console.log so that --raw works as intended.
+
+        if (typeof ret === "object") {
+          console.log(JSON.stringify(ret, null, 4));
+        } else {
+          console.log(ret);
+        }
       }
     } catch (e) {
       if (e instanceof AbortError) {
@@ -1552,12 +1661,15 @@ async function $main() {
 }
 
 async function main$1(...args) {
+  //Catch all for errors to avoid ugly default node promise catcher
   try {
     await $main(...args);
   } catch (e) {
     errorLog(e.stack);
   }
-}
+} // If this is an imported module, then we should exec the cli interface.
+// Oterwise just export everything.
+
 
 if (require.main === module) {
   main$1();

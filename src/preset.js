@@ -18,6 +18,8 @@ class Preset extends RallyBase{
         this.remote = remote
         if(lib.isLocalEnv(this.remote)){
             this.path = path;
+            let pathspl = this.path.split(".");
+            this.ext = pathspl[pathspl.length-1];
             try{
                 this.code = this.getLocalCode();
             }catch(e){
@@ -30,6 +32,7 @@ class Preset extends RallyBase{
             }catch(e){
                 this.data = Object.assign({}, presetShell);
             }
+            this.name = name;
             this.isGeneric = true;
         }else{
             this.data = data;
@@ -172,6 +175,9 @@ class Preset extends RallyBase{
         }else{
             write("create, ");
             let metadata = {data: this.data};
+            if(!this.relationships){
+                throw AbortError("Cannot acclimatize shelled presets");
+            }
             await this.acclimatize(env);
             write("Posting to create preset... ");
             let res = await lib.makeAPIRequest({
@@ -210,9 +216,21 @@ class Preset extends RallyBase{
     getLocalCode(){
         return fs.readFileSync(this.path, "utf-8");
     }
-
+    @cached static async getByName(env, name){
+        if(Preset.hasLoadedAll){
+            return (await Preset.getPresets(env)).findByName(name);
+        }else{
+            let data = await lib.makeAPIRequest({
+                env, path: "/presets", qs: {
+                    filter: `name=${name}`,
+                },
+            });
+            return new Preset({data: data.data[0], remote: env});
+        }
+    }
 
     @cached static async getPresets(env){
+        Preset.hasLoadedAll = true;
         let data = await lib.indexPathFast(env, "/presets?page=1p20");
         return new Collection(data.map(dat => new Preset({remote: env, data: dat})));
     }

@@ -18,12 +18,14 @@ import * as configHelpers from "./config-create.js";
 
 let argv = argparse(process.argv.slice(2), {
     string: ["file", "env"],
-    boolean: ["no-protect"],
+    //boolean: ["no-protect"],
+    default: {protect: true},
     alias: {
         f: "file", e: "env",
     }
 });
 
+//help menu helper
 function printHelp(help, short){
     let helpText = chalk`
 {white ${help.name}}: ${help.text}
@@ -77,6 +79,28 @@ let presetsub = {
         });
     },
     async $diff(args){
+        let file = this.files[0];
+        if(!this.files){
+            throw new AbortError("No files provided to diff (use --file argument)");
+        }
+
+        let preset = new Preset({path: file, remote: false});
+        let preset2 = await Preset.getByName(this.env, preset.name);
+        await preset2.downloadCode();
+
+        let tempfile = require("tempy").file;
+        let temp = tempfile({extension: preset.ext});
+        writeFileSync(temp, preset2.code);
+
+        let ptr = `${file},${temp}`;
+
+        //raw output returns "file1" "file2"
+        if(configObject.rawOutput) return ptr;
+
+        //standard diff
+        argv.command = argv.command || "diff";
+        const spawn = require("child_process").spawn;
+        await spawn(argv.command,  [file, temp], {stdio: "inherit"});
     },
     async unknown(arg, args){
         log(chalk`Unknown action {red ${arg}} try '{white rally help preset}'`);
@@ -106,6 +130,8 @@ let supplysub = {
         this.env = args.env;
         if(!this.env) throw new AbortError("No env supplied");
     },
+
+    //Calculate a supply chain based on a starting rule at the top of the stack
     async $calc(args){
         let name = args._.shift();
         if(!name){
@@ -127,6 +153,7 @@ let supplysub = {
             await chain.syncTo(args["to"]);
         }
     },
+
     async $magic(args){
         let big = require("fs").readFileSync("test.json");
         big = JSON.parse(big);
@@ -161,6 +188,7 @@ function subCommand(object){
         ...object
     };
     return async function(args){
+        //Grab the next arg on the stack, find a function tied to it, and run
         let arg = args._.shift();
         let key = "$" + arg;
         let ret;
@@ -203,9 +231,10 @@ let cli = {
 
     @helpText(`Preset related actions`)
     @usage(`rally preset [action] --env <enviornment> --file [file1] --file [file2] ...`)
-    @param("action", "The action to perform. Can be upload or list")
+    @param("action", "The action to perform. Can be upload, diff, list")
     @arg("-e", "--env", "The enviornment you wish to perform the action on")
     @arg("-f", "--file", "A file to act on")
+    @arg("~", "--command", "If the action is diff, this is the command to run instead of diff")
     async preset(args){
         return subCommand(presetsub)(args);
     },
@@ -219,8 +248,9 @@ let cli = {
     },
 
     @helpText(`supply chain related actions`)
-    @usage(`rally supply [action] --env [enviornment]`)
-    @param("action", "The action to perform.")
+    @usage(`rally supply [action] [identifier] --env [enviornment]`)
+    @param("action", "The action to perform. Can be calc.")
+    @param("identifier", "If the action is calc, then this identifier should be the first rule in the chain.")
     @arg("-e", "--env", "The enviornment you wish to perform the action on")
     async supply(args){
         return subCommand(supplysub)(args);
@@ -321,6 +351,8 @@ let cli = {
         writeFileSync(configFile, newConfig, {mode: 0o600});
         log(chalk`Created file {green ${configFile}}.`);
     },
+
+    //Used to test startup and teardown speed.
     noop(){
         return true;
     }
@@ -334,12 +366,16 @@ async function noCommand(){
 Rally Tools {yellow v${packageVersion} (alpha)} CLI
 by John Schmidt <John_Schmidt@discovery.com>
 `);
+
+    //Prompt users to setup one time config.
     if(!configObject.hasConfig){
         write(chalk`
 It looks like you haven't setup the config yet. Please run '{green rally config}'.
 `);
         return;
     }
+
+    //API Access tests
     for(let env of ["UAT", "DEV", "PROD", "LOCAL"]){
         //Test access. Returns HTTP response code
         let resultStr;
@@ -363,6 +399,8 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
 }
 
 async function $main(){
+    // First we need to decide if the user wants color or not. If they do want
+    // color, we need to make sure we use the right mode
     chalk.enabled = configObject.hasConfig ? configObject.chalk : true;
     if(chalk.level === 0 || !chalk.enabled){
         let force = argv["force-color"];
@@ -376,7 +414,12 @@ async function $main(){
         }
     }
 
-    configObject.dangerModify = argv["no-protect"];
+    //This flag being true allows you to modify UAT and PROD
+    if(!argv["protect"]){
+        configObject.dangerModify = true;
+    }
+
+    //This enables raw output for some functions
     if(argv["raw"]){
         configObject.rawOutput = true;
         global.log = ()=>{};
@@ -384,15 +427,22 @@ async function $main(){
         global.write = ()=>{};
     }
 
+    //Default enviornment should normally be from config, but it can be
+    //overridden by the -e/--env flag
     if(configObject.defaultEnv){
         argv.env = argv.env || configObject.defaultEnv;
     }
 
+    //Enable verbose logging in some places.
     if(argv["verbose"]){
         configObject.verbose = argv["verbose"]
     }
 
+    //copy argument array to new object to allow modification
     argv._old = argv._.slice();
+
+    //Take first argument after `node bundle.js`
+    //If there is no argument, display the default version info and API access.
     let func = argv._.shift();
     if(func){
         if(!cli[func]) return await unknownCommand(func);
@@ -401,7 +451,12 @@ async function $main(){
             let ret = await cli[func](argv);
             if(ret){
                 write(chalk.white("CLI returned: "));
-                console.log(JSON.stringify(ret, null, 4));
+                //Directly use console.log so that --raw works as intended.
+                if(typeof ret === "object"){
+                    console.log(JSON.stringify(ret, null, 4));
+                }else{
+                    console.log(ret);
+                }
             }
         }catch(e){
             if(e instanceof AbortError){
@@ -416,6 +471,7 @@ async function $main(){
 }
 
 async function main(...args){
+    //Catch all for errors to avoid ugly default node promise catcher
     try{
         await $main(...args);
     }catch(e){
@@ -423,6 +479,8 @@ async function main(...args){
     }
 }
 
+// If this is an imported module, then we should exec the cli interface.
+// Oterwise just export everything.
 if(require.main === module){
     main();
 }else{

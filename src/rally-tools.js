@@ -8,7 +8,30 @@ global.write = text => process.stdout.write(text);
 global.errorLog = text => log(chalk.red(text));
 
 export class lib{
-    static async makeAPIRequest({env, path, path_full, payload, body, json = true, method = "GET", qs, headers = {}, fullResponse = false}){
+    //This function takes 2 required arguemnts:
+    // env: the enviornment you wish to use
+    // and either:
+    //  'path', the short path to the resource. ex '/presets/'
+    //  'path_full', the full path to the resource like 'https://discovery-dev.sdvi.com/presets'
+    //
+    // If the method is anything but GET, either payload or body should be set.
+    // payload should be a javascript object to be turned into json as the request body
+    // body should be a string that is passed as the body. for example: the python code of a preset.
+    //
+    // qs are the querystring parameters, in a key: value object.
+    // {filter: "name=test name"} becomes something like 'filter=name=test+name'
+    //
+    // headers are the headers of the request. "Content-Type" is already set if
+    //   payload is given as a parameter
+    //
+    // fullResponse should be true if you want to receive the request object,
+    //  not just the returned data.
+    static async makeAPIRequest({
+        env, path, path_full,
+        payload, body, method = "GET",
+        qs, headers = {},
+        fullResponse = false
+    }){
         //Keys are defined in enviornment variables
         let config = configObject?.api?.[env];
         if(!config) {
@@ -21,10 +44,8 @@ export class lib{
             }
         }
 
-
         let rally_api_key = config.key;
         let rally_api = config.url;
-
 
         path = path_full || rally_api + path;
         if(payload){
@@ -37,6 +58,7 @@ export class lib{
                 log(qs)
             }
         }
+
         if(payload){
             headers["Content-Type"] = "application/vnd.api+json";
         }
@@ -45,20 +67,24 @@ export class lib{
             method, body, qs, uri: path,
             auth: {bearer: rally_api_key},
             headers: {
+                //SDVI ignores this header sometimes.
                 Accept: "application/vnd.api+json",
                 ...headers,
             },
             simple: false, resolveWithFullResponse: true,
-            payloadOBJ: payload
         };
         let response = await rp(requestOptions);
 
+        //Throw an error for any 5xx or 4xx
         if(!fullResponse && ![200, 201, 204].includes(response.statusCode)){
-            throw new APIError(response, requestOptions);
+            throw new APIError(response, requestOptions, body);
         }
+        let contentType = response.headers["content-type"];
+        let isJSONResponse = contentType === "application/vnd.api+json" || contentType === "application/json";
+
         if(fullResponse){
             return response;
-        }else if(json){
+        }else if(isJSONResponse){
             try{
                 return JSON.parse(response.body);
             }catch(e){
@@ -69,11 +95,14 @@ export class lib{
             return response.body;
         }
     }
+
     //Index a json endpoint that returns a {links} field.
+    //This function returns the merged data objects as an array
+    //
     static async indexPath(env, path){
         let all = [];
 
-        let json = await this.makeAPIRequest({env, path});
+        let json = await this.makeAPIRequest(typeof env === "string" ? {env, path} : env);
 
         let [numPages, pageSize] = this.numPages(json.links.last);
         //log(`num pages: ${numPages} * ${pageSize}`);
@@ -103,7 +132,8 @@ export class lib{
     static async indexPathFast(env, path){
         let all = [];
 
-        let json = await this.makeAPIRequest({env, path});
+        let json = await this.makeAPIRequest(typeof env === "string" ? {env, path} : env);
+
         let baselink = json.links.first;
         const linkToPage = page => baselink.replace("page=1p", `page=${page}p`);
 
@@ -138,10 +168,11 @@ export class AbortError extends Error{
 }
 
 export class APIError extends Error{
-    constructor(response, opts){
+    constructor(response, opts, body){
         super(chalk`
 {reset Request returned} {yellow ${response.statusCode}}{
 {green ${JSON.stringify(opts, null, 4)}}
+{green ${body}}
 {reset ${response.body}}
         `);
         Error.captureStackTrace(this, this.constructor);

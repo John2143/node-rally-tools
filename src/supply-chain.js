@@ -38,6 +38,7 @@ export default class SupplyChain{
         //Now we have everything we need to find a whole supply chain
 
         write("Calculating Supply chain... ");
+        log(this.startingRule.chalkPrint());
 
         let allRuleNames = this.allRules.arr.map(x => x.name).filter(x => x.length >= 4);
         let allPresetNames = this.allPresets.arr.map(x => x.name).filter(x => x.length >= 4);
@@ -51,6 +52,7 @@ export default class SupplyChain{
                 eNext, pNext, preset,
                 passNotif, errorNotif, enterNotif
             } = await currentRule.resolve();
+            log(currentRule.data);
 
             requiredNotifications.add(passNotif);
             requiredNotifications.add(enterNotif);
@@ -74,6 +76,9 @@ export default class SupplyChain{
             for(let p of neededRules)   if(!ruleQueue  .includes(p)) ruleQueue  .push(p);
 
             if(configObject.verbose){
+                write(currentRule.chalkPrint(false));
+                log(":");
+                write("  ");
                 write(preset.chalkPrint(false));
                 log(":");
                 write("  Pass Next: "); if(pNext) write(pNext.chalkPrint(false)); else write("None");

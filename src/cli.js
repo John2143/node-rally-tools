@@ -12,7 +12,7 @@ import {version as packageVersion} from "../package.json";
 import {configFile, configObject} from "./config.js";
 import {writeFileSync} from "fs";
 
-import {helpText, arg, param, usage, helpEntries} from "./decorators.js";
+import {helpText, arg, param, usage, helpEntries, spawn} from "./decorators.js";
 
 import * as configHelpers from "./config-create.js";
 
@@ -108,7 +108,6 @@ let presetsub = {
 
         //standard diff
         argv.command = argv.command || "diff";
-        const spawn = require("child_process").spawn;
         await spawn(argv.command,  [file, temp], {stdio: "inherit"});
     },
     async unknown(arg, args){
@@ -131,6 +130,26 @@ let rulesub = {
     },
     async unknown(arg, args){
         log(chalk`Unknown action {red ${arg}} try '{white rally help rule}'`);
+    },
+}
+
+let jupytersub = {
+    async before(args){
+        this.input = args._.shift() || "main.ipynb";
+        this.output = args._.shift() || "main.py";
+    },
+    async $build(args){
+        let cmd = `jupyter nbconvert --to python ${this.input} --TagRemovePreprocessor.remove_cell_tags={\"remove_cell\"} --output ${this.output} --TemplateExporter.exclude_markdown=True --TemplateExporter.exclude_input_prompt=True --TemplateExporter.exclude_output_prompt=True`.split(" ");
+        log(chalk`Compiling GCR file {green ${this.input}} into {green ${this.output}} using jupyter...`);
+
+        try{
+            let {timestr} = await spawn(cmd[0], cmd.slice(1));
+            log(chalk`Complete in ~{green.bold ${timestr}}.`);
+        }catch(e){
+            if(e.code !== "ENOENT") throw e;
+            log(chalk`Cannot run the build command. Make sure that you have jupyter notebook installed.\n{green pip install jupyter}`);
+            return;
+        }
     },
 }
 
@@ -233,6 +252,13 @@ let cli = {
                 log(printHelp(helpEntries[helpArg], true));
             }
         }
+    },
+
+    @helpText("Rally tools jupyter interface. Requires jupyter to be installed.")
+    @usage("rally jupyter build [in] [out]")
+    @param("in/out", "input and output file for jupyter. By default main.ipyrb and main.py")
+    async jupyter(args){
+        return subCommand(jupytersub)(args);
     },
 
     //@helpText(`Print input args, for debugging`)

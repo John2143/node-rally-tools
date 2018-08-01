@@ -122,3 +122,33 @@ export function defineAssoc(classname, shortname, path){
         },
     });
 }
+
+import {spawn as cp_spawn} from "child_process";
+import {performance} from "perf_hooks";
+
+//Spawn promise decorator, based on https://gist.github.com/Stuk/6226938
+export function spawn(options, ...args){
+    if(typeof options !== "object"){
+        args.unshift(options);
+        options = {};
+    }
+    //todo options
+    return new Promise((resolve, reject) => {
+        let start = performance.now();
+
+        let stdout = "";
+        let stderr = "";
+        let cp = cp_spawn(...args);
+
+        if(cp.stdout) cp.stdout.on("data", chunk => {stdout += chunk; write(chunk)});
+        if(cp.stderr) cp.stderr.on("data", chunk => {stderr += chunk; write(chunk)});
+
+        cp.on("error", reject);
+        cp.on("close", code => {
+            let end = performance.now();
+            let time = end - start;
+            let timestr = time > 1000 ? (time/100|0)/10 + "s" : (time|0) + "ms";
+            resolve({stdout, stderr, exitCode: code, time, timestr});
+        });
+    });
+}

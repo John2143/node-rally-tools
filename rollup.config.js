@@ -9,7 +9,7 @@ let config = {
     input: "-----",
     external: [
         ...Object.keys(packagejson.dependencies),
-        "path", "fs", "chalk", "os",
+        "path", "fs", "chalk", "os", "child_process", "perf_hooks"
     ],
     output: {
         file: "----",

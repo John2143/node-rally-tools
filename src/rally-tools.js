@@ -219,21 +219,29 @@ export class Collection{
 
 export class RallyBase{
     constructor(){}
-    resolveApply(datum, dataObj){
-        let obj = datum.findById(dataObj.id);
-        if(obj){
-            dataObj.name = obj.name
+    resolveApply(datum, dataObj, direction){
+        let obj;
+        if(direction == "generic"){
+            obj = datum.findById(dataObj.id);
+            if(obj){
+                dataObj.name = obj.name
+            }
+        }else if(direction == "specific"){
+            obj = datum.findByName(dataObj.name);
+            if(obj){
+                dataObj.id = obj.id
+            }
         }
         return obj;
     }
-    resolveField(datum, name, isArray=false){
+    resolveField(datum, name, isArray=false, direction="generic"){
         let field = this.relationships[name];
         if(!field?.data) return;
 
         if(isArray){
-            return field.data.map(o => this.resolveApply(datum, o));
+            return field.data.map(o => this.resolveApply(datum, o, direction));
         }else{
-            return this.resolveApply(datum, field.data);
+            return this.resolveApply(datum, field.data, direction);
         }
     }
     cleanup(){

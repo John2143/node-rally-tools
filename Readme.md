@@ -53,7 +53,10 @@ downloading.
 The basic usage is `rally preset list`, which lists all presets.
 
 `rally preset upload -e [env] -f [preset]` can be used to upload a file to a
-remote env. You can specify multiple -f arguments to upload multiple files.
+remote env. You can specify multiple -f arguments to upload multiple files.  If
+the - argument is given (`rally preset upload -`) then the files are read from
+stdin.  For example: `git diff HEAD..UAT --name-only | grep silo-presets |
+rally preset upload -` will upload all changed files using git as the reference.
 
 `rally preset diff -f [preset]` can be used to view the differences between a
 local file and a remote one. `--command` can be used to run a command other

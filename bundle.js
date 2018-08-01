@@ -316,24 +316,34 @@ class Collection {
 class RallyBase {
   constructor() {}
 
-  resolveApply(datum, dataObj) {
-    let obj = datum.findById(dataObj.id);
+  resolveApply(datum, dataObj, direction) {
+    let obj;
 
-    if (obj) {
-      dataObj.name = obj.name;
+    if (direction == "generic") {
+      obj = datum.findById(dataObj.id);
+
+      if (obj) {
+        dataObj.name = obj.name;
+      }
+    } else if (direction == "specific") {
+      obj = datum.findByName(dataObj.name);
+
+      if (obj) {
+        dataObj.id = obj.id;
+      }
     }
 
     return obj;
   }
 
-  resolveField(datum, name, isArray = false) {
+  resolveField(datum, name, isArray = false, direction = "generic") {
     let field = this.relationships[name];
     if (!(field === null || field === void 0 ? void 0 : field.data)) return;
 
     if (isArray) {
-      return field.data.map(o => this.resolveApply(datum, o));
+      return field.data.map(o => this.resolveApply(datum, o, direction));
     } else {
-      return this.resolveApply(datum, field.data);
+      return this.resolveApply(datum, field.data, direction);
     }
   }
 
@@ -451,6 +461,17 @@ function cached(target, key, desc) {
     cachedValues.push([args, value]);
   };
 
+  newFunc.remove = function (...args) {
+    let {
+      found,
+      value
+    } = findValueInCache(args, cachedValues);
+
+    if (found) {
+      cachedValues = cachedValues.filter(([arg, item]) => item !== value);
+    }
+  };
+
   return { ...desc,
     value: newFunc
   };
@@ -539,10 +560,6 @@ defineAssoc(Provider, "name", "attributes.name");
 defineAssoc(Provider, "category", "attributes.category");
 
 var _class$1;
-let presetShell = {
-  "attributes": {},
-  "relationships": {}
-};
 let Preset = (_class$1 = class Preset extends RallyBase {
   constructor({
     path: path$$1,
@@ -560,7 +577,7 @@ let Preset = (_class$1 = class Preset extends RallyBase {
       try {
         this.code = this.getLocalCode();
       } catch (e) {
-        log(chalk`{red Node Error} e.message`);
+        log(chalk`{red Node Error} ${e.message}`);
         throw new AbortError("Could not load code of local file");
       }
 
@@ -569,7 +586,7 @@ let Preset = (_class$1 = class Preset extends RallyBase {
       try {
         this.data = this.getLocalMetadata();
       } catch (e) {
-        this.data = Object.assign({}, presetShell);
+        this.data = Preset.newShell();
       }
 
       this.name = name;
@@ -582,6 +599,13 @@ let Preset = (_class$1 = class Preset extends RallyBase {
     }
   }
 
+  static newShell() {
+    return {
+      "attributes": {},
+      "relationships": {}
+    };
+  }
+
   cleanup() {
     super.cleanup();
     delete this.attributes["createdAt"];
@@ -589,8 +613,10 @@ let Preset = (_class$1 = class Preset extends RallyBase {
   }
 
   async acclimatize(env) {
+    if (!this.isGeneric) throw AbortError("Cannot acclimatize non-generics or shells");
     let providers = await Provider.getProviders(env);
-    let ptype = this.relationships["providerType"].data;
+    let ptype = this.relationships["providerType"];
+    ptype = ptype.data;
     let provider = providers.findByName(ptype.name);
     ptype.id = provider.id;
   }
@@ -700,11 +726,11 @@ let Preset = (_class$1 = class Preset extends RallyBase {
       method: "PUT",
       fullResponse: true
     });
-    write(chalk`response {yellow ${res.statusCode}}`);
+    write(chalk`response {yellow ${res.statusCode}} `);
   }
 
   async uploadCodeToEnv(env, includeMetadata) {
-    write(chalk`Uploading {green ${this.name}} to {green ${env}}: `);
+    write(chalk`Uploading preset {green ${this.name}} to {green ${env}}: `);
 
     if (this.immutable) {
       log(chalk`{magenta IMMUTABLE}. Nothing to do.`);
@@ -712,14 +738,7 @@ let Preset = (_class$1 = class Preset extends RallyBase {
     } //First query the api to see if this already exists.
 
 
-    let res = await lib.makeAPIRequest({
-      env,
-      path: `/presets`,
-      qs: {
-        filter: `name=${this.name}`
-      }
-    });
-    let remote = res.data[0];
+    let remote = await Preset.getByName(env, this.name);
 
     if (remote) {
       //If it exists we can replace it
@@ -747,8 +766,8 @@ let Preset = (_class$1 = class Preset extends RallyBase {
         data: this.data
       };
 
-      if (!this.relationships) {
-        throw AbortError("Cannot acclimatize shelled presets");
+      if (!this.relationships["providerType"]) {
+        throw new AbortError("Cannot acclimatize shelled presets. (try creating it on the env first)");
       }
 
       await this.acclimatize(env);
@@ -764,7 +783,7 @@ let Preset = (_class$1 = class Preset extends RallyBase {
       await this.uploadPresetData(env, id);
     }
 
-    log();
+    log("Done");
   }
 
   constructMetadata(providerID) {
@@ -805,7 +824,7 @@ let Preset = (_class$1 = class Preset extends RallyBase {
           filter: `name=${name}`
         }
       });
-      return new Preset({
+      if (data.data[0]) return new Preset({
         data: data.data[0],
         remote: env
       });
@@ -821,7 +840,7 @@ let Preset = (_class$1 = class Preset extends RallyBase {
     })));
   }
 
-}, (_applyDecoratedDescriptor(_class$1, "getByName", [cached], Object.getOwnPropertyDescriptor(_class$1, "getByName"), _class$1), _applyDecoratedDescriptor(_class$1, "getPresets", [cached], Object.getOwnPropertyDescriptor(_class$1, "getPresets"), _class$1)), _class$1);
+}, (_applyDecoratedDescriptor(_class$1, "getPresets", [cached], Object.getOwnPropertyDescriptor(_class$1, "getPresets"), _class$1)), _class$1);
 defineAssoc(Preset, "name", "attributes.name");
 defineAssoc(Preset, "id", "id");
 defineAssoc(Preset, "attributes", "attributes");
@@ -863,13 +882,127 @@ let Rule = (_class$3 = class Rule extends RallyBase {
     this.isGeneric = !this.remote;
   }
 
-  async save() {
+  async acclimatize(env) {
+    let presets = await Preset.getPresets(env);
+    let rules = await Rule.getRules(env);
+    let providers = await Provider.getProviders(env);
+    let notifications = await Notification.getNotifications(env);
+    let preset = this.resolveField(presets, "preset", false, "specific");
+    let pNext = this.resolveField(rules, "passNext", false, "specific");
+    let eNext = this.resolveField(rules, "errorNext", false, "specific");
+    let proType = this.resolveField(providers, "providerType", false, "specific");
+    let enterNotif = this.resolveField(notifications, "enterNotifications", true, "specific");
+    let errorNotif = this.resolveField(notifications, "errorNotifications", true, "specific");
+    let passNotif = this.resolveField(notifications, "passNotifications", true, "specific");
+  }
+
+  async saveA(env) {
+    if (lib.isLocalEnv(env)) return;
+    return await this.createIfNotExist(env);
+  }
+
+  async saveB(env) {
     if (!this.isGeneric) {
       await this.resolve();
     }
 
     this.cleanup();
-    fs__default.writeFileSync(this.localpath, JSON.stringify(this.data, null, 4));
+
+    if (lib.isLocalEnv(env)) {
+      fs__default.writeFileSync(this.localpath, JSON.stringify(this.data, null, 4));
+    } else {
+      await this.acclimatize(env);
+      await this.uploadRemote(env);
+    }
+  }
+
+  get immutable() {
+    return false;
+  }
+
+  async createIfNotExist(env) {
+    write(chalk`First pass rule {green ${this.name}} to {green ${env}}: `);
+
+    if (this.immutable) {
+      log(chalk`{magenta IMMUTABLE}. Nothing to do.`);
+      return;
+    } //First query the api to see if this already exists.
+
+
+    let remote = await Rule.getByName(env, this.name);
+    this.idMap = this.idMap || {};
+
+    if (remote) {
+      this.idMap[env] = remote.id;
+      log(chalk`exists ${remote.chalkPrint(false)}`);
+      return;
+    } //If it exists we can replace it
+
+
+    write("create, ");
+    let res = await lib.makeAPIRequest({
+      env,
+      path: `/workflowRules`,
+      method: "POST",
+      payload: {
+        data: {
+          attributes: {
+            name: this.name
+          },
+          type: "workflowRules"
+        }
+      }
+    });
+    this.idMap = this.idMap || {};
+    this.idMap[env] = res.data.id;
+    write("id ");
+    log(this.idMap[env]);
+  }
+
+  async patchStrip() {
+    delete this.data.attributes.createdAt;
+    delete this.data.attributes.starred;
+    delete this.data.attributes.updatedAt;
+
+    for (let key in this.relationships) {
+      let relationship = this.relationships[key];
+
+      if (!relationship.data || relationship.data instanceof Array && !relationship.data[0]) {
+        delete this.relationships[key];
+      }
+    }
+  }
+
+  async uploadRemote(env) {
+    write(chalk`Uploading rules {green ${this.name}} to {green ${env}}: `);
+
+    if (this.immutable) {
+      log(chalk`{magenta IMMUTABLE}. Nothing to do.`);
+      return;
+    }
+
+    if (this.idMap[env]) {
+      await this.patchStrip(); //If it exists we can replace it
+
+      write("replace, ");
+      let res = await lib.makeAPIRequest({
+        env,
+        path: `/workflowRules/${this.idMap[env]}`,
+        method: "PATCH",
+        payload: {
+          data: this.data
+        },
+        fullResponse: true
+      });
+      log(chalk`response {yellow ${res.statusCode}}`);
+
+      if (res.statusCode !== 200) {
+        log(res.body);
+        log(JSON.stringify(this.data, null, 4));
+      }
+    } else {
+      throw Error("Bad idmap!");
+    }
   }
 
   get localpath() {
@@ -881,13 +1014,17 @@ let Rule = (_class$3 = class Rule extends RallyBase {
     let rules = await Rule.getRules(this.remote);
     let providers = await Provider.getProviders(this.remote);
     let notifications = await Notification.getNotifications(this.remote);
-    let preset = this.resolveField(presets, "preset");
-    let pNext = this.resolveField(rules, "passNext");
-    let eNext = this.resolveField(rules, "errorNext");
-    let proType = this.resolveField(providers, "providerType");
-    let enterNotif = this.resolveField(notifications, "enterNotifications");
-    let errorNotif = this.resolveField(notifications, "errorNotifications");
-    let passNotif = this.resolveField(notifications, "passNotifications");
+    let preset = this.resolveField(presets, "preset", false);
+    let pNext = this.resolveField(rules, "passNext", false);
+    let eNext = this.resolveField(rules, "errorNext", false);
+    let proType = this.resolveField(providers, "providerType", false);
+    let enterNotif = this.resolveField(notifications, "enterNotifications", true);
+    let errorNotif = this.resolveField(notifications, "errorNotifications", true);
+    let passNotif = this.resolveField(notifications, "passNotifications", true); //TODO Unsupported
+
+    delete this.relationships["enterMetadata"];
+    delete this.relationships["errorMetadata"];
+    delete this.relationships["dynamicNexts"];
     this.isGeneric = true;
     return {
       preset,
@@ -906,6 +1043,10 @@ let Rule = (_class$3 = class Rule extends RallyBase {
     return chalk`{green ${id}}: {blue ${this.name}}`;
   }
 
+  static async getByName(env, name) {
+    return (await Rule.getRules(env)).findByName(name);
+  }
+
   static async getRules(env) {
     let rules = await lib.indexPathFast(env, "/workflowRules?page=1p20");
     return new Collection(rules.map(data => new Rule(data, env)));
@@ -917,8 +1058,9 @@ defineAssoc(Rule, "id", "id");
 defineAssoc(Rule, "relationships", "relationships");
 
 class SupplyChain {
-  constructor(startingRule) {
+  constructor(startingRule, stopRule) {
     this.startingRule = startingRule;
+    this.stopRule = stopRule;
     this.remote = startingRule.remote;
   }
 
@@ -950,6 +1092,7 @@ class SupplyChain {
     let presetQueue = [];
 
     for (let currentRule of ruleQueue) {
+      if (currentRule === this.stopRule) continue;
       let {
         eNext,
         pNext,
@@ -958,10 +1101,9 @@ class SupplyChain {
         errorNotif,
         enterNotif
       } = await currentRule.resolve();
-      log(currentRule.data);
-      requiredNotifications.add(passNotif);
-      requiredNotifications.add(enterNotif);
-      requiredNotifications.add(errorNotif);
+      passNotif.forEach(n => requiredNotifications.add(n));
+      enterNotif.forEach(n => requiredNotifications.add(n));
+      errorNotif.forEach(n => requiredNotifications.add(n));
       if (eNext && !ruleQueue.includes(eNext)) ruleQueue.push(eNext);
       if (pNext && !ruleQueue.includes(eNext)) ruleQueue.push(pNext);
       let neededPresets = preset.findStringsInCode(allPresetNames);
@@ -1002,7 +1144,18 @@ class SupplyChain {
     this.rules = new Collection(ruleQueue);
     this.presets = new Collection(presetQueue);
     requiredNotifications.delete(undefined);
-    this.notifications = [...requiredNotifications];
+    this.notifications = new Collection([...requiredNotifications]);
+  }
+
+  async log() {
+    log("Required notifications: ");
+    this.notifications.log();
+    write("Required rules: ");
+    log(this.rules.arr.length);
+    this.rules.log();
+    write("Required presets: ");
+    log(this.presets.arr.length);
+    this.presets.log();
   }
 
   async syncTo(env) {
@@ -1011,7 +1164,16 @@ class SupplyChain {
     }
 
     for (let rule of this.rules) {
-      await rule.save(env);
+      await rule.saveA(env);
+    }
+
+    log("");
+    log("OK");
+    log("Uncaching UAT");
+    Rule.getRules.remove([env]);
+
+    for (let rule of this.rules) {
+      await rule.saveB(env);
     }
   }
 
@@ -1070,7 +1232,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   RallyBase: RallyBase
 });
 
-var version = "1.5.1";
+var version = "1.6.1";
 
 const inquirer = importLazy("inquirer");
 async function $api(propArray) {
@@ -1233,9 +1395,20 @@ let presetsub = {
   async before(args) {
     this.env = args.env;
     if (!this.env) throw new AbortError("No env supplied");
-    let files = args.file;
-    if (typeof files === "string") files = [files];
-    this.files = files;
+
+    if (args.file) {
+      let files = args.file;
+      if (typeof files === "string") files = [files];
+      this.files = files;
+    } else if (args._.shift() == "-") {
+      log("Reading from stdin");
+
+      let getStdin = require("get-stdin");
+
+      let stdin = await getStdin();
+      this.files = stdin.split("\n");
+      if (this.files[this.files.length - 1] === "") this.files.pop();
+    }
   },
 
   async $list(args) {
@@ -1257,12 +1430,7 @@ let presetsub = {
       path: path$$1,
       remote: false
     }));
-    await rallyFunctions.uploadPresets(this.env, presets, async preset => {
-      log("asking... ");
-      let providers = await Provider.getProviders(this.env);
-      let provider = await selectProvider(this.env, providers);
-      return preset.constructMetadata(provider.id);
-    });
+    await rallyFunctions.uploadPresets(this.env, presets);
   },
 
   async $diff(args) {
@@ -1276,7 +1444,17 @@ let presetsub = {
       path: file,
       remote: false
     });
+
+    if (!preset.name) {
+      throw new AbortError(chalk`No preset header found. Cannot get name.`);
+    }
+
     let preset2 = await Preset.getByName(this.env, preset.name);
+
+    if (!preset2) {
+      throw new AbortError(chalk`No preset found with name {red ${preset.name}} on {blue ${this.env}}`);
+    }
+
     await preset2.downloadCode();
 
     let tempfile = require("tempy").file;
@@ -1350,6 +1528,8 @@ let supplysub = {
 
     if (args["to"]) {
       await chain.syncTo(args["to"]);
+    } else {
+      await chain.log();
     }
   },
 
@@ -1640,7 +1820,8 @@ async function $main() {
       let ret = await cli[func](argv);
 
       if (ret) {
-        write(chalk.white("CLI returned: ")); //Directly use console.log so that --raw works as intended.
+        write(chalk.white("CLI returned: "));
+        if (ret instanceof Collection) ret = ret.arr; //Directly use console.log so that --raw works as intended.
 
         if (typeof ret === "object") {
           console.log(JSON.stringify(ret, null, 4));

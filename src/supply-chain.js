@@ -8,8 +8,9 @@ import {configObject} from "./config.js";
 import fs from "fs";
 
 export default class SupplyChain{
-    constructor(startingRule){
+    constructor(startingRule, stopRule){
         this.startingRule = startingRule;
+        this.stopRule = stopRule
         this.remote = startingRule.remote;
     }
     async calculate(){
@@ -48,15 +49,16 @@ export default class SupplyChain{
         let ruleQueue = [this.startingRule];
         let presetQueue = [];
         for(let currentRule of ruleQueue){
+            if(currentRule === this.stopRule) continue;
             let {
                 eNext, pNext, preset,
                 passNotif, errorNotif, enterNotif
             } = await currentRule.resolve();
-            log(currentRule.data);
 
-            requiredNotifications.add(passNotif);
-            requiredNotifications.add(enterNotif);
-            requiredNotifications.add(errorNotif);
+
+            passNotif .forEach(n => requiredNotifications.add(n));
+            enterNotif.forEach(n => requiredNotifications.add(n));
+            errorNotif.forEach(n => requiredNotifications.add(n));
 
             if(eNext && !ruleQueue.includes(eNext)) ruleQueue.push(eNext);
             if(pNext && !ruleQueue.includes(eNext)) ruleQueue.push(pNext);
@@ -101,14 +103,35 @@ export default class SupplyChain{
         this.rules = new Collection(ruleQueue);
         this.presets = new Collection(presetQueue);
         requiredNotifications.delete(undefined);
-        this.notifications = [...requiredNotifications];
+        this.notifications = new Collection([...requiredNotifications]);
+    }
+    async log(){
+        log("Required notifications: ");
+        this.notifications.log();
+
+        write("Required rules: ");
+        log(this.rules.arr.length);
+        this.rules.log();
+
+        write("Required presets: ");
+        log(this.presets.arr.length);
+        this.presets.log();
     }
     async syncTo(env){
         for(let preset of this.presets){
             await preset.save(env);
         }
         for(let rule of this.rules){
-            await rule.save(env);
+            await rule.saveA(env);
+        }
+
+        log("")
+        log("OK")
+        log("Uncaching UAT");
+        Rule.getRules.remove([env]);
+
+        for(let rule of this.rules){
+            await rule.saveB(env);
         }
     }
 }

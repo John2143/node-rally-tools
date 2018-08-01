@@ -51,9 +51,17 @@ let presetsub = {
         this.env = args.env;
         if(!this.env) throw new AbortError("No env supplied");
 
-        let files = args.file;
-        if(typeof files === "string") files = [files];
-        this.files = files;
+        if(args.file){
+            let files = args.file;
+            if(typeof files === "string") files = [files];
+            this.files = files;
+        }else if(args._.shift() == "-"){
+            log("Reading from stdin");
+            let getStdin = require("get-stdin");
+            let stdin = await getStdin();
+            this.files = stdin.split("\n");
+            if(this.files[this.files.length - 1] === "") this.files.pop();
+        }
     },
     async $list(args){
         log("Loading...");
@@ -71,12 +79,7 @@ let presetsub = {
         log(chalk`Uploading {green ${this.files.length}} preset(s) to {green ${this.env}}.`);
 
         let presets = this.files.map(path => new Preset({path, remote: false}));
-        await funcs.uploadPresets(this.env, presets, async preset => {
-            log("asking... ");
-            let providers = await Provider.getProviders(this.env);
-            let provider = await configHelpers.selectProvider(this.env, providers);
-            return preset.constructMetadata(provider.id);
-        });
+        await funcs.uploadPresets(this.env, presets);
     },
     async $diff(args){
         let file = this.files[0];
@@ -85,7 +88,13 @@ let presetsub = {
         }
 
         let preset = new Preset({path: file, remote: false});
+        if(!preset.name){
+            throw new AbortError(chalk`No preset header found. Cannot get name.`);
+        }
         let preset2 = await Preset.getByName(this.env, preset.name);
+        if(!preset2){
+            throw new AbortError(chalk`No preset found with name {red ${preset.name}} on {blue ${this.env}}`);
+        }
         await preset2.downloadCode();
 
         let tempfile = require("tempy").file;
@@ -151,6 +160,8 @@ let supplysub = {
         await chain.calculate();
         if(args["to"]){
             await chain.syncTo(args["to"]);
+        }else{
+            await chain.log();
         }
     },
 
@@ -451,6 +462,8 @@ async function $main(){
             let ret = await cli[func](argv);
             if(ret){
                 write(chalk.white("CLI returned: "));
+                if(ret instanceof Collection) ret = ret.arr;
+
                 //Directly use console.log so that --raw works as intended.
                 if(typeof ret === "object"){
                     console.log(JSON.stringify(ret, null, 4));

@@ -83,6 +83,12 @@ export function cached(target, key, desc){
     newFunc.cachePush = function(args, value){
         cachedValues.push([args, value]);
     }
+    newFunc.remove = function(...args){
+        let {found, value} = findValueInCache(args, cachedValues);
+        if(found){
+            cachedValues = cachedValues.filter(([arg, item]) => item !== value);
+        }
+    }
 
     return {
         ...desc,

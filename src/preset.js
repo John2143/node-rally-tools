@@ -23,14 +23,14 @@ class Preset extends RallyBase{
             try{
                 this.code = this.getLocalCode();
             }catch(e){
-                log(chalk`{red Node Error} e.message`);
+                log(chalk`{red Node Error} ${e.message}`);
                 throw new AbortError("Could not load code of local file");
             }
             let name = this.parseFilenameForName() || this.parseCodeForName();
             try{
                 this.data = this.getLocalMetadata();
             }catch(e){
-                this.data = Object.assign({}, presetShell);
+                this.data = Preset.newShell();
             }
             this.name = name;
             this.isGeneric = true;
@@ -41,14 +41,23 @@ class Preset extends RallyBase{
             this.isGeneric = false;
         }
     }
+    static newShell(){
+        return {
+            "attributes": {},
+            "relationships": {},
+        };
+    }
     cleanup(){
         super.cleanup();
         delete this.attributes["createdAt"];
         delete this.attributes["updatedAt"];
     }
     async acclimatize(env){
+        if(!this.isGeneric) throw AbortError("Cannot acclimatize non-generics or shells");
         let providers = await Provider.getProviders(env);
-        let ptype = this.relationships["providerType"].data;
+        let ptype = this.relationships["providerType"];
+            ptype = ptype.data;
+
         let provider = providers.findByName(ptype.name);
         ptype.id = provider.id;
     }
@@ -143,10 +152,10 @@ class Preset extends RallyBase{
             env, path: `/presets/${id}/providerData`,
             body: this.code, method: "PUT", fullResponse: true
         });
-        write(chalk`response {yellow ${res.statusCode}}`);
+        write(chalk`response {yellow ${res.statusCode}} `);
     }
     async uploadCodeToEnv(env, includeMetadata){
-        write(chalk`Uploading {green ${this.name}} to {green ${env}}: `);
+        write(chalk`Uploading preset {green ${this.name}} to {green ${env}}: `);
 
         if(this.immutable){
             log(chalk`{magenta IMMUTABLE}. Nothing to do.`);
@@ -154,11 +163,7 @@ class Preset extends RallyBase{
         }
 
         //First query the api to see if this already exists.
-        let res = await lib.makeAPIRequest({
-            env, path: `/presets`,
-            qs: {filter: `name=${this.name}`},
-        });
-        let remote = res.data[0];
+        let remote = await Preset.getByName(env, this.name);
 
         if(remote){
             //If it exists we can replace it
@@ -175,9 +180,10 @@ class Preset extends RallyBase{
         }else{
             write("create, ");
             let metadata = {data: this.data};
-            if(!this.relationships){
-                throw AbortError("Cannot acclimatize shelled presets");
+            if(!this.relationships["providerType"]){
+                throw new AbortError("Cannot acclimatize shelled presets. (try creating it on the env first)");
             }
+
             await this.acclimatize(env);
             write("Posting to create preset... ");
             let res = await lib.makeAPIRequest({
@@ -188,7 +194,7 @@ class Preset extends RallyBase{
             write(chalk`Created id {green ${id}}... Uploading Code... `);
             await this.uploadPresetData(env, id);
         }
-        log();
+        log("Done");
     }
 
     constructMetadata(providerID){
@@ -216,7 +222,7 @@ class Preset extends RallyBase{
     getLocalCode(){
         return fs.readFileSync(this.path, "utf-8");
     }
-    @cached static async getByName(env, name){
+    static async getByName(env, name){
         if(Preset.hasLoadedAll){
             return (await Preset.getPresets(env)).findByName(name);
         }else{
@@ -225,7 +231,7 @@ class Preset extends RallyBase{
                     filter: `name=${name}`,
                 },
             });
-            return new Preset({data: data.data[0], remote: env});
+            if(data.data[0]) return new Preset({data: data.data[0], remote: env});
         }
     }
 

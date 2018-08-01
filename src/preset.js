@@ -7,11 +7,6 @@ import Provider from "./providers.js";
 import fs from "fs";
 import path from "path";
 
-let presetShell = {
-    "attributes": {},
-    "relationships": {},
-};
-
 class Preset extends RallyBase{
     constructor({path, remote, data}){
         super();

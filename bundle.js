@@ -49,20 +49,28 @@ function _applyDecoratedDescriptor(target, property, decorators, descriptor, con
 }
 
 let configFile = os.homedir() + "/.rallyconfig";
-let configObject = {
-  hasConfig: true
-};
+let configObject;
+function loadConfig(file) {
+  if (file) configFile = file;
+  configObject = {
+    hasConfig: true
+  };
 
-try {
-  let json = fs.readFileSync(configFile);
-  configObject = JSON.parse(json);
-} catch (e) {
-  if (e.code == "ENOENT") {
-    configObject.hasConfig = false; //ok, they should probably make a config
-  } else {
-    throw e;
+  try {
+    let json = fs.readFileSync(configFile);
+    configObject = JSON.parse(json);
+  } catch (e) {
+    if (e.code == "ENOENT") {
+      configObject.hasConfig = false; //ok, they should probably make a config
+    } else {
+      throw e;
+    }
   }
 }
+function setConfig(obj) {
+  configObject = obj;
+}
+loadConfig();
 
 const rp = importLazy("request-promise");
 global.chalk = chalk$1;
@@ -1297,7 +1305,9 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   Rule: Rule,
   Provider: Provider,
   Notification: Notification,
-  configFile: configFile,
+  get configFile () { return configFile; },
+  loadConfig: loadConfig,
+  setConfig: setConfig,
   get configObject () { return configObject; },
   lib: lib,
   AbortError: AbortError,
@@ -1882,8 +1892,10 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
 }
 
 async function $main() {
-  // First we need to decide if the user wants color or not. If they do want
+  //Supply --config to load a different config file
+  if (argv.config) loadConfig(argv.config); // First we need to decide if the user wants color or not. If they do want
   // color, we need to make sure we use the right mode
+
   chalk.enabled = configObject.hasConfig ? configObject.chalk : true;
 
   if (chalk.level === 0 || !chalk.enabled) {

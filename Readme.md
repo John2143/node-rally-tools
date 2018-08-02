@@ -33,6 +33,19 @@ you want to create a node plugin that uses this library, you should just use
 
 ## Config
 
+Pass the `--config` option to read/write a different config file location. If
+including as a module, then you need to call
+
+```
+const rally = require("rally-tools");
+
+rally.loadConfig(filename);
+// OR
+rally.setConfig({... config object here ...})
+```
+
+Options:
+
  - chalk: allow colored output.
  - restrictUAT: Only allow GET requests from UAT, not POST/PUT/etc.
  - api: Your api keys and urls

@@ -1308,7 +1308,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   RallyBase: RallyBase
 });
 
-var version = "1.6.3";
+var version = "1.7.0";
 
 const inquirer = importLazy("inquirer");
 async function $api(propArray) {

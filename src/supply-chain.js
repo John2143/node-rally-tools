@@ -74,6 +74,8 @@ export default class SupplyChain{
                 .map(str => this.allNotifications.findByName(str))
                 .forEach(notif => requiredNotifications.add(notif));
 
+            neededPresets.push(preset);
+
             for(let p of neededPresets) if(!presetQueue.includes(p)) presetQueue.push(p);
             for(let p of neededRules)   if(!ruleQueue  .includes(p)) ruleQueue  .push(p);
 

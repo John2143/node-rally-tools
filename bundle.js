@@ -623,6 +623,7 @@ let Preset = (_class$1 = class Preset extends RallyBase {
 
       try {
         this.data = this.getLocalMetadata();
+        if (!name) name = this.name;
       } catch (e) {
         this.data = Preset.newShell();
       }
@@ -671,7 +672,15 @@ let Preset = (_class$1 = class Preset extends RallyBase {
   }
 
   async saveLocal() {
+    await this.saveLocalMetadata();
+    await this.saveLocalFile();
+  }
+
+  async saveLocalMetadata() {
     fs__default.writeFileSync(this.localmetadatapath, JSON.stringify(this.data, null, 4));
+  }
+
+  async saveLocalFile() {
     fs__default.writeFileSync(this.localpath, this.code);
   }
 
@@ -749,7 +758,14 @@ let Preset = (_class$1 = class Preset extends RallyBase {
   }
 
   get localmetadatapath() {
-    return path__default.join(configObject.repodir, "silo-metadata", this.name + ".json");
+    let fname = this.name;
+
+    if (!fname && this.path) {
+      let bname = path.basename(this.path);
+      fname = bname.substring(0, bname.length - (this.ext.length + 1));
+    }
+
+    return path__default.join(configObject.repodir, "silo-metadata", fname + ".json");
   }
 
   get immutable() {
@@ -765,6 +781,11 @@ let Preset = (_class$1 = class Preset extends RallyBase {
       fullResponse: true
     });
     write(chalk`response {yellow ${res.statusCode}} `);
+  }
+
+  async grabMetadata(env) {
+    let remote = await Preset.getByName(env, this.name);
+    this.data = remote.data;
   }
 
   async uploadCodeToEnv(env, includeMetadata) {
@@ -844,7 +865,7 @@ let Preset = (_class$1 = class Preset extends RallyBase {
   }
 
   getLocalMetadata() {
-    return fs__default.readFileSync(this.localmetadatapath, "utf-8");
+    return JSON.parse(fs__default.readFileSync(this.localmetadatapath, "utf-8"));
   }
 
   getLocalCode() {
@@ -1000,7 +1021,23 @@ let Rule = (_class$3 = class Rule extends RallyBase {
   async patchStrip() {
     delete this.data.attributes.createdAt;
     delete this.data.attributes.starred;
-    delete this.data.attributes.updatedAt;
+    delete this.data.attributes.updatedAt; // TEMP FIX FOR BUG IN SDVI
+
+    if (this.relationships.passMetadata && this.relationships.passMetadata[0]) {
+      log("HAS PASS");
+      log(this.name);
+      log("HAS PASS");
+    }
+
+    delete this.relationships.passMetadata;
+
+    if (this.relationships.errorMetadata && this.relationships.errorMetadata[0]) {
+      log("HAS PASS");
+      log(this.name);
+      log("HAS PASS");
+    }
+
+    delete this.relationships.errorMetadata;
 
     for (let key in this.relationships) {
       let relationship = this.relationships[key];
@@ -1149,6 +1186,7 @@ class SupplyChain {
       let neededRules = preset.findStringsInCode(allRuleNames);
       neededRules = neededRules.map(x => this.allRules.findByName(x));
       preset.findStringsInCode(allNotifNames).map(str => this.allNotifications.findByName(str)).forEach(notif => requiredNotifications.add(notif));
+      neededPresets.push(preset);
 
       for (let p of neededPresets) if (!presetQueue.includes(p)) presetQueue.push(p);
 
@@ -1270,7 +1308,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   RallyBase: RallyBase
 });
 
-var version = "1.6.2";
+var version = "1.6.3";
 
 const inquirer = importLazy("inquirer");
 async function $api(propArray) {
@@ -1449,6 +1487,23 @@ let presetsub = {
     }
   },
 
+  async $grab(args) {
+    if (!this.files) {
+      throw new AbortError("No files provided to upload (use --file argument)");
+    }
+
+    log(chalk`Grabbing {green ${this.files.length}} preset(s) to {green ${this.env}}.`);
+    let presets = this.files.map(path$$1 => new Preset({
+      path: path$$1,
+      remote: false
+    }));
+
+    for (let preset of presets) {
+      await preset.grabMetadata(env);
+      await preset.saveLocalMetadata();
+    }
+  },
+
   async $list(args) {
     log("Loading...");
     let presets = await Preset.getPresets(this.env);
@@ -1569,19 +1624,23 @@ let supplysub = {
   async $calc(args) {
     let name$$1 = args._.shift();
 
+    let stopName = args._.shift();
+
     if (!name$$1) {
       throw new AbortError("No starting rule supplied");
     }
 
     let rules = await Rule.getRules(this.env);
     let start = rules.findByNameContains(name$$1);
+    let stop;
+    if (stopName) stop = rules.findByNameContains(stopName);
 
     if (!start) {
       throw new AbortError(chalk`No starting rule found by name {blue ${name$$1}}`);
     }
 
-    log(chalk`Analzying supply chain: ${start.chalkPrint(false)}`);
-    let chain = new SupplyChain(start);
+    log(chalk`Analzying supply chain: ${start.chalkPrint(false)} - ${stop ? stop.chalkPrint(false) : "(open)"}`);
+    let chain = new SupplyChain(start, stop);
     await chain.calculate();
 
     if (args["to"]) {

@@ -24,6 +24,7 @@ class Preset extends RallyBase{
             let name = this.parseFilenameForName() || this.parseCodeForName();
             try{
                 this.data = this.getLocalMetadata();
+                if(!name) name = this.name;
             }catch(e){
                 this.data = Preset.newShell();
             }
@@ -68,7 +69,13 @@ class Preset extends RallyBase{
         return {proType};
     }
     async saveLocal(){
+        await this.saveLocalMetadata();
+        await this.saveLocalFile();
+    }
+    async saveLocalMetadata(){
         fs.writeFileSync(this.localmetadatapath, JSON.stringify(this.data, null, 4));
+    }
+    async saveLocalFile(){
         fs.writeFileSync(this.localpath, this.code);
     }
     async uploadRemote(env){
@@ -137,7 +144,12 @@ class Preset extends RallyBase{
         this._path = val;
     }
     get localmetadatapath(){
-        return path.join(configObject.repodir, "silo-metadata", this.name + ".json");
+        let fname = this.name;
+        if(!fname && this.path){
+            let bname = basename(this.path);
+            fname = bname.substring(0, bname.length - (this.ext.length + 1));
+        }
+        return path.join(configObject.repodir, "silo-metadata", fname + ".json");
     }
     get immutable(){
         return this.name.includes("Constant");
@@ -148,6 +160,10 @@ class Preset extends RallyBase{
             body: this.code, method: "PUT", fullResponse: true
         });
         write(chalk`response {yellow ${res.statusCode}} `);
+    }
+    async grabMetadata(env){
+        let remote = await Preset.getByName(env, this.name);
+        this.data = remote.data;
     }
     async uploadCodeToEnv(env, includeMetadata){
         write(chalk`Uploading preset {green ${this.name}} to {green ${env}}: `);
@@ -212,7 +228,7 @@ class Preset extends RallyBase{
     }
 
     getLocalMetadata(){
-        return fs.readFileSync(this.localmetadatapath, "utf-8");
+        return JSON.parse(fs.readFileSync(this.localmetadatapath, "utf-8"));
     }
     getLocalCode(){
         return fs.readFileSync(this.path, "utf-8");

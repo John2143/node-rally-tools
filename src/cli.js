@@ -63,6 +63,20 @@ let presetsub = {
             if(this.files[this.files.length - 1] === "") this.files.pop();
         }
     },
+    async $grab(args){
+        if(!this.files){
+            throw new AbortError("No files provided to upload (use --file argument)");
+        }
+
+        log(chalk`Grabbing {green ${this.files.length}} preset(s) to {green ${this.env}}.`);
+
+        let presets = this.files.map(path => new Preset({path, remote: false}));
+        for(let preset of presets){
+            await preset.grabMetadata(env);
+
+            await preset.saveLocalMetadata();
+        }
+    },
     async $list(args){
         log("Loading...");
         let presets = await Preset.getPresets(this.env);
@@ -162,20 +176,23 @@ let supplysub = {
     //Calculate a supply chain based on a starting rule at the top of the stack
     async $calc(args){
         let name = args._.shift();
+        let stopName = args._.shift();
         if(!name){
             throw new AbortError("No starting rule supplied");
         }
 
         let rules = await Rule.getRules(this.env);
         let start = rules.findByNameContains(name);
+        let stop;
+        if(stopName) stop = rules.findByNameContains(stopName);
 
         if(!start){
             throw new AbortError(chalk`No starting rule found by name {blue ${name}}`);
         }
 
-        log(chalk`Analzying supply chain: ${start.chalkPrint(false)}`);
+        log(chalk`Analzying supply chain: ${start.chalkPrint(false)} - ${stop ? stop.chalkPrint(false) : "(open)"}`);
 
-        let chain = new SupplyChain(start);
+        let chain = new SupplyChain(start, stop);
         await chain.calculate();
         if(args["to"]){
             await chain.syncTo(args["to"]);

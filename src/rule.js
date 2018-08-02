@@ -85,6 +85,22 @@ class Rule extends RallyBase{
         delete this.data.attributes.createdAt;
         delete this.data.attributes.starred;
         delete this.data.attributes.updatedAt;
+
+        // TEMP FIX FOR BUG IN SDVI
+        if(this.relationships.passMetadata && this.relationships.passMetadata[0]){
+            log("HAS PASS");
+            log(this.name);
+            log("HAS PASS");
+        }
+        delete this.relationships.passMetadata;
+
+        if(this.relationships.errorMetadata && this.relationships.errorMetadata[0]){
+            log("HAS PASS");
+            log(this.name);
+            log("HAS PASS");
+        }
+        delete this.relationships.errorMetadata;
+
         for(let key in this.relationships){
             let relationship = this.relationships[key];
             if(!relationship.data || relationship.data instanceof Array && !relationship.data[0]){

@@ -5,7 +5,7 @@ import * as allIndexBundle from "./index.js"
 import {
     rallyFunctions as funcs,
     Preset, Rule, SupplyChain, Provider,
-    AbortError, UnconfiguredEnvError, Collection,
+    AbortError, UnconfiguredEnvError, Collection, APIError
 } from "./index.js";
 
 import {version as packageVersion} from "../package.json";
@@ -65,15 +65,14 @@ let presetsub = {
     },
     async $grab(args){
         if(!this.files){
-            throw new AbortError("No files provided to upload (use --file argument)");
+            throw new AbortError("No files provided to grab (use --file argument)");
         }
 
         log(chalk`Grabbing {green ${this.files.length}} preset(s) to {green ${this.env}}.`);
 
         let presets = this.files.map(path => new Preset({path, remote: false}));
         for(let preset of presets){
-            await preset.grabMetadata(env);
-
+            await preset.grabMetadata(this.env);
             await preset.saveLocalMetadata();
         }
     },
@@ -141,6 +140,16 @@ let rulesub = {
 
         log(chalk`{yellow ${rules.length}} rules on {green ${this.env}}.`);
         for(let rule of rules) log(rule.chalkPrint());
+    },
+    async $grab(args){
+        log("Loading...");
+        //let rules = await Rule.getRules(this.env);
+        for(let rule in args._){
+            log(rule);
+        }
+
+        //log(chalk`{yellow ${rules.length}} rules on {green ${this.env}}.`);
+        //for(let rule of rules) log(rule.chalkPrint());
     },
     async unknown(arg, args){
         log(chalk`Unknown action {red ${arg}} try '{white rally help rule}'`);
@@ -444,8 +453,16 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
             else if(result === true) resultStr = chalk`{green OK}`;
             else if(result === false) resultStr = chalk`{red BAD}`;
         }catch(e){
-            if(!e instanceof UnconfiguredEnvError) throw e;
-            resultStr = chalk`{yellow Unconfigured}`;
+            if(e instanceof UnconfiguredEnvError){
+                resultStr = chalk`{yellow Unconfigured}`;
+            }else if(e instanceof APIError){
+                if(e.request){
+                    log(e.request);
+                    resultStr = chalk`{red Timeout}`;
+                }
+            }else{
+                throw e;
+            }
         }
 
         log(chalk`   ${env}: ${resultStr}`);
@@ -491,7 +508,10 @@ async function $main(){
     }
 
     //Enable verbose logging in some places.
-    if(argv["verbose"]){
+    if(argv["vverbose"]){
+        configObject.verbose = argv["vverbose"];
+        configObject.vverbose = true;
+    }else if(argv["verbose"]){
         configObject.verbose = argv["verbose"]
     }
 

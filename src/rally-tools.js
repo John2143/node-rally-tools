@@ -52,7 +52,7 @@ export class lib{
             body = JSON.stringify(payload);
         }
 
-        if(global.logAPI){
+        if(configObject.vverbose){
             log(chalk`${method} @ ${path}`);
             if(qs){
                 log(qs)
@@ -65,6 +65,7 @@ export class lib{
 
         let requestOptions = {
             method, body, qs, uri: path,
+            timeout: 1000,
             auth: {bearer: rally_api_key},
             headers: {
                 //SDVI ignores this header sometimes.
@@ -73,7 +74,18 @@ export class lib{
             },
             simple: false, resolveWithFullResponse: true,
         };
-        let response = await rp(requestOptions);
+
+        let response;
+        try{
+            response = await rp(requestOptions);
+        }catch(e){
+            log(e?.cause.name)
+            if(e.code === "ETIMEDOUT"){
+                throw new APIError(response, requestOptions, body);
+            }else{
+                throw e;
+            }
+        }
 
         //Throw an error for any 5xx or 4xx
         if(!fullResponse && ![200, 201, 204].includes(response.statusCode)){
@@ -157,6 +169,42 @@ export class lib{
     static isLocalEnv(env){
         return !env || env === "LOCAL" || env === "LOC";
     }
+    static async startJob(env, movie, preset){
+        let movieObj = await this.makeAPIRequest({
+            env, path: "/movies", qs: {
+                filter: `name=${movie}`
+            }
+        });
+
+        let id = movieObj?.data?.[0]?.id
+        if(!id) return {};
+
+        // Fire and forget.
+        let data = await this.makeAPIRequest({
+            env, path: "/jobs", method: "POST",
+            payload: {
+                data: {
+                    type: "jobs",
+                    relationships: {
+                        movie: {
+                            data: {
+                                id: id,
+                                type: "movies",
+                            }
+                        }, preset: {
+                            data: {
+                                id: preset,
+                                type: "presets",
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        return {
+            movieId: id, reqData: data,
+        };
+    }
 };
 
 export class AbortError extends Error{
@@ -175,6 +223,10 @@ export class APIError extends Error{
 {green ${body}}
 {reset ${response.body}}
         `);
+        this.response = response;
+        this.opts = opts;
+        this.body = body;
+
         Error.captureStackTrace(this, this.constructor);
         this.name = "ApiError";
     }

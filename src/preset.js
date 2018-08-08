@@ -24,12 +24,13 @@ class Preset extends RallyBase{
             let name = this.parseFilenameForName() || this.parseCodeForName();
             try{
                 this.data = this.getLocalMetadata();
+                this.isGeneric = true;
                 if(!name) name = this.name;
             }catch(e){
                 this.data = Preset.newShell();
+                this.isGeneric = false;
             }
             this.name = name;
-            this.isGeneric = true;
         }else{
             this.data = data;
             //this.name = data.attributes.name;
@@ -57,6 +58,24 @@ class Preset extends RallyBase{
         let provider = providers.findByName(ptype.name);
         ptype.id = provider.id;
     }
+    get test(){
+        if(!this.code) return;
+
+        const regex = /autotest:\s?([\w\d_. \/]+)[\r\s\n]*?/m;
+        const match = regex.exec(this.code);
+        if(match) return match[1];
+    }
+    async runTest(env){
+        let remote = await Preset.getByName(env, this.name);
+        write(chalk`Starting job {green ${this.name}} on {green ${this.test})}... `);
+        let {movieId} = await lib.startJob(env, this.test, remote.id);
+        if(movieId){
+            write(chalk`movie {blue ${movieId}}. `);
+            log(chalk`OK`);
+        }else{
+            log(chalk`{red No movie found}, Fail.`);
+        }
+    }
     async resolve(){
         if(this.isGeneric) return;
 
@@ -73,6 +92,11 @@ class Preset extends RallyBase{
         await this.saveLocalFile();
     }
     async saveLocalMetadata(){
+        if(!this.isGeneric){
+            log("Non generic");
+            await this.resolve();
+            this.cleanup();
+        }
         fs.writeFileSync(this.localmetadatapath, JSON.stringify(this.data, null, 4));
     }
     async saveLocalFile(){
@@ -117,12 +141,14 @@ class Preset extends RallyBase{
         if(this.path.endsWith(".jinja") || this.path.endsWith(".json")){
             return basename(this.path)
                 .replace("_", " ")
-                .replace("-", " ");
+                .replace("-", " ")
+                .replace(".json", "")
+                .replace(".jinja", "");
         }
     }
 
     parseCodeForName(){
-        const name_regex = /name:\s([\w\d. \/]+)[\r\s\n]*?/;
+        const name_regex = /name\s?:\s([\w\d. \/]+)[\r\s\n]*?/;
         const match = name_regex.exec(this.code);
         if(match) return match[1];
     }
@@ -163,9 +189,19 @@ class Preset extends RallyBase{
     }
     async grabMetadata(env){
         let remote = await Preset.getByName(env, this.name);
+        this.isGeneric = false;
+        if(!remote){
+            throw new AbortError(`No file found on remote ${env} with name ${this.name}`);
+        }
         this.data = remote.data;
+        this.remote = env;
     }
     async uploadCodeToEnv(env, includeMetadata){
+        if(!this.name){
+            log(chalk`Failed uploading {red ${this.path}}. No name found.`);
+            return;
+        }
+
         write(chalk`Uploading preset {green ${this.name}} to {green ${env}}: `);
 
         if(this.immutable){
@@ -206,6 +242,11 @@ class Preset extends RallyBase{
             await this.uploadPresetData(env, id);
         }
         log("Done");
+        if(this.test){
+            this.runTest(env)
+        }else{
+            log("No test");
+        }
     }
 
     constructMetadata(providerID){

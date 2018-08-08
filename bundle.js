@@ -134,7 +134,7 @@ class lib {
       body = JSON.stringify(payload);
     }
 
-    if (global.logAPI) {
+    if (configObject.vverbose) {
       log(chalk$1`${method} @ ${path$$1}`);
 
       if (qs) {
@@ -151,6 +151,7 @@ class lib {
       body,
       qs,
       uri: path$$1,
+      timeout: 1000,
       auth: {
         bearer: rally_api_key
       },
@@ -162,7 +163,20 @@ class lib {
       simple: false,
       resolveWithFullResponse: true
     };
-    let response = await rp(requestOptions); //Throw an error for any 5xx or 4xx
+    let response;
+
+    try {
+      response = await rp(requestOptions);
+    } catch (e) {
+      log(e === null || e === void 0 ? void 0 : e.cause.name);
+
+      if (e.code === "ETIMEDOUT") {
+        throw new APIError(response, requestOptions, body);
+      } else {
+        throw e;
+      }
+    } //Throw an error for any 5xx or 4xx
+
 
     if (!fullResponse && ![200, 201, 204].includes(response.statusCode)) {
       throw new APIError(response, requestOptions, body);
@@ -257,6 +271,49 @@ class lib {
     return !env || env === "LOCAL" || env === "LOC";
   }
 
+  static async startJob(env, movie, preset) {
+    var _movieObj$data, _movieObj$data$;
+
+    let movieObj = await this.makeAPIRequest({
+      env,
+      path: "/movies",
+      qs: {
+        filter: `name=${movie}`
+      }
+    });
+    let id = movieObj === null || movieObj === void 0 ? void 0 : (_movieObj$data = movieObj.data) === null || _movieObj$data === void 0 ? void 0 : (_movieObj$data$ = _movieObj$data[0]) === null || _movieObj$data$ === void 0 ? void 0 : _movieObj$data$.id;
+    if (!id) return {}; // Fire and forget.
+
+    let data = await this.makeAPIRequest({
+      env,
+      path: "/jobs",
+      method: "POST",
+      payload: {
+        data: {
+          type: "jobs",
+          relationships: {
+            movie: {
+              data: {
+                id: id,
+                type: "movies"
+              }
+            },
+            preset: {
+              data: {
+                id: preset,
+                type: "presets"
+              }
+            }
+          }
+        }
+      }
+    });
+    return {
+      movieId: id,
+      reqData: data
+    };
+  }
+
 }
 class AbortError extends Error {
   constructor(message) {
@@ -274,6 +331,9 @@ class APIError extends Error {
 {green ${body}}
 {reset ${response.body}}
         `);
+    this.response = response;
+    this.opts = opts;
+    this.body = body;
     Error.captureStackTrace(this, this.constructor);
     this.name = "ApiError";
   }
@@ -631,13 +691,14 @@ let Preset = (_class$1 = class Preset extends RallyBase {
 
       try {
         this.data = this.getLocalMetadata();
+        this.isGeneric = true;
         if (!name) name = this.name;
       } catch (e) {
         this.data = Preset.newShell();
+        this.isGeneric = false;
       }
 
       this.name = name;
-      this.isGeneric = true;
     } else {
       this.data = data; //this.name = data.attributes.name;
       //this.id = data.id;
@@ -668,6 +729,28 @@ let Preset = (_class$1 = class Preset extends RallyBase {
     ptype.id = provider.id;
   }
 
+  get test() {
+    if (!this.code) return;
+    const regex = /autotest:\s?([\w\d_. \/]+)[\r\s\n]*?/m;
+    const match = regex.exec(this.code);
+    if (match) return match[1];
+  }
+
+  async runTest(env) {
+    let remote = await Preset.getByName(env, this.name);
+    write(chalk`Starting job {green ${this.name}} on {green ${this.test})}... `);
+    let {
+      movieId
+    } = await lib.startJob(env, this.test, remote.id);
+
+    if (movieId) {
+      write(chalk`movie {blue ${movieId}}. `);
+      log(chalk`OK`);
+    } else {
+      log(chalk`{red No movie found}, Fail.`);
+    }
+  }
+
   async resolve() {
     if (this.isGeneric) return;
     let providers = await Provider.getProviders(this.remote);
@@ -685,6 +768,12 @@ let Preset = (_class$1 = class Preset extends RallyBase {
   }
 
   async saveLocalMetadata() {
+    if (!this.isGeneric) {
+      log("Non generic");
+      await this.resolve();
+      this.cleanup();
+    }
+
     fs__default.writeFileSync(this.localmetadatapath, JSON.stringify(this.data, null, 4));
   }
 
@@ -735,12 +824,12 @@ let Preset = (_class$1 = class Preset extends RallyBase {
 
   parseFilenameForName() {
     if (this.path.endsWith(".jinja") || this.path.endsWith(".json")) {
-      return path.basename(this.path).replace("_", " ").replace("-", " ");
+      return path.basename(this.path).replace("_", " ").replace("-", " ").replace(".json", "").replace(".jinja", "");
     }
   }
 
   parseCodeForName() {
-    const name_regex = /name:\s([\w\d. \/]+)[\r\s\n]*?/;
+    const name_regex = /name\s?:\s([\w\d. \/]+)[\r\s\n]*?/;
     const match = name_regex.exec(this.code);
     if (match) return match[1];
   }
@@ -793,10 +882,22 @@ let Preset = (_class$1 = class Preset extends RallyBase {
 
   async grabMetadata(env) {
     let remote = await Preset.getByName(env, this.name);
+    this.isGeneric = false;
+
+    if (!remote) {
+      throw new AbortError(`No file found on remote ${env} with name ${this.name}`);
+    }
+
     this.data = remote.data;
+    this.remote = env;
   }
 
   async uploadCodeToEnv(env, includeMetadata) {
+    if (!this.name) {
+      log(chalk`Failed uploading {red ${this.path}}. No name found.`);
+      return;
+    }
+
     write(chalk`Uploading preset {green ${this.name}} to {green ${env}}: `);
 
     if (this.immutable) {
@@ -851,6 +952,12 @@ let Preset = (_class$1 = class Preset extends RallyBase {
     }
 
     log("Done");
+
+    if (this.test) {
+      this.runTest(env);
+    } else {
+      log("No test");
+    }
   }
 
   constructMetadata(providerID) {
@@ -1318,7 +1425,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   RallyBase: RallyBase
 });
 
-var version = "1.7.0";
+var version = "1.7.1";
 
 const inquirer = importLazy("inquirer");
 async function $api(propArray) {
@@ -1499,7 +1606,7 @@ let presetsub = {
 
   async $grab(args) {
     if (!this.files) {
-      throw new AbortError("No files provided to upload (use --file argument)");
+      throw new AbortError("No files provided to grab (use --file argument)");
     }
 
     log(chalk`Grabbing {green ${this.files.length}} preset(s) to {green ${this.env}}.`);
@@ -1509,7 +1616,7 @@ let presetsub = {
     }));
 
     for (let preset of presets) {
-      await preset.grabMetadata(env);
+      await preset.grabMetadata(this.env);
       await preset.saveLocalMetadata();
     }
   },
@@ -1594,6 +1701,16 @@ let rulesub = {
     log(chalk`{yellow ${rules.length}} rules on {green ${this.env}}.`);
 
     for (let rule of rules) log(rule.chalkPrint());
+  },
+
+  async $grab(args) {
+    log("Loading..."); //let rules = await Rule.getRules(this.env);
+
+    for (let rule in args._) {
+      log(rule);
+    } //log(chalk`{yellow ${rules.length}} rules on {green ${this.env}}.`);
+    //for(let rule of rules) log(rule.chalkPrint());
+
   },
 
   async unknown(arg$$1, args) {
@@ -1883,8 +2000,16 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
       resultStr = chalk`{yellow ${result} <unknown>}`;
       if (result === 200) resultStr = chalk`{green 200 OK}`;else if (result === 401) resultStr = chalk`{red 401 No Access}`;else if (result >= 500) resultStr = chalk`{yellow ${result} API Down?}`;else if (result === true) resultStr = chalk`{green OK}`;else if (result === false) resultStr = chalk`{red BAD}`;
     } catch (e) {
-      if (!e instanceof UnconfiguredEnvError) throw e;
-      resultStr = chalk`{yellow Unconfigured}`;
+      if (e instanceof UnconfiguredEnvError) {
+        resultStr = chalk`{yellow Unconfigured}`;
+      } else if (e instanceof APIError) {
+        if (e.request) {
+          log(e.request);
+          resultStr = chalk`{red Timeout}`;
+        }
+      } else {
+        throw e;
+      }
     }
 
     log(chalk`   ${env}: ${resultStr}`);
@@ -1935,7 +2060,10 @@ async function $main() {
   } //Enable verbose logging in some places.
 
 
-  if (argv["verbose"]) {
+  if (argv["vverbose"]) {
+    configObject.verbose = argv["vverbose"];
+    configObject.vverbose = true;
+  } else if (argv["verbose"]) {
     configObject.verbose = argv["verbose"];
   } //copy argument array to new object to allow modification
 

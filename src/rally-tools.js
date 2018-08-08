@@ -65,7 +65,7 @@ export class lib{
 
         let requestOptions = {
             method, body, qs, uri: path,
-            timeout: 1000,
+            timeout: 5000,
             auth: {bearer: rally_api_key},
             headers: {
                 //SDVI ignores this header sometimes.

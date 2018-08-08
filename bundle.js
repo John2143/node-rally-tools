@@ -151,7 +151,7 @@ class lib {
       body,
       qs,
       uri: path$$1,
-      timeout: 1000,
+      timeout: 5000,
       auth: {
         bearer: rally_api_key
       },
@@ -1425,7 +1425,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   RallyBase: RallyBase
 });
 
-var version = "1.7.1";
+var version = "1.7.2";
 
 const inquirer = importLazy("inquirer");
 async function $api(propArray) {
@@ -1704,10 +1704,11 @@ let rulesub = {
   },
 
   async $grab(args) {
-    log("Loading..."); //let rules = await Rule.getRules(this.env);
+    log("Loading...");
+    let rules = await Rule.getRules(this.env);
 
-    for (let rule in args._) {
-      log(rule);
+    for (let rule of args._) {
+      log(rules.findByNameContains(rule));
     } //log(chalk`{yellow ${rules.length}} rules on {green ${this.env}}.`);
     //for(let rule of rules) log(rule.chalkPrint());
 

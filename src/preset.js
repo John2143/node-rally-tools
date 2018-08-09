@@ -152,6 +152,7 @@ class Preset extends RallyBase{
         const match = name_regex.exec(this.code);
         if(match) return match[1];
     }
+
     findStringsInCode(strings){
         if(!this.code) return [];
 

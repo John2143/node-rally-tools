@@ -30,7 +30,7 @@ export class lib{
         env, path, path_full,
         payload, body, method = "GET",
         qs, headers = {},
-        fullResponse = false
+        fullResponse = false, timeout = configObject.timeout || 0
     }){
         //Keys are defined in enviornment variables
         let config = configObject?.api?.[env];
@@ -65,7 +65,7 @@ export class lib{
 
         let requestOptions = {
             method, body, qs, uri: path,
-            timeout: 5000,
+            timeout,
             auth: {bearer: rally_api_key},
             headers: {
                 //SDVI ignores this header sometimes.
@@ -114,14 +114,15 @@ export class lib{
     static async indexPath(env, path){
         let all = [];
 
-        let json = await this.makeAPIRequest(typeof env === "string" ? {env, path} : env);
+        let opts = typeof env === "string" ? {env, path} : env;
+        let json = await this.makeAPIRequest(opts);
 
         let [numPages, pageSize] = this.numPages(json.links.last);
         //log(`num pages: ${numPages} * ${pageSize}`);
 
         all = [...json.data];
         while(json.links.next){
-            json = await this.makeAPIRequest({env, path_full: json.links.next});
+            json = await this.makeAPIRequest({...opts, path_full: json.links.next});
             all = [...all, ...json.data];
         }
 
@@ -144,7 +145,8 @@ export class lib{
     static async indexPathFast(env, path){
         let all = [];
 
-        let json = await this.makeAPIRequest(typeof env === "string" ? {env, path} : env);
+        let opts = typeof env === "string" ? {env, path} : env;
+        let json = await this.makeAPIRequest(opts);
 
         let baselink = json.links.first;
         const linkToPage = page => baselink.replace("page=1p", `page=${page}p`);
@@ -156,7 +158,7 @@ export class lib{
         //Assume that the content from the inital request is the first page.
         let promises = [Promise.resolve(json),];
         for(let i = 2; i <= numPages; i++){
-            let req = this.makeAPIRequest({env, path_full: linkToPage(i)});
+            let req = this.makeAPIRequest({...opts, path_full: linkToPage(i)});
             promises.push(req);
         }
 

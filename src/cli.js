@@ -46,29 +46,39 @@ function printHelp(help, short){
     return helpText;
 }
 
+async function getFilesFromArgs(args){
+    let lastArg = args._.shift()
+    if(args.file){
+        let files = args.file;
+        if(typeof files === "string") files = [files];
+        return files;
+    }
+
+    if(lastArg == "-"){
+        log("Reading from stdin");
+        let getStdin = require("get-stdin");
+        let stdin = await getStdin();
+        let files  = stdin.split("\n");
+        if(files[files.length - 1] === "") files.pop();
+        return files;
+    }else{
+        args._.push(lastArg);
+    }
+}
+
 let presetsub = {
     async before(args){
         this.env = args.env;
         if(!this.env) throw new AbortError("No env supplied");
 
-        if(args.file){
-            let files = args.file;
-            if(typeof files === "string") files = [files];
-            this.files = files;
-        }else if(args._.shift() == "-"){
-            log("Reading from stdin");
-            let getStdin = require("get-stdin");
-            let stdin = await getStdin();
-            this.files = stdin.split("\n");
-            if(this.files[this.files.length - 1] === "") this.files.pop();
-        }
+        this.files = await getFilesFromArgs(args);
     },
     async $grab(args){
         if(!this.files){
             throw new AbortError("No files provided to grab (use --file argument)");
         }
 
-        log(chalk`Grabbing {green ${this.files.length}} preset(s) to {green ${this.env}}.`);
+        log(chalk`Grabbing {green ${this.files.length}} preset(s) from {green ${this.env}}.`);
 
         let presets = this.files.map(path => new Preset({path, remote: false}));
         for(let preset of presets){
@@ -143,9 +153,9 @@ let rulesub = {
     },
     async $grab(args){
         log("Loading...");
-        //let rules = await Rule.getRules(this.env);
-        for(let rule in args._){
-            log(rule);
+        let rules = await Rule.getRules(this.env);
+        for(let rule of args._){
+            log(rules.findByNameContains(rule));
         }
 
         //log(chalk`{yellow ${rules.length}} rules on {green ${this.env}}.`);
@@ -180,6 +190,7 @@ let supplysub = {
     async before(args){
         this.env = args.env;
         if(!this.env) throw new AbortError("No env supplied");
+        this.files = await getFilesFromArgs(args);
     },
 
     //Calculate a supply chain based on a starting rule at the top of the stack
@@ -209,7 +220,8 @@ let supplysub = {
             await chain.log();
         }
     },
-
+    async $make(args){
+    },
     async $magic(args){
         let big = require("fs").readFileSync("test.json");
         big = JSON.parse(big);

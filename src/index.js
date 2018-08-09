@@ -33,7 +33,7 @@ export const rallyFunctions = {
             //TODO
             return true;
         }
-        let result = await lib.makeAPIRequest({env, path: "/providers?page=1p1", fullResponse: true});
+        let result = await lib.makeAPIRequest({env, path: "/providers?page=1p1", fullResponse: true, timeout: 1000});
         return result.statusCode;
     },
 }

@@ -4,6 +4,7 @@ import {lib, Collection} from "./rally-tools.js";
 class Notification{
     constructor(data, env){
         this.data = data;
+        this.meta = {};
         this.remote = env;
     }
     @cached static async getNotifications(env){
@@ -22,9 +23,11 @@ class Notification{
     }
 }
 
-defineAssoc(Notification, "id", "id");
-defineAssoc(Notification, "name", "attributes.name");
-defineAssoc(Notification, "address", "attributes.address");
-defineAssoc(Notification, "type", "attributes.type");
+defineAssoc(Notification, "id", "data.id");
+defineAssoc(Notification, "name", "data.attributes.name");
+defineAssoc(Notification, "address", "data.attributes.address");
+defineAssoc(Notification, "type", "data.attributes.type");
+defineAssoc(Notification, "remote", "meta.remote");
+
 
 export default Notification;

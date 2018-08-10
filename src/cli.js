@@ -89,6 +89,16 @@ let presetsub = {
     async $list(args){
         log("Loading...");
         let presets = await Preset.getPresets(this.env);
+        if(args.resolve){
+            for(let preset of presets){
+                let resolve = await preset.resolve(this.env);
+                if(args.attach){
+                    let {proType} = resolve;
+                    proType.editorConfig.helpText = "";
+                    preset.meta = resolve;
+                }
+            }
+        }
         if(configObject.rawOutput) return presets;
 
         log(chalk`{yellow ${presets.length}} presets on {green ${this.env}}.`);
@@ -186,6 +196,28 @@ let jupytersub = {
     },
 }
 
+async function categorizeString(str){
+    str = str.trim();
+    let match
+    if(match = /^(\w)-(\w{1,10})-(\d{1,10}):/.exec(str)){
+        if(match[1] === "P"){
+            return await Preset.getById(match[2], match[3])
+        }else if(match[1] === "R"){
+            return await Rule.getById(match[2], match[3])
+        }else{
+            return null
+        }
+    }else if(match = /silo\-(\w+)\//.exec(str)){
+        switch(match[1]){
+            case "presets": return new Preset({path: str});
+            case "rules": return new Rule({path: str});
+            case "metadata": return await Preset.fromMetadata(str);
+        }
+    }else{
+        return null
+    }
+}
+
 let supplysub = {
     async before(args){
         this.env = args.env;
@@ -221,29 +253,25 @@ let supplysub = {
         }
     },
     async $make(args){
-    },
-    async $magic(args){
-        let big = require("fs").readFileSync("test.json");
-        big = JSON.parse(big);
+        let files = [];
+        for(let file of this.files){
+            files.push(await categorizeString(file));
+        }
+        files = files.filter(f => f);
+        let chain = new SupplyChain();
 
-        let presets = big.allPresets.arr.map(obj => {
-            let preset = new Preset({
-                data: obj.data, remote: big.remote
-            });
-            preset.code = obj._code;
-            return preset;
-        });
-        Preset.getPresets.cachePush([big.remote], new Collection(presets));
+        chain.rules = new Collection(files.filter(f => f instanceof Rule));
+        chain.presets = new Collection(files.filter(f => f instanceof Preset));
+        chain.notifications = new Collection([]);
 
-        let rules = big.allRules.arr.map(obj => {
-            let rule = new Rule(
-                obj.data, big.remote
-            );
-            return rule;
-        });
-        Rule.getRules.cachePush([big.remote], new Collection(rules));
-
-        return await this.$calc(args);
+        if(args["to"]){
+            log("Loading code...")
+            await Promise.all(chain.presets.arr.map(obj => obj.downloadCode()));
+            log("Done");
+            await chain.syncTo(args["to"]);
+        }else{
+            await chain.log();
+        }
     },
     async unknown(arg, args){
         log(chalk`Unknown action {red ${arg}} try '{white rally help supply}'`);

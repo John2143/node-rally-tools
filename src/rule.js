@@ -9,9 +9,13 @@ import fs from "fs";
 import path from "path";
 
 class Rule extends RallyBase{
-    constructor(data, remote){
+    constructor({path, data, remote}){
         super();
+        if(path){
+            data = JSON.parse(fs.readFileSync(path, "utf-8"));
+        }
         this.data = data;
+        this.meta = {};
         this.remote = remote;
         this.isGeneric = !this.remote;
     }
@@ -169,9 +173,13 @@ class Rule extends RallyBase{
     }
 
     chalkPrint(pad=true){
-        let id = String("R-" + this.remote + "-" + this.id)
+        let id = String("R-" + (this.remote && this.remote + "-" + this.id || "LOCAL"))
         if(pad) id = id.padStart(10);
+        try{
         return chalk`{green ${id}}: {blue ${this.name}}`;
+        }catch(e){
+            return this.data;
+        }
     }
     static async getByName(env, name){
         return (await Rule.getRules(env)).findByName(name);
@@ -179,12 +187,16 @@ class Rule extends RallyBase{
 
     @cached static async getRules(env){
         let rules = await lib.indexPathFast(env, "/workflowRules?page=1p20");
-        return new Collection(rules.map(data => new Rule(data, env)));
+        return new Collection(rules.map(data => new Rule({data, remote: env})));
     }
 }
 
-defineAssoc(Rule, "name", "attributes.name");
-defineAssoc(Rule, "id", "id");
-defineAssoc(Rule, "relationships", "relationships");
+defineAssoc(Rule, "name", "data.attributes.name");
+defineAssoc(Rule, "id", "data.id");
+defineAssoc(Rule, "relationships", "data.relationships");
+defineAssoc(Rule, "isGeneric", "meta.isGeneric");
+defineAssoc(Rule, "remote", "meta.remote");
+defineAssoc(Rule, "idMap", "meta.idMap");
+
 
 export default Rule;

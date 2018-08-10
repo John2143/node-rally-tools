@@ -115,10 +115,10 @@ export function defineAssoc(classname, shortname, path){
 
     Object.defineProperty(classname.prototype, shortname, {
         get(){
-            return deepAccess(this.data, path)[lastKey];
+            return deepAccess(this, path)[lastKey];
         },
         set(val){
-            deepAccess(this.data, path)[lastKey] = val;
+            deepAccess(this, path)[lastKey] = val;
         },
     });
 }

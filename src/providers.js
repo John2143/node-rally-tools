@@ -4,9 +4,10 @@ import {lib, Collection} from "./rally-tools.js";
 class Provider{
     constructor(data, env){
         this.data = data;
+        this.meta = {};
         this.remote = env;
     }
-    //TODO env is unused...
+    //cached
     async getEditorConfig(){
         if(this.editorConfig) return this.editorConfig;
 
@@ -47,8 +48,10 @@ class Provider{
     }
 }
 
-defineAssoc(Provider, "id", "id");
-defineAssoc(Provider, "name", "attributes.name");
-defineAssoc(Provider, "category", "attributes.category");
+defineAssoc(Provider, "id", "data.id");
+defineAssoc(Provider, "name", "data.attributes.name");
+defineAssoc(Provider, "category", "data.attributes.category");
+defineAssoc(Provider, "remote", "meta.remote");
+defineAssoc(Provider, "editorConfig", "meta.editorConfig");
 
 export default Provider;

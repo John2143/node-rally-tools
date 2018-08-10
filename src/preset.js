@@ -1,5 +1,5 @@
 import {RallyBase, lib, AbortError, Collection} from  "./rally-tools.js";
-import {basename} from "path";
+import {basename, resolve as pathResolve, dirname} from "path";
 import {cached, defineAssoc} from "./decorators.js";
 import {configObject} from "./config.js";
 import Provider from "./providers.js";
@@ -9,7 +9,15 @@ import path from "path";
 
 class Preset extends RallyBase{
     constructor({path, remote, data}){
+        if(path){
+            path = pathResolve(path);
+            if(dirname(path).includes("silo-metadata")){
+                throw new AbortError("Constructing preset from metadata file")
+            }
+        }
+
         super();
+        this.meta = {};
         this.remote = remote
         if(lib.isLocalEnv(this.remote)){
             this.path = path;
@@ -38,6 +46,19 @@ class Preset extends RallyBase{
             this.isGeneric = false;
         }
     }
+    //Given a metadata file, get its actualy file
+    static async fromMetadata(path){
+        let providers = await Provider.getProviders(configObject.defaultEnv);
+        let data = JSON.parse(fs.readFileSync(path));
+        let provider = providers.findByName(data.relationships.providerType.data.name);
+
+        let ext = await provider.getFileExtension();
+        let name = data.attributes.name;
+
+        let realpath = Preset.getLocalPath(name, ext);
+        return new Preset({path: realpath});
+    }
+
     static newShell(){
         return {
             "attributes": {},
@@ -93,7 +114,6 @@ class Preset extends RallyBase{
     }
     async saveLocalMetadata(){
         if(!this.isGeneric){
-            log("Non generic");
             await this.resolve();
             this.cleanup();
         }
@@ -110,6 +130,7 @@ class Preset extends RallyBase{
             await this.resolve();
         }
 
+        log(chalk`Saving {green ${this.name}} to {blue ${lib.envName(env)}}.`)
         this.cleanup();
         if(lib.isLocalEnv(env)){
             await this.saveLocal();
@@ -133,9 +154,13 @@ class Preset extends RallyBase{
     set code(v){this._code = v;}
 
     chalkPrint(pad=true){
-        let id = String("P-" + (this.remote && this.remote + "-" + this.id) || "Local")
+        let id = String("P-" + (this.remote && this.remote + "-" + this.id || "LOCAL"))
         if(pad) id = id.padStart(10);
-        return chalk`{green ${id}}: {blue ${this.name}}`;
+        if(this.meta.proType){
+            return chalk`{green ${id}}: {red ${this.meta.proType.name}} {blue ${this.name}}`;
+        }else{
+            return chalk`{green ${id}}: {blue ${this.name}}`;
+        }
     }
     parseFilenameForName(){
         if(this.path.endsWith(".jinja") || this.path.endsWith(".json")){
@@ -161,9 +186,11 @@ class Preset extends RallyBase{
             return !!this.code.match(regex);
         });
     }
-    get localpath(){
-        return path.join(configObject.repodir, "silo-presets", this.name + "." + this.ext);
+    static getLocalPath(name, ext){
+        return path.join(configObject.repodir, "silo-presets", name + "." + ext);
     }
+    get localpath(){return Preset.getLocalPath(this.name, this.ext)}
+
     get path(){
         if(this._path) return this._path;
     }
@@ -242,8 +269,9 @@ class Preset extends RallyBase{
             write(chalk`Created id {green ${id}}... Uploading Code... `);
             await this.uploadPresetData(env, id);
         }
-        log("Done");
+        write("Done. ");
         if(this.test){
+            log("test...")
             this.runTest(env)
         }else{
             log("No test");
@@ -287,6 +315,16 @@ class Preset extends RallyBase{
             if(data.data[0]) return new Preset({data: data.data[0], remote: env});
         }
     }
+    static async getById(env, id){
+        if(this.hasLoadedAll){
+            return (await this.getPresets(env)).findById(id);
+        }else{
+            let data = await lib.makeAPIRequest({
+                env, path: "/presets/" + id,
+            });
+            if(data.data) return new this({data: data.data, remote: env});
+        }
+    }
 
     @cached static async getPresets(env){
         Preset.hasLoadedAll = true;
@@ -295,9 +333,13 @@ class Preset extends RallyBase{
     }
 }
 
-defineAssoc(Preset, "name", "attributes.name");
-defineAssoc(Preset, "id", "id");
-defineAssoc(Preset, "attributes", "attributes");
-defineAssoc(Preset, "relationships", "relationships");
+defineAssoc(Preset, "name", "data.attributes.name");
+defineAssoc(Preset, "id", "data.id");
+defineAssoc(Preset, "attributes", "data.attributes");
+defineAssoc(Preset, "relationships", "data.relationships");
+defineAssoc(Preset, "remote", "meta.remote");
+defineAssoc(Preset, "_code", "meta.code");
+defineAssoc(Preset, "_path", "meta.path");
+defineAssoc(Preset, "isGeneric", "meta.isGeneric");
 
 export default Preset;

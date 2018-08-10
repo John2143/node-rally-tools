@@ -171,6 +171,10 @@ export class lib{
     static isLocalEnv(env){
         return !env || env === "LOCAL" || env === "LOC";
     }
+    static envName(env){
+        if(this.isLocalEnv(env)) return "LOCAL";
+        return env;
+    }
     static async startJob(env, movie, preset){
         let movieObj = await this.makeAPIRequest({
             env, path: "/movies", qs: {

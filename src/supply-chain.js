@@ -9,9 +9,11 @@ import fs from "fs";
 
 export default class SupplyChain{
     constructor(startingRule, stopRule){
-        this.startingRule = startingRule;
-        this.stopRule = stopRule
-        this.remote = startingRule.remote;
+        if(startingRule){
+            this.startingRule = startingRule;
+            this.stopRule = stopRule
+            this.remote = startingRule.remote;
+        }
     }
     async calculate(){
         write("Getting rules... ");
@@ -123,17 +125,19 @@ export default class SupplyChain{
         for(let preset of this.presets){
             await preset.save(env);
         }
-        for(let rule of this.rules){
-            await rule.saveA(env);
-        }
+        if(this.rules[0]){
+            log("Starting create phase for rules")
+            for(let rule of this.rules){
+                await rule.saveA(env);
+            }
 
-        log("")
-        log("OK")
-        log("Uncaching UAT");
-        Rule.getRules.remove([env]);
+            log("OK")
+            log("Starting link phase for rules");
+            Rule.getRules.remove([env]);
 
-        for(let rule of this.rules){
-            await rule.saveB(env);
+            for(let rule of this.rules){
+                await rule.saveB(env);
+            }
         }
     }
 }

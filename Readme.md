@@ -94,7 +94,9 @@ Then, using other flags you can do something with this chain.
 
  - `--to [env]` will copy the supply chain onto the env, creating new rules and
     presets as needed.
- - (other commands in development)
+ - `--check [env]` will do a diff on each file in the chain to the remote given
+
+`rally supply make -f [files]`
 
 #### `rally conifg`
 

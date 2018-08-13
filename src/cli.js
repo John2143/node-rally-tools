@@ -95,7 +95,9 @@ let presetsub = {
                 if(args.attach){
                     let {proType} = resolve;
                     proType.editorConfig.helpText = "";
-                    preset.meta = resolve;
+                    preset.meta = {
+                        ...preset.meta, resolve
+                    };
                 }
             }
         }

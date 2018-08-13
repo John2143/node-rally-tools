@@ -1733,7 +1733,9 @@ let presetsub = {
             proType
           } = resolve;
           proType.editorConfig.helpText = "";
-          preset.meta = resolve;
+          preset.meta = { ...preset.meta,
+            resolve
+          };
         }
       }
     }

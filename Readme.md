@@ -216,10 +216,10 @@ Required presets: 2
 ```
 
 To give a generic approach, in order to deploy all the changes between 2
-commits, run `git diff featureCommit baseCommit --name-only | rally supply make
-- --to DEV`. `rally` is currently stateless: It does not remember what is
-  deployed, who deployed it or when. All this should be tracked through git.
- Therefore, I would suggest tagging releases or using a release branch.
+commits, run `git diff featureCommit baseCommit --name-only | rally supply make -
+--to DEV`. `rally` is currently stateless: It does not remember what is
+deployed, who deployed it or when. All this should be tracked through git.
+Therefore, I would suggest tagging releases or using a release branch.
 
 #### Examples
 Heres some other examples of common usage:

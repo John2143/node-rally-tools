@@ -63,7 +63,9 @@ documentation.
 This command deals with preset actions such as creating, uploading, and
 downloading.
 
-The basic usage is `rally preset list`, which lists all presets.
+The basic usage is `rally preset list`, which lists all presets. Giving the
+`--resolve` flag will internall resolve the dynamic references in an object.
+You can then add these to the output using `--attach`.
 
 `rally preset upload -e [env] -f [preset]` can be used to upload a file to a
 remote env. You can specify multiple -f arguments to upload multiple files.  If
@@ -112,16 +114,126 @@ would let you modify just the DEV credentials.
 `rally config --raw` prints out the current config *including configs changed
 by command line options*
 
+#### Deployments
+
+Deployments using this tool are based around supply chains. At their core,
+supply chains are simply a group of rally objects, where an object is either a
+rule, preset, or notification.
+
+Although you can only deploy supply chains, there are many ways to construct
+the deployment you want.
+
+The first, and easiest way you'll probably encounter is through `rally supply
+calc [starting rule] [ending rule]`. This does the heavy lifting of parsing
+rules, finding notifications, linking the presets, creating metadata, etc.
+
+Using the E2 Supply chain as an example...
+
+```
+$ rally supply calc R1000 -e DEV
+...
+Calculating Supply chain...  R-DEV-617: NL R1000 - MP - Non Linear Media Preparation Workflow
+Done!
+Required notifications: 
+N-21: SNS All - test
+Required rules: 8
+ R-DEV-617: NL R1000 - MP - Non Linear Media Preparation Workflow
+ R-DEV-618: NL R2001 - MP - Make EST Media Articrafts by Split
+ R-DEV-621: NL R3012 - MP - Make EST Media File using Media Convert
+ R-DEV-622: NL R4001 - MP - Make EST Closed Caption File
+ R-DEV-627: NL R3013 - MP - QC EST Media File Launcher
+ R-DEV-623: NL R5001 - MP - Make EST Media ArtiCrafts by Join
+ R-DEV-628: NL R3014 - MP - QC EST Media File using SimpleSDVIQC
+ R-DEV-623: NL R5001 - MP - Make EST Media ArtiCrafts by Join
+Required presets: 10
+ P-DEV-285: NL P1000 - MP - Non Linear Media Preparation Workflow
+  P-DEV-18: Fail
+ P-DEV-283: NL - EST - Util Library
+ P-DEV-284: NL - MP - Util  Library
+ P-DEV-286: NL P2001 - MP - Make EST Media Articrafts by Split
+ P-DEV-289: NL P3012 - MP - Make EST Media File using MediaConvert
+ P-DEV-290: NL P4001 - MP - Make EST Closed Caption File
+ P-DEV-306: NL P3013 - MP - QC EST Media File Launcher
+ P-DEV-291: NL P5001 - MP - Make EST Media ArtiCrafts by Join
+ P-DEV-307: NL P3014 - MP - QC EST Media File using SimpleSDVIQC
+```
+
+This internally creates a supply chain object, which we can then apply an action to.
+
+An example action is `sync`, which is given by the `--to` arg. `rally supply
+calc R1000 -e DEV --to LOCAL` would sync this supply chain (based on DEV) to
+LOCAL. In order to move it to a protected envornment, add --no-protect.
+
+However, calc is limited by the fact that it is very rigid. Its best use is the
+inital setup of an environment, or to mass move supply chains. To fix this,
+lets move to `rally supply make`
+
+`make` takes a list of identifiers and constructs a supply chain. Identifiers
+are passed in by the `this.files` array. From the command line this can be
+given by suppling -f arguments or reading from stdin.
+
+Lets say you edited these 3 objects in DEV.
+
+```
+$ cat > changes.txt
+ P-DEV-283: NL - EST - Util Library
+ P-DEV-285: NL P1000 - MP - Non Linear Media Preparation Workflow
+ R-DEV-617: NL R1000 - MP - Non Linear Media Preparation Workflow
+
+$ cat changes.txt | rally supply make -
+Reading from stdin
+Required notifications: 
+Required rules: 1
+ R-DEV-617: NL R1000 - MP - Non Linear Media Preparation Workflow
+Required presets: 2
+ P-DEV-283: NL - EST - Util Library
+ P-DEV-285: NL P1000 - MP - Non Linear Media Preparation Workflow
+```
+
+Now you can treat this like any other supply chain, and deploy it. Remote to
+remote, or remote to local. However, this tool is built to integrate directly
+with git on your local filesystem.
+
+If you edited those 3 files locally, then commited to git, you should be able
+to see the diff with the git command `git diff HEAD HEAD^`. We are only
+interested in the names, so lets get those.
+
+```
+$ git diff HEAD HEAD^ --name-only
+silo-presets/NL - EST - Util Library
+silo-presets/NL P1000 - MP - Non Linear Media Preparation Workflow
+silo-rules/NL R1000 - MP - Non Linear Media Preparation Workflow
+
+$ #Passing those to make will produce a supply chain based on LOCAL
+$ git diff HEAD HEAD^ --name-only | rally supply make -
+Reading from stdin
+Required notifications: 
+Required rules: 1
+ R-LOCAL: NL R1000 - MP - Non Linear Media Preparation Workflow
+Required presets: 2
+ P-LOCAL: NL - EST - Util Library
+ P-LOCAL: NL P1000 - MP - Non Linear Media Preparation Workflow
+```
+
+To give a generic approach, in order to deploy all the changes between 2
+commits, run `git diff featureCommit baseCommit --name-only | rally supply make
+- --to DEV`. `rally` is currently stateless: It does not remember what is
+  deployed, who deployed it or when. All this should be tracked through git.
+ Therefore, I would suggest tagging releases or using a release branch.
+
 #### Examples
-Heres some examples of common usage:
+Heres some other examples of common usage:
 
 Upload a preset
 `rally preset upload -e DEV -f "~/ORP/silo-presets/Audio Metadata Conditioner.py"`
 
-Fuzzy find a rule
-`rally rule list -e DEV | grep "OR00"`
+Look at all ffmpeg jobs
+`rally rule list -e DEV --resolve --attach | grep ffmpeg`
 
-Create a new supply chain file
+Clone some ffmpeg jobs you want to edit (`vipe` optional)
+`rally rule list -e DEV --resolve --attach | grep ffmpeg | vipe | rally supply make - --to LOCAL`
+
+Create a new supply chain and print it
 `rally supply calc ORHIVE`
 
 ## Troubleshooting

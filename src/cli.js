@@ -78,13 +78,43 @@ let presetsub = {
             throw new AbortError("No files provided to grab (use --file argument)");
         }
 
-        log(chalk`Grabbing {green ${this.files.length}} preset(s) from {green ${this.env}}.`);
+        log(chalk`Grabbing {green ${this.files.length}} preset(s) metadata from {green ${this.env}}.`);
 
         let presets = this.files.map(path => new Preset({path, remote: false}));
         for(let preset of presets){
             await preset.grabMetadata(this.env);
             await preset.saveLocalMetadata();
         }
+    },
+    async $create(args){
+        let provier, name, ext;
+        if(args.provider){
+            provider = args.provider;
+            ext = args.ext
+        }else{
+            provider = await configHelpers.selectProvider(await Provider.getProviders(this.env));
+            ext = (await provider.getEditorConfig()).fileExt;
+        }
+        if(args.name){
+            name = args.name;
+        }else{
+            name = await configHelpers.askInput("Preset Name", "What is the preset name?");
+        }
+
+        let preset = new Preset();
+
+        preset.providerType = {name: provider.name};
+        preset.isGeneric = true;
+        preset.name = name;
+        preset.ext = ext;
+        if(provider.name === "SdviEvaluate"){
+            preset._code = `'''\nname: ${name}\n'''\n\n# code here\n`;
+        }else{
+            preset._code = ""
+        }
+
+        preset.saveLocalMetadata();
+        preset.saveLocalFile();
     },
     async $list(args){
         log("Loading...");
@@ -163,16 +193,6 @@ let rulesub = {
         log(chalk`{yellow ${rules.length}} rules on {green ${this.env}}.`);
         for(let rule of rules) log(rule.chalkPrint());
     },
-    async $grab(args){
-        log("Loading...");
-        let rules = await Rule.getRules(this.env);
-        for(let rule of args._){
-            log(rules.findByNameContains(rule));
-        }
-
-        //log(chalk`{yellow ${rules.length}} rules on {green ${this.env}}.`);
-        //for(let rule of rules) log(rule.chalkPrint());
-    },
     async unknown(arg, args){
         log(chalk`Unknown action {red ${arg}} try '{white rally help rule}'`);
     },
@@ -246,13 +266,49 @@ let supplysub = {
 
         log(chalk`Analzying supply chain: ${start.chalkPrint(false)} - ${stop ? stop.chalkPrint(false) : "(open)"}`);
 
-        let chain = new SupplyChain(start, stop);
-        await chain.calculate();
+        this.chain = new SupplyChain(start, stop);
+        await this.chain.calculate();
+        await this.postAction(args);
+    },
+    async postAction(args){
+        //Now that we ahve a supply chain object, do something with it
         if(args["to"]){
-            await chain.syncTo(args["to"]);
+            log("Loading code");
+            await Promise.all(this.chain.presets.arr.map(obj => obj.downloadCode()));
+            log("Done");
+            await this.chain.syncTo(args["to"]);
+        }else if(args["diff"]){
+            //Very basic diff
+            let env = args["diff"];
+            await Promise.all(this.chain.presets.arr.map(obj => obj.downloadCode()));
+            await Promise.all(this.chain.presets.arr.map(obj => obj.resolve()));
+
+            let otherPresets = await Promise.all(this.chain.presets.arr.map(obj => Preset.getByName(env, obj.name)));
+            otherPresets = new Collection(otherPresets.filter(x => x));
+            await Promise.all(otherPresets.arr.map(obj => obj.downloadCode()));
+            await Promise.all(otherPresets.arr.map(obj => obj.resolve()));
+
+            for(let preset of this.chain.presets){
+                let otherPreset = otherPresets.arr.find(x => x.name === preset.name);
+                log(preset.chalkPrint(true));
+                if(otherPreset){
+                    log(otherPreset.chalkPrint(true));
+                }else{
+                    otherPreset = {};
+                    log(chalk`{red (None)}`);
+                }
+
+                if(preset.code === otherPreset.code){
+                    log("Code Same");
+                }else{
+                    log("Code Different");
+                }
+            }
+
         }else{
-            await chain.log();
+            await this.chain.log();
         }
+
     },
     async $make(args){
         let files = [];
@@ -260,20 +316,13 @@ let supplysub = {
             files.push(await categorizeString(file));
         }
         files = files.filter(f => f);
-        let chain = new SupplyChain();
+        this.chain = new SupplyChain();
 
-        chain.rules = new Collection(files.filter(f => f instanceof Rule));
-        chain.presets = new Collection(files.filter(f => f instanceof Preset));
-        chain.notifications = new Collection([]);
+        this.chain.rules = new Collection(files.filter(f => f instanceof Rule));
+        this.chain.presets = new Collection(files.filter(f => f instanceof Preset));
+        this.chain.notifications = new Collection([]);
 
-        if(args["to"]){
-            log("Loading code...")
-            await Promise.all(chain.presets.arr.map(obj => obj.downloadCode()));
-            log("Done");
-            await chain.syncTo(args["to"]);
-        }else{
-            await chain.log();
-        }
+        await this.postAction(args);
     },
     async unknown(arg, args){
         log(chalk`Unknown action {red ${arg}} try '{white rally help supply}'`);

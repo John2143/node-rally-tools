@@ -184,6 +184,9 @@ class Rule extends RallyBase{
     static async getByName(env, name){
         return (await Rule.getRules(env)).findByName(name);
     }
+    static async getById(env, id){
+        return (await Rule.getRules(env)).findById(id);
+    }
 
     @cached static async getRules(env){
         let rules = await lib.indexPathFast(env, "/workflowRules?page=1p20");

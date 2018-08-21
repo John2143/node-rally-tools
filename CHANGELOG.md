@@ -1,3 +1,16 @@
+# 1.8.0/1.8.1
+ - Added `preset create`
+ - Removed `rule grab`. Use `supply make - --to LOCAL` instead.
+ - Unified supply chain postActions
+ - Improved preset shell creation
+ - Allowed types not extending rally base inside of `Collection#log()`
+ - Added `Rule#getById`
+ - Created utils folder, currently holding `addMioSupport.js` in order to transform
+a normal preset into MIO
+ - Added `--resolve` and `--attach` to preset list
+ - Added categorizeString function. Transforms file path, or UID into object
+ - Added meta associations to improve internal stability
+
 # 1.7.1/1.7.2
  - Added support for `autotest: MOVIE_NAME` in header.
    - Supply a movie name to cause this preset to be run on the movie each time

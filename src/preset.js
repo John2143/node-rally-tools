@@ -8,7 +8,7 @@ import fs from "fs";
 import path from "path";
 
 class Preset extends RallyBase{
-    constructor({path, remote, data}){
+    constructor({path, remote, data} = {}){
         if(path){
             path = pathResolve(path);
             if(dirname(path).includes("silo-metadata")){
@@ -20,25 +20,29 @@ class Preset extends RallyBase{
         this.meta = {};
         this.remote = remote
         if(lib.isLocalEnv(this.remote)){
-            this.path = path;
-            let pathspl = this.path.split(".");
-            this.ext = pathspl[pathspl.length-1];
-            try{
-                this.code = this.getLocalCode();
-            }catch(e){
-                log(chalk`{red Node Error} ${e.message}`);
-                throw new AbortError("Could not load code of local file");
-            }
-            let name = this.parseFilenameForName() || this.parseCodeForName();
-            try{
-                this.data = this.getLocalMetadata();
-                this.isGeneric = true;
-                if(!name) name = this.name;
-            }catch(e){
+            if(path){
+                this.path = path;
+                let pathspl = this.path.split(".");
+                this.ext = pathspl[pathspl.length-1];
+                try{
+                    this.code = this.getLocalCode();
+                }catch(e){
+                    log(chalk`{red Node Error} ${e.message}`);
+                    throw new AbortError("Could not load code of local file");
+                }
+                let name = this.parseFilenameForName() || this.parseCodeForName();
+                try{
+                    this.data = this.getLocalMetadata();
+                    this.isGeneric = true;
+                    name = this.name;
+                }catch(e){
+                    this.data = Preset.newShell();
+                    this.isGeneric = false;
+                }
+                this.name = name;
+            }else{
                 this.data = Preset.newShell();
-                this.isGeneric = false;
             }
-            this.name = name;
         }else{
             this.data = data;
             //this.name = data.attributes.name;
@@ -61,8 +65,12 @@ class Preset extends RallyBase{
 
     static newShell(){
         return {
-            "attributes": {},
+            "attributes": {
+                "providerSettings": {
+                }
+            },
             "relationships": {},
+            "type": "presets",
         };
     }
     cleanup(){
@@ -197,6 +205,21 @@ class Preset extends RallyBase{
     set path(val){
         this._path = val;
     }
+    get name(){
+        return this._nameOuter;
+    }
+    set name(val){
+        this._nameInner = val;
+        this._nameOuter = val;
+    }
+    set providerType(value){
+        this.relationships["providerType"] = {
+            data: {
+                ...value,
+                type: "providerTypes",
+            }
+        };
+    }
     get localmetadatapath(){
         let fname = this.name;
         if(!fname && this.path){
@@ -278,33 +301,15 @@ class Preset extends RallyBase{
         }
     }
 
-    constructMetadata(providerID){
-        return {
-            attributes: {
-                name: this.name,
-                //providerSettings: {
-                //},
-            },
-            relationships: {
-                providerType: {
-                    data: {
-                        id: providerID,
-                        type: "providerTypes",
-                    },
-                }
-            },
-            type: "presets"
-        };
-    }
-
     getLocalMetadata(){
         return JSON.parse(fs.readFileSync(this.localmetadatapath, "utf-8"));
     }
     getLocalCode(){
         return fs.readFileSync(this.path, "utf-8");
     }
+    //Todo techincal debt, refactor in all classes
     static async getByName(env, name){
-        if(Preset.hasLoadedAll){
+        if(this.hasLoadedAll){
             return (await Preset.getPresets(env)).findByName(name);
         }else{
             let data = await lib.makeAPIRequest({
@@ -333,7 +338,8 @@ class Preset extends RallyBase{
     }
 }
 
-defineAssoc(Preset, "name", "data.attributes.name");
+defineAssoc(Preset, "_nameInner", "data.attributes.providerSettings.PresetName");
+defineAssoc(Preset, "_nameOuter", "data.attributes.name");
 defineAssoc(Preset, "id", "data.id");
 defineAssoc(Preset, "attributes", "data.attributes");
 defineAssoc(Preset, "relationships", "data.relationships");
@@ -341,5 +347,6 @@ defineAssoc(Preset, "remote", "meta.remote");
 defineAssoc(Preset, "_code", "meta.code");
 defineAssoc(Preset, "_path", "meta.path");
 defineAssoc(Preset, "isGeneric", "meta.isGeneric");
+defineAssoc(Preset, "ext", "meta.ext");
 
 export default Preset;

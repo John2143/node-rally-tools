@@ -74,22 +74,31 @@ export async function $defaultEnv(propArray){
 }
 
 //Internal usage/testing
-export async function selectProvider(env, providers){
-    let defaultProvider =  providers.find(x => x.attributes.name === "SdviEvaluate");
-    if(args.defaultSelect){
+export async function selectProvider(providers, autoDefault = false){
+    let defaultProvider = providers.findByName("SdviEvaluate");
+    if(autoDefault){
         return defaultProvider;
     }else{
         let q = await inquirer.prompt([{
             type: "list",
             name: "provider",
             default: defaultProvider,
-            choices: providers.map(x => ({
-                name: prettyPrintProvider(x),
+            choices: providers.arr.map(x => ({
+                name: x.chalkPrint(true),
                 value: x,
             })),
         }]);
         return q.provider;
     }
+}
+
+export async function askInput(name, question, def){
+    return (await inquirer.prompt([{
+        type: "input",
+        name: "ok",
+        message: question,
+        default: def,
+    }])).ok;
 }
 
 export async function askQuestion(question){

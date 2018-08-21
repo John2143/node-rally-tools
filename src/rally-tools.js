@@ -269,7 +269,13 @@ export class Collection{
         return this.arr.find(x => x.name.includes(name));
     }
     log(){
-        for(let d of this) log(d.chalkPrint(true));
+        for(let d of this){
+            if(d){
+                log(d.chalkPrint(true));
+            }else{
+                log(chalk`{red (None)}`);
+            }
+        }
     }
     get length(){return this.arr.length;}
 }

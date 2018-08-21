@@ -5,13 +5,13 @@ async function main(){
 
     settings.outputSpec = {
         ".*\\.mov$": {
-            "label": "QCProxy",
+            "label": settings.OutputFileLabel,
             "location": settings.OutputStorageName,
-            "name": settings.OutputRename
+            "name": settings.outputRename
         }, ".*\\.log$": {
-            "label": "QCProxy Log",
+            "label": settings.OutputFileLabel,
             "location": settings.OutputStorageName,
-            "name": settings.OutputRename
+            "name": settings.outputRename
         }
     }
     settings.outputRename = "--";

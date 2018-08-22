@@ -1,5 +1,16 @@
 import {configObject} from "./config.js";
+import {join} from "path";
+import Preset from "./preset.js";
+import Rule from "./rule.js";
 const inquirer = importLazy("inquirer");
+const readdir = importLazy("recursive-readdir");
+
+let hasAutoCompletePrompt = false;
+function addAutoCompletePrompt(){
+    if(hasAutoCompletePrompt) return
+    hasAutoCompletePrompt = true;
+    inquirer.registerPrompt("autocomplete", require("inquirer-autocomplete-prompt"));
+}
 
 export async function $api(propArray){
     const defaults = {
@@ -90,6 +101,39 @@ export async function selectProvider(providers, autoDefault = false){
         }]);
         return q.provider;
     }
+}
+
+export async function selectLocal(path, typeName, Class){
+    addAutoCompletePrompt();
+    let basePath = join(configObject.repodir, path)
+    let f = await readdir(basePath);
+    let objs = f.map(name => new Class({path: name}));
+    let objsMap = objs.map(x => ({
+        name: x.chalkPrint(true),
+        value: x,
+    }));
+    let none = {
+        name: (chalk`      {red None}: {red None}`),
+        value: null,
+    };
+    objsMap.unshift(none);
+
+    let q = await inquirer.prompt([{
+        type: "autocomplete",
+        name: "obj",
+        message: `What ${typeName} do you want?`,
+        source: async (sofar, input) => {
+            return objsMap.filter(x => input ? x.name.toLowerCase().includes(input.toLowerCase()) : true);
+        },
+    }]);
+    return q.obj;
+}
+
+export async function selectPreset(purpose = "preset"){
+    return selectLocal("silo-presets", "preset", Preset);
+}
+export async function selectRule(purpose = "rule"){
+    return selectLocal("silo-rules", purpose, Rule);
 }
 
 export async function askInput(name, question, def){

@@ -79,9 +79,8 @@ export class lib{
         try{
             response = await rp(requestOptions);
         }catch(e){
-            log(e?.cause.name)
-            if(e.code === "ETIMEDOUT"){
-                throw new APIError(response, requestOptions, body);
+            if(e?.cause.code === "ESOCKETTIMEDOUT"){
+                throw new APIError(response || {}, requestOptions, body);
             }else{
                 throw e;
             }
@@ -224,7 +223,7 @@ export class AbortError extends Error{
 export class APIError extends Error{
     constructor(response, opts, body){
         super(chalk`
-{reset Request returned} {yellow ${response.statusCode}}{
+{reset Request returned} {yellow ${response?.statusCode}}{
 {green ${JSON.stringify(opts, null, 4)}}
 {green ${body}}
 {reset ${response.body}}

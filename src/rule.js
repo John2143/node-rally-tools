@@ -6,18 +6,35 @@ import Provider from "./providers.js";
 import Notification from "./notification.js";
 
 import fs from "fs";
-import path from "path";
+import {join, resolve as pathResolve} from "path";
 
 class Rule extends RallyBase{
-    constructor({path, data, remote}){
+    constructor({path, data, remote} = {}){
         super();
         if(path){
+            path = pathResolve(path);
+            let f = fs.readFileSync(path, "utf-8")
             data = JSON.parse(fs.readFileSync(path, "utf-8"));
+        }
+        if(!data){
+            data = Rule.newShell();
         }
         this.data = data;
         this.meta = {};
         this.remote = remote;
         this.isGeneric = !this.remote;
+    }
+
+    static newShell(){
+        return {
+            "attributes": {
+                "description": "-",
+                "priority": "PriorityNorm",
+                "starred": false,
+            },
+            "relationships": {},
+            "type": "workflowRules",
+        };
     }
 
     async acclimatize(env){
@@ -114,7 +131,7 @@ class Rule extends RallyBase{
     }
 
     async uploadRemote(env){
-        write(chalk`Uploading rules {green ${this.name}} to {green ${env}}: `);
+        write(chalk`Uploading rule {green ${this.name}} to {green ${env}}: `);
 
         if(this.immutable){
             log(chalk`{magenta IMMUTABLE}. Nothing to do.`);
@@ -123,6 +140,7 @@ class Rule extends RallyBase{
 
         if(this.idMap[env]){
             await this.patchStrip();
+            this.data.id = this.idMap[env];
             //If it exists we can replace it
             write("replace, ");
             let res = await lib.makeAPIRequest({
@@ -140,7 +158,7 @@ class Rule extends RallyBase{
     }
 
     get localpath(){
-        return path.join(configObject.repodir, "silo-rules", this.name + ".json");
+        return join(configObject.repodir, "silo-rules", this.name + ".json");
     }
 
     async resolve(){
@@ -195,6 +213,7 @@ class Rule extends RallyBase{
 }
 
 defineAssoc(Rule, "name", "data.attributes.name");
+defineAssoc(Rule, "description", "data.attributes.description");
 defineAssoc(Rule, "id", "data.id");
 defineAssoc(Rule, "relationships", "data.relationships");
 defineAssoc(Rule, "isGeneric", "meta.isGeneric");

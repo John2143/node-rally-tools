@@ -1,3 +1,7 @@
+# 1.8.2
+ - Added `rule create`
+ - Fixed deployment bugs
+ - Added autocomplete library
 # 1.8.0/1.8.1
  - Added `preset create`
  - Removed `rule grab`. Use `supply make - --to LOCAL` instead.

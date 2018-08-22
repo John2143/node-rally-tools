@@ -7,6 +7,8 @@ import Provider from "./providers.js";
 import fs from "fs";
 import path from "path";
 
+let exists = {};
+
 class Preset extends RallyBase{
     constructor({path, remote, data} = {}){
         if(path){
@@ -17,6 +19,10 @@ class Preset extends RallyBase{
         }
 
         super();
+        if(path){
+            if(exists[path]) return exists[path];
+            exists[path] = this;
+        }
         this.meta = {};
         this.remote = remote
         if(lib.isLocalEnv(this.remote)){
@@ -134,11 +140,12 @@ class Preset extends RallyBase{
         await this.uploadCodeToEnv(env, true);
     }
     async save(env){
+        this.saved = true;
         if(!this.isGeneric){
             await this.resolve();
         }
 
-        log(chalk`Saving {green ${this.name}} to {blue ${lib.envName(env)}}.`)
+        //log(chalk`Saving {green ${this.name}} to {blue ${lib.envName(env)}}.`)
         this.cleanup();
         if(lib.isLocalEnv(env)){
             await this.saveLocal();

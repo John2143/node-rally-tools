@@ -193,6 +193,22 @@ let rulesub = {
         log(chalk`{yellow ${rules.length}} rules on {green ${this.env}}.`);
         for(let rule of rules) log(rule.chalkPrint());
     },
+    async $create(args){
+        let preset = await configHelpers.selectPreset();
+        let passNext = await configHelpers.selectRule("'On Exit OK'");
+        let errorNext = await configHelpers.selectRule("'On Exit Error'");
+        let name = await configHelpers.askInput("Rule Name", "What is the rule name?");
+        let desc = await configHelpers.askInput("Description", "Enter a description.");
+
+        let rule = new Rule();
+        rule.name = name;
+        rule.description = desc;
+        rule.relationships.preset = {data: {name: preset.name, type: "presets"}}
+        if(errorNext) rule.relationships.errorNext = {data: {name: passNext.name, type: "workflowRules"}}
+        if(passNext) rule.relationships.passNext = {data: {name: errorNext.name, type: "workflowRules"}}
+
+        rule.saveB()
+    },
     async unknown(arg, args){
         log(chalk`Unknown action {red ${arg}} try '{white rally help rule}'`);
     },
@@ -273,9 +289,12 @@ let supplysub = {
     async postAction(args){
         //Now that we ahve a supply chain object, do something with it
         if(args["to"]){
-            log("Loading code");
-            await Promise.all(this.chain.presets.arr.map(obj => obj.downloadCode()));
-            log("Done");
+            this.chain.log();
+            if(this.chain.presets.arr[0]){
+                log("Loading code");
+                await Promise.all(this.chain.presets.arr.map(obj => obj.downloadCode()));
+                log("Done");
+            }
             await this.chain.syncTo(args["to"]);
         }else if(args["diff"]){
             //Very basic diff
@@ -311,10 +330,11 @@ let supplysub = {
 
     },
     async $make(args){
-        let files = [];
+        let set = new Set();
         for(let file of this.files){
-            files.push(await categorizeString(file));
+            set.add(await categorizeString(file));
         }
+        let files = [...set];
         files = files.filter(f => f);
         this.chain = new SupplyChain();
 
@@ -547,9 +567,8 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
             if(e instanceof UnconfiguredEnvError){
                 resultStr = chalk`{yellow Unconfigured}`;
             }else if(e instanceof APIError){
-                if(e.request){
-                    log(e.request);
-                    resultStr = chalk`{red Timeout}`;
+                if(!e.response.body){
+                    resultStr = chalk`{red Timeout (?)}`;
                 }
             }else{
                 throw e;

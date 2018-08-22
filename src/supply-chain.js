@@ -125,7 +125,7 @@ export default class SupplyChain{
         for(let preset of this.presets){
             await preset.save(env);
         }
-        if(this.rules[0]){
+        if(this.rules.arr[0]){
             log("Starting create phase for rules")
             for(let rule of this.rules){
                 await rule.saveA(env);

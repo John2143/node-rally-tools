@@ -96,19 +96,25 @@ class Preset extends RallyBase{
     get test(){
         if(!this.code) return;
 
-        const regex = /autotest:\s?([\w\d_. \/]+)[\r\s\n]*?/m;
-        const match = regex.exec(this.code);
-        if(match) return match[1];
+        const regex = /autotest:\s?([\w\d_. \/]+)[\r\s\n]*?/gm;
+        let match
+        let matches = []
+        while(match = regex.exec(this.code)){
+            matches.push(match[1]);
+        }
+        return matches
     }
     async runTest(env){
         let remote = await Preset.getByName(env, this.name);
-        write(chalk`Starting job {green ${this.name}} on {green ${this.test})}... `);
-        let {movieId} = await lib.startJob(env, this.test, remote.id);
-        if(movieId){
-            write(chalk`movie {blue ${movieId}}. `);
-            log(chalk`OK`);
-        }else{
-            log(chalk`{red No movie found}, Fail.`);
+        for(let test of this.test){
+            write(chalk`Starting job {green ${this.name}} on {green ${test}}... `);
+            let {movieId} = await lib.startJob(env, test, remote.id);
+            if(movieId){
+                write(chalk`movie {blue ${movieId}}. `);
+                log(chalk`OK`);
+            }else{
+                log(chalk`{red No movie found}, Fail.`);
+            }
         }
     }
     async resolve(){
@@ -241,7 +247,7 @@ class Preset extends RallyBase{
     async uploadPresetData(env, id){
         let res = await lib.makeAPIRequest({
             env, path: `/presets/${id}/providerData`,
-            body: this.code, method: "PUT", fullResponse: true
+            body: this.code, method: "PUT", fullResponse: true, timeout: 5000
         });
         write(chalk`response {yellow ${res.statusCode}} `);
     }
@@ -293,7 +299,7 @@ class Preset extends RallyBase{
             write("Posting to create preset... ");
             let res = await lib.makeAPIRequest({
                 env, path: `/presets`, method: "POST",
-                payload: metadata,
+                payload: metadata, timeout: 5000,
             });
             let id = res.data.id;
             write(chalk`Created id {green ${id}}... Uploading Code... `);

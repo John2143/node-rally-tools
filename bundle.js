@@ -334,6 +334,9 @@ class APIError extends Error {
 {green ${JSON.stringify(opts, null, 4)}}
 {green ${body}}
 {reset ${response.body}}
+===============================
+{red {response.body ? "Request timed out" : "Bad response from API"}
+===============================
         `);
     this.response = response;
     this.opts = opts;
@@ -780,23 +783,32 @@ let Preset = (_class$1 = class Preset extends RallyBase {
 
   get test() {
     if (!this.code) return;
-    const regex = /autotest:\s?([\w\d_. \/]+)[\r\s\n]*?/m;
-    const match = regex.exec(this.code);
-    if (match) return match[1];
+    const regex = /autotest:\s?([\w\d_. \/]+)[\r\s\n]*?/gm;
+    let match;
+    let matches = [];
+
+    while (match = regex.exec(this.code)) {
+      matches.push(match[1]);
+    }
+
+    return matches;
   }
 
   async runTest(env) {
     let remote = await Preset.getByName(env, this.name);
-    write(chalk`Starting job {green ${this.name}} on {green ${this.test})}... `);
-    let {
-      movieId
-    } = await lib.startJob(env, this.test, remote.id);
 
-    if (movieId) {
-      write(chalk`movie {blue ${movieId}}. `);
-      log(chalk`OK`);
-    } else {
-      log(chalk`{red No movie found}, Fail.`);
+    for (let test of this.test) {
+      write(chalk`Starting job {green ${this.name}} on {green ${test}}... `);
+      let {
+        movieId
+      } = await lib.startJob(env, test, remote.id);
+
+      if (movieId) {
+        write(chalk`movie {blue ${movieId}}. `);
+        log(chalk`OK`);
+      } else {
+        log(chalk`{red No movie found}, Fail.`);
+      }
     }
   }
 
@@ -952,7 +964,8 @@ let Preset = (_class$1 = class Preset extends RallyBase {
       path: `/presets/${id}/providerData`,
       body: this.code,
       method: "PUT",
-      fullResponse: true
+      fullResponse: true,
+      timeout: 5000
     });
     write(chalk`response {yellow ${res.statusCode}} `);
   }
@@ -1021,7 +1034,8 @@ let Preset = (_class$1 = class Preset extends RallyBase {
         env,
         path: `/presets`,
         method: "POST",
-        payload: metadata
+        payload: metadata,
+        timeout: 5000
       });
       let id = res.data.id;
       write(chalk`Created id {green ${id}}... Uploading Code... `);
@@ -1559,7 +1573,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   RallyBase: RallyBase
 });
 
-var version = "1.8.1";
+var version = "1.8.2";
 
 const inquirer = importLazy("inquirer");
 const readdir = importLazy("recursive-readdir");

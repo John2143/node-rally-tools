@@ -227,6 +227,9 @@ export class APIError extends Error{
 {green ${JSON.stringify(opts, null, 4)}}
 {green ${body}}
 {reset ${response.body}}
+===============================
+{red {response.body ? "Request timed out" : "Bad response from API"}
+===============================
         `);
         this.response = response;
         this.opts = opts;

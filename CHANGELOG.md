@@ -1,3 +1,5 @@
+# 1.8.3
+ - Support for multiple autotests
 # 1.8.2
  - Added `rule create`
  - Fixed deployment bugs

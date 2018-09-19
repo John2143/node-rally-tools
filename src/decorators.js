@@ -55,10 +55,11 @@ function findValueInCache(args, cache){
     for(let [argsKey, value] of cache){
         if(args.length !== argsKey.length) continue;
         for(let i in argsKey){
-            if(args[i] === argsKey[i]){
-                return {found: true, value};
+            if(args[i] !== argsKey[i]){
+                continue
             }
         }
+        return {found: true, value};
     }
     return {found: false};
 }
@@ -72,7 +73,7 @@ export function cached(target, key, desc){
         let {found, value} = findValueInCache(args, cachedValues);
         if(!found){
             //Call the old function to find the value, then store it in the cache
-            value = oldFunc(...args);
+            value = oldFun(...args);
             cachedValues.push([args, value]);
         }
         return value;

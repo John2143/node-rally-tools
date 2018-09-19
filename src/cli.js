@@ -87,12 +87,12 @@ let presetsub = {
         }
     },
     async $create(args){
-        let provier, name, ext;
+        let provider, name, ext;
         if(args.provider){
             provider = args.provider;
             ext = args.ext
         }else{
-            provider = await configHelpers.selectProvider(await Provider.getProviders(this.env));
+            provider = await configHelpers.selectProvider(await Provider.getAll(this.env));
             ext = (await provider.getEditorConfig()).fileExt;
         }
         if(args.name){
@@ -118,7 +118,7 @@ let presetsub = {
     },
     async $list(args){
         log("Loading...");
-        let presets = await Preset.getPresets(this.env);
+        let presets = await Preset.getAll(this.env);
         if(args.resolve){
             for(let preset of presets){
                 let resolve = await preset.resolve(this.env);
@@ -200,12 +200,30 @@ let rulesub = {
         let name = await configHelpers.askInput("Rule Name", "What is the rule name?");
         let desc = await configHelpers.askInput("Description", "Enter a description.");
 
+        let dynamicNexts = [];
+        let next;
+        while(next = await configHelpers.selectRule("dynamic next")){
+            let name = await configHelpers.askInput("Key", "Key name for dynamic next");
+            dynamicNexts.push({
+                meta: {
+                    transition: name,
+                },
+                type: "workflowRules",
+                name: next.name,
+            });
+        }
+
         let rule = new Rule();
         rule.name = name;
         rule.description = desc;
         rule.relationships.preset = {data: {name: preset.name, type: "presets"}}
-        if(errorNext) rule.relationships.errorNext = {data: {name: passNext.name, type: "workflowRules"}}
-        if(passNext) rule.relationships.passNext = {data: {name: errorNext.name, type: "workflowRules"}}
+        if(errorNext) rule.relationships.errorNext = {data: {name: errorNext.name, type: "workflowRules"}}
+        if(passNext) rule.relationships.passNext = {data: {name: passNext.name, type: "workflowRules"}}
+        if(dynamicNexts[0]){
+            rule.relationships.dynamicNexts = {
+                data: dynamicNexts
+            };
+        }
 
         rule.saveB()
     },
@@ -440,7 +458,7 @@ let cli = {
         if(!env) return errorLog("No env supplied.");
         let ident = args._.shift();
 
-        let providers = await Provider.getProviders(env);
+        let providers = await Provider.getAll(env);
 
         if(ident){
             let pro = providers.arr.find(x => x.id == ident || x.name.includes(ident));
@@ -524,6 +542,13 @@ let cli = {
         if(!args.y && !args.set && !await configHelpers.askQuestion("Write this config to disk?")) return;
         writeFileSync(configFile, newConfig, {mode: 0o600});
         log(chalk`Created file {green ${configFile}}.`);
+    },
+
+    async test(args){
+        await Provider.getAll("DEV");
+        //allIndexBundle.lib.indexPathFast({
+            //env: "DEV", path: "/presets",
+        //})
     },
 
     //Used to test startup and teardown speed.

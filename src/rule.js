@@ -38,19 +38,18 @@ class Rule extends RallyBase{
     }
 
     async acclimatize(env){
-        let presets = await Preset.getPresets(env);
-        let rules = await Rule.getRules(env);
-        let providers = await Provider.getProviders(env);
-        let notifications = await Notification.getNotifications(env);
+        this.remote = env;
 
-        let preset  = this.resolveField(presets, "preset", false, "specific");
-        let pNext   = this.resolveField(rules, "passNext", false, "specific");
-        let eNext   = this.resolveField(rules, "errorNext", false, "specific");
-        let proType = this.resolveField(providers, "providerType", false, "specific");
+        let preset  = await this.resolveField(Preset, "preset", false, "specific");
+        let pNext   = await this.resolveField(Rule, "passNext", false, "specific");
+        let eNext   = await this.resolveField(Rule, "errorNext", false, "specific");
+        let proType = await this.resolveField(Provider, "providerType", false, "specific");
 
-        let enterNotif = this.resolveField(notifications, "enterNotifications", true, "specific");
-        let errorNotif = this.resolveField(notifications, "errorNotifications", true, "specific");
-        let passNotif  = this.resolveField(notifications, "passNotifications", true, "specific");
+        let dynamicNexts = await this.resolveField(Rule, "dynamicNexts", true, "specific");
+
+        let enterNotif = await this.resolveField(Notification, "enterNotifications", true, "specific");
+        let errorNotif = await this.resolveField(Notification, "errorNotifications", true, "specific");
+        let passNotif  = await this.resolveField(Notification, "passNotifications", true, "specific");
     }
     async saveA(env){
         if(lib.isLocalEnv(env)) return;
@@ -122,12 +121,13 @@ class Rule extends RallyBase{
         }
         delete this.relationships.errorMetadata;
 
-        for(let key in this.relationships){
-            let relationship = this.relationships[key];
-            if(!relationship.data || relationship.data instanceof Array && !relationship.data[0]){
-                delete this.relationships[key];
-            }
-        }
+        // This is commented out because it was fixed.
+        //for(let key in this.relationships){
+            //let relationship = this.relationships[key];
+            //if(!relationship.data || relationship.data instanceof Array && !relationship.data[0]){
+                //delete this.relationships[key];
+            //}
+        //}
     }
 
     async uploadRemote(env){
@@ -139,6 +139,8 @@ class Rule extends RallyBase{
         }
 
         if(this.idMap[env]){
+            this.remote = env;
+
             await this.patchStrip();
             this.data.id = this.idMap[env];
             //If it exists we can replace it
@@ -147,6 +149,7 @@ class Rule extends RallyBase{
                 env, path: `/workflowRules/${this.idMap[env]}`, method: "PATCH",
                 payload: {data: this.data}, fullResponse: true,
             });
+
             log(chalk`response {yellow ${res.statusCode}}`);
             if(res.statusCode !== 200){
                 log(res.body)
@@ -162,30 +165,30 @@ class Rule extends RallyBase{
     }
 
     async resolve(){
-        let presets = await Preset.getPresets(this.remote);
-        let rules = await Rule.getRules(this.remote);
-        let providers = await Provider.getProviders(this.remote);
-        let notifications = await Notification.getNotifications(this.remote);
+        let preset  = await this.resolveField(Preset, "preset", false);
+        log(preset);
+        let pNext   = await this.resolveField(Rule, "passNext", false);
+        let eNext   = await this.resolveField(Rule, "errorNext", false);
+        let proType = await this.resolveField(Provider, "providerType", false);
 
-        let preset  = this.resolveField(presets, "preset", false);
-        let pNext   = this.resolveField(rules, "passNext", false);
-        let eNext   = this.resolveField(rules, "errorNext", false);
-        let proType = this.resolveField(providers, "providerType", false);
+        //log("Dynamic nexts")
+        let dynamicNexts = await this.resolveField(Rule, "dynamicNexts", true);
+        //log(dynamicNexts);
 
-        let enterNotif = this.resolveField(notifications, "enterNotifications", true);
-        let errorNotif = this.resolveField(notifications, "errorNotifications", true);
-        let passNotif  = this.resolveField(notifications, "passNotifications", true);
+        let enterNotif = await this.resolveField(Notification, "enterNotifications", true);
+        let errorNotif = await this.resolveField(Notification, "errorNotifications", true);
+        let passNotif  = await this.resolveField(Notification, "passNotifications", true);
 
         //TODO Unsupported
         delete this.relationships["enterMetadata"]
         delete this.relationships["errorMetadata"]
-        delete this.relationships["dynamicNexts"]
 
         this.isGeneric = true;
 
         return {
             preset, proType,
             pNext, eNext,
+            dynamicNexts,
             errorNotif, enterNotif, passNotif,
         };
     }
@@ -194,21 +197,10 @@ class Rule extends RallyBase{
         let id = String("R-" + (this.remote && this.remote + "-" + this.id || "LOCAL"))
         if(pad) id = id.padStart(10);
         try{
-        return chalk`{green ${id}}: {blue ${this.name}}`;
+            return chalk`{green ${id}}: {blue ${this.name}}`;
         }catch(e){
             return this.data;
         }
-    }
-    static async getByName(env, name){
-        return (await Rule.getRules(env)).findByName(name);
-    }
-    static async getById(env, id){
-        return (await Rule.getRules(env)).findById(id);
-    }
-
-    @cached static async getRules(env){
-        let rules = await lib.indexPathFast(env, "/workflowRules?page=1p20");
-        return new Collection(rules.map(data => new Rule({data, remote: env})));
     }
 }
 
@@ -219,6 +211,6 @@ defineAssoc(Rule, "relationships", "data.relationships");
 defineAssoc(Rule, "isGeneric", "meta.isGeneric");
 defineAssoc(Rule, "remote", "meta.remote");
 defineAssoc(Rule, "idMap", "meta.idMap");
-
+Rule.endpoint = "workflowRules";
 
 export default Rule;

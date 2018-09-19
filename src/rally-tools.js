@@ -1,5 +1,6 @@
 import chalk from "chalk";
 import {configObject} from "./config.js";
+import {cached} from "./decorators.js";
 const rp = importLazy("request-promise")
 
 global.chalk = chalk;
@@ -35,7 +36,7 @@ export class lib{
         //Keys are defined in enviornment variables
         let config = configObject?.api?.[env];
         if(!config) {
-            throw new UnconfiguredEnvError(env);
+            throw new Error(env);
         };
         //Protect PROD and UAT(?) if the --no-protect flag was not set.
         if(method !== "GET" && !configObject.dangerModify){
@@ -133,6 +134,22 @@ export class lib{
         return /page=(\d+)p(\d+)/.exec(str).slice(1);
     }
 
+    static arrayChunk(array, chunkSize){
+        let newArr = [];
+        for (let i = 0; i < array.length; i += chunkSize){
+            newArr.push(array.slice(i, i + chunkSize));
+        }
+        return newArr;
+    }
+
+    static async doPromises(promises, result = []){
+        for(let promise of promises){
+            result.push(await promise);
+        }
+        return result
+    }
+
+
     //Index a json endpoint that returns a {links} field.
     //
     //This function is faster than indexPath because it can guess the pages it
@@ -142,8 +159,6 @@ export class lib{
     //first page, so starting on another page may cause issues. Consider
     //indexPath for that.
     static async indexPathFast(env, path){
-        let all = [];
-
         let opts = typeof env === "string" ? {env, path} : env;
         let json = await this.makeAPIRequest(opts);
 
@@ -155,14 +170,25 @@ export class lib{
 
         //Construct an array of all the requests that are done simultanously.
         //Assume that the content from the inital request is the first page.
-        let promises = [Promise.resolve(json),];
-        for(let i = 2; i <= numPages; i++){
+        let allResults = []
+        let promises = [Promise.resolve(json)];
+        for(let i = 2; i <= (opts.limit ? opts.limit : numPages); i++){
+            if(promises.length === 5){
+                log("Chunk found");
+                await this.doPromises(promises, allResults);
+                promises = []
+            }
+
             let req = this.makeAPIRequest({...opts, path_full: linkToPage(i)});
             promises.push(req);
         }
+        await this.doPromises(promises, allResults);
 
-        for(let promise of promises){
-            all = [...all, ...(await promise).data];
+        let all = [];
+        for(let result of allResults){
+            for(let item of result.data){
+                all.push(item);
+            }
         }
 
         return all;
@@ -228,7 +254,7 @@ export class APIError extends Error{
 {green ${body}}
 {reset ${response.body}}
 ===============================
-{red {response.body ? "Request timed out" : "Bad response from API"}
+{red ${response.body ? "Request timed out" : "Bad response from API"}}
 ===============================
         `);
         this.response = response;
@@ -284,34 +310,89 @@ export class Collection{
 
 
 export class RallyBase{
-    constructor(){}
-    resolveApply(datum, dataObj, direction){
+    static isLoaded(env){
+        if(!this.hasLoadedAll) return;
+        return this.hasLoadedAll[env];
+    }
+    static async getById(env, id){
+        if(this.isLoaded(env)){
+            return (await this.constructor.getAll(env)).findById(id);
+        }else{
+            let data = await lib.makeAPIRequest({
+                env, path: `/${this.endpoint}/${id}`,
+            });
+            if(data.data) return new this({data: data.data, remote: env});
+        }
+    }
+
+    static async getByName(env, name){
+        if(this.isLoaded(env)){
+            return (await this.getAll(env)).findByName(name);
+        }else{
+            let data = await lib.makeAPIRequest({
+                env, path: `/${this.endpoint}`,
+                qs: {filter: `name=${name}`},
+            });
+            if(data.data[0]) return new this({data: data.data[0], remote: env});
+        }
+    }
+
+    static async getAllPreCollect(d){return d;}
+    static async getAll(env){
+        this.hasLoadedAll = this.hasLoadedAll || {};
+        if(this.isLoaded(env)) return this.hasLoadedAll[env];
+
+        let datas = await lib.indexPathFast(env, `/${this.endpoint}?page=1p10`);
+        datas = await this.getAllPreCollect(datas);
+        let all = new Collection(datas.map(data => new this({data, remote: env})));
+        this.hasLoadedAll[env] = all;
+        return all;
+    }
+    static async removeCache(env){
+        this.hasLoadedAll = this.hasLoadedAll || {};
+        if(this.isLoaded(env)){
+            this.hasLoadedAll[env] = undefined;
+        }
+    }
+
+    //Specific turns name into id based on env
+    //Generic turns ids into names
+    async resolveApply(type, dataObj, direction){
         let obj;
         if(direction == "generic"){
-            obj = datum.findById(dataObj.id);
+            obj = await type.getById(this.remote, dataObj.id);
             if(obj){
                 dataObj.name = obj.name
             }
         }else if(direction == "specific"){
-            obj = datum.findByName(dataObj.name);
+            obj = await type.getByName(this.remote, dataObj.name);
             if(obj){
+                log("HAS NAME");
                 dataObj.id = obj.id
             }
         }
         return obj;
     }
-    resolveField(datum, name, isArray=false, direction="generic"){
+
+    //Type is the baseclass you are looking for (should extend RallyBase)
+    //name is the name of the field
+    //isArray is true if it has multiple cardinailty, false if it is single
+    //direction gets passed directly to resolveApply
+    async resolveField(type, name, isArray=false, direction="generic"){
+        // ignore empty fields
         let field = this.relationships[name];
         if(!field?.data) return;
 
         if(isArray){
-            return field.data.map(o => this.resolveApply(datum, o, direction));
+            return await Promise.all(field.data.map(o => this.resolveApply(type, o, direction)));
         }else{
-            return this.resolveApply(datum, field.data, direction);
+            return await this.resolveApply(type, field.data, direction);
         }
     }
+
     cleanup(){
         for(let [key, val] of Object.entries(this.relationships)){
+            //Remove ids from data
             if(val.data){
                 if(val.data.id){
                     delete val.data.id;
@@ -321,8 +402,11 @@ export class RallyBase{
             }
             delete val.links;
         }
+        // organization is unused (?)
         delete this.relationships.organization;
+        // id is specific to envs
         delete this.data.id;
+        // links too
         delete this.data.links;
     }
 }

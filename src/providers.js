@@ -1,11 +1,12 @@
 import {cached, defineAssoc} from "./decorators.js";
-import {lib, Collection} from "./rally-tools.js";
+import {lib, Collection, RallyBase} from "./rally-tools.js";
 
-class Provider{
-    constructor(data, env){
+class Provider extends RallyBase{
+    constructor({data, remote}){
+        super();
         this.data = data;
         this.meta = {};
-        this.remote = env;
+        this.remote = remote;
     }
     //cached
     async getEditorConfig(){
@@ -18,13 +19,11 @@ class Provider{
         this.editorConfig.fileExt = await this.getFileExtension();
         return this.editorConfig;
     }
-    @cached static async getProviders(env){
-        let providers = await lib.indexPath(env, "/providerTypes?page=1p50");
-        providers = providers.sort((a, b) => {
+    static async getAllPreCollect(providers){
+        return providers.sort((a, b) => {
             return a.attributes.category.localeCompare(b.attributes.category) ||
                    a.attributes.name    .localeCompare(b.attributes.name);
         });
-        return new Collection(providers.map(x => new Provider(x, env)));
     }
 
     async getFileExtension(){
@@ -53,5 +52,6 @@ defineAssoc(Provider, "name", "data.attributes.name");
 defineAssoc(Provider, "category", "data.attributes.category");
 defineAssoc(Provider, "remote", "meta.remote");
 defineAssoc(Provider, "editorConfig", "meta.editorConfig");
+Provider.endpoint = "providerTypes";
 
 export default Provider;

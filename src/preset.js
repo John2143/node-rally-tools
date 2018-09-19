@@ -11,6 +11,7 @@ let exists = {};
 
 class Preset extends RallyBase{
     constructor({path, remote, data} = {}){
+        // Get full path if possible
         if(path){
             path = pathResolve(path);
             if(dirname(path).includes("silo-metadata")){
@@ -19,10 +20,12 @@ class Preset extends RallyBase{
         }
 
         super();
+        // Cache by path
         if(path){
             if(exists[path]) return exists[path];
             exists[path] = this;
         }
+
         this.meta = {};
         this.remote = remote
         if(lib.isLocalEnv(this.remote)){
@@ -58,9 +61,8 @@ class Preset extends RallyBase{
     }
     //Given a metadata file, get its actualy file
     static async fromMetadata(path){
-        let providers = await Provider.getProviders(configObject.defaultEnv);
         let data = JSON.parse(fs.readFileSync(path));
-        let provider = providers.findByName(data.relationships.providerType.data.name);
+        let provider = Provider.getByName(data.relationships.providerType.data.name);
 
         let ext = await provider.getFileExtension();
         let name = data.attributes.name;
@@ -161,7 +163,7 @@ class Preset extends RallyBase{
     }
 
     async downloadCode(){
-        if(this.code) return this.code;
+        if(!this.remote || this.code) return this.code;
         return this.code = await lib.makeAPIRequest({
             env: this.remote,
             path_full: this.data.links.providerData,
@@ -320,35 +322,6 @@ class Preset extends RallyBase{
     getLocalCode(){
         return fs.readFileSync(this.path, "utf-8");
     }
-    //Todo techincal debt, refactor in all classes
-    static async getByName(env, name){
-        if(this.hasLoadedAll){
-            return (await Preset.getPresets(env)).findByName(name);
-        }else{
-            let data = await lib.makeAPIRequest({
-                env, path: "/presets", qs: {
-                    filter: `name=${name}`,
-                },
-            });
-            if(data.data[0]) return new Preset({data: data.data[0], remote: env});
-        }
-    }
-    static async getById(env, id){
-        if(this.hasLoadedAll){
-            return (await this.getPresets(env)).findById(id);
-        }else{
-            let data = await lib.makeAPIRequest({
-                env, path: "/presets/" + id,
-            });
-            if(data.data) return new this({data: data.data, remote: env});
-        }
-    }
-
-    @cached static async getPresets(env){
-        Preset.hasLoadedAll = true;
-        let data = await lib.indexPathFast(env, "/presets?page=1p20");
-        return new Collection(data.map(dat => new Preset({remote: env, data: dat})));
-    }
 }
 
 defineAssoc(Preset, "_nameInner", "data.attributes.providerSettings.PresetName");
@@ -361,5 +334,6 @@ defineAssoc(Preset, "_code", "meta.code");
 defineAssoc(Preset, "_path", "meta.path");
 defineAssoc(Preset, "isGeneric", "meta.isGeneric");
 defineAssoc(Preset, "ext", "meta.ext");
+Preset.endpoint = "presets";
 
 export default Preset;

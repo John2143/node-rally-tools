@@ -17,19 +17,19 @@ export default class SupplyChain{
     }
     async calculate(){
         write("Getting rules... ");
-        this.allRules = await Rule.getRules(this.remote);
+        this.allRules = await Rule.getAll(this.remote);
         log(this.allRules.length);
 
         write("Getting presets... ");
-        this.allPresets = await Preset.getPresets(this.remote);
+        this.allPresets = await Preset.getAll(this.remote);
         log(this.allPresets.length);
 
         write("Getting providers... ");
-        this.allProviders = await Provider.getProviders(this.remote);
+        this.allProviders = await Provider.getAll(this.remote);
         log(this.allProviders.length);
 
         write("Getting notifications... ");
-        this.allNotifications = await Notification.getNotifications(this.remote);
+        this.allNotifications = await Notification.getAll(this.remote);
         log(this.allNotifications.length);
 
         write("Downloading code... ");
@@ -133,7 +133,7 @@ export default class SupplyChain{
 
             log("OK")
             log("Starting link phase for rules");
-            Rule.getRules.remove([env]);
+            Rule.removeCache(env);
 
             for(let rule of this.rules){
                 await rule.saveB(env);

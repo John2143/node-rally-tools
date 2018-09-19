@@ -1,19 +1,19 @@
 import {cached, defineAssoc} from "./decorators.js";
-import {lib, Collection} from "./rally-tools.js";
+import {lib, Collection, RallyBase} from "./rally-tools.js";
 
-class Notification{
-    constructor(data, env){
+class Notification extends RallyBase{
+    constructor({data, remote}){
+        super();
         this.data = data;
         this.meta = {};
-        this.remote = env;
+        this.remote = remote;
     }
-    @cached static async getNotifications(env){
-        let notifications = await lib.indexPath(env, "/notificationPresets?page=1p25");
-        notifications = notifications.sort((a, b) => {
+
+    static async getAllPreCollect(notifications){
+        return notifications.sort((a, b) => {
             return a.attributes.type.localeCompare(b.attributes.type) ||
                    a.attributes.name.localeCompare(b.attributes.name);
         });
-        return new Collection(notifications.map(x => new Notification(x, env)));
     }
 
     chalkPrint(pad=false){
@@ -28,6 +28,6 @@ defineAssoc(Notification, "name", "data.attributes.name");
 defineAssoc(Notification, "address", "data.attributes.address");
 defineAssoc(Notification, "type", "data.attributes.type");
 defineAssoc(Notification, "remote", "meta.remote");
-
+Notification.endpoint = "notificationPresets"
 
 export default Notification;

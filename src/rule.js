@@ -1,5 +1,5 @@
 import {cached, defineAssoc} from "./decorators.js";
-import {RallyBase, lib, Collection} from  "./rally-tools.js";
+import {RallyBase, lib, Collection, AbortError} from  "./rally-tools.js";
 import {configObject} from "./config.js";
 import Preset from "./preset.js";
 import Provider from "./providers.js";
@@ -14,7 +14,11 @@ class Rule extends RallyBase{
         if(path){
             path = pathResolve(path);
             let f = fs.readFileSync(path, "utf-8")
-            data = JSON.parse(fs.readFileSync(path, "utf-8"));
+            try{
+                data = JSON.parse(fs.readFileSync(path, "utf-8"));
+            }catch(e){
+                throw new AbortError(`Unreadable JSON in ${path}. ${e}`);
+            }
         }
         if(!data){
             data = Rule.newShell();

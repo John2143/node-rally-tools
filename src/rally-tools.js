@@ -367,7 +367,6 @@ export class RallyBase{
         }else if(direction == "specific"){
             obj = await type.getByName(this.remote, dataObj.name);
             if(obj){
-                log("HAS NAME");
                 dataObj.id = obj.id
             }
         }

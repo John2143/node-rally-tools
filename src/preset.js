@@ -62,7 +62,7 @@ class Preset extends RallyBase{
     //Given a metadata file, get its actualy file
     static async fromMetadata(path){
         let data = JSON.parse(fs.readFileSync(path));
-        let provider = Provider.getByName(data.relationships.providerType.data.name);
+        let provider = await Provider.getByName("DEV", data.relationships.providerType.data.name);
 
         let ext = await provider.getFileExtension();
         let name = data.attributes.name;
@@ -88,7 +88,7 @@ class Preset extends RallyBase{
     }
     async acclimatize(env){
         if(!this.isGeneric) throw AbortError("Cannot acclimatize non-generics or shells");
-        let providers = await Provider.getProviders(env);
+        let providers = await Provider.getAll(env);
         let ptype = this.relationships["providerType"];
             ptype = ptype.data;
 
@@ -98,7 +98,7 @@ class Preset extends RallyBase{
     get test(){
         if(!this.code) return;
 
-        const regex = /autotest:\s?([\w\d_. \/]+)[\r\s\n]*?/gm;
+        const regex = /autotest:\s?([\w\d_\-. \/]+)[\r\s\n]*?/gm;
         let match
         let matches = []
         while(match = regex.exec(this.code)){
@@ -122,8 +122,7 @@ class Preset extends RallyBase{
     async resolve(){
         if(this.isGeneric) return;
 
-        let providers = await Provider.getProviders(this.remote);
-        let proType = this.resolveField(providers, "providerType");
+        let proType = await this.resolveField(Provider, "providerType");
         this.ext = await proType.getFileExtension();
 
         this.isGeneric = true;

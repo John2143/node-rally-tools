@@ -187,7 +187,7 @@ let rulesub = {
     },
     async $list(args){
         log("Loading...");
-        let rules = await Rule.getRules(this.env);
+        let rules = await Rule.getAll(this.env);
         if(configObject.rawOutput) return rules;
 
         log(chalk`{yellow ${rules.length}} rules on {green ${this.env}}.`);
@@ -257,20 +257,24 @@ async function categorizeString(str){
     let match
     if(match = /^(\w)-(\w{1,10})-(\d{1,10}):/.exec(str)){
         if(match[1] === "P"){
-            return await Preset.getById(match[2], match[3])
+            return await Preset.getById(match[2], match[3]);
         }else if(match[1] === "R"){
-            return await Rule.getById(match[2], match[3])
+            return await Rule.getById(match[2], match[3]);
         }else{
-            return null
+            return null;
         }
     }else if(match = /silo\-(\w+)\//.exec(str)){
-        switch(match[1]){
-            case "presets": return new Preset({path: str});
-            case "rules": return new Rule({path: str});
-            case "metadata": return await Preset.fromMetadata(str);
+        try{
+            switch(match[1]){
+                case "presets": return new Preset({path: str});
+                case "rules": return new Rule({path: str});
+                case "metadata": return await Preset.fromMetadata(str);
+            }
+        }catch(e){
+            log(e);
         }
     }else{
-        return null
+        return null;
     }
 }
 
@@ -289,7 +293,7 @@ let supplysub = {
             throw new AbortError("No starting rule supplied");
         }
 
-        let rules = await Rule.getRules(this.env);
+        let rules = await Rule.getAll(this.env);
         let start = rules.findByNameContains(name);
         let stop;
         if(stopName) stop = rules.findByNameContains(stopName);
@@ -542,6 +546,81 @@ let cli = {
         if(!args.y && !args.set && !await configHelpers.askQuestion("Write this config to disk?")) return;
         writeFileSync(configFile, newConfig, {mode: 0o600});
         log(chalk`Created file {green ${configFile}}.`);
+    },
+    async asset(args){
+        const initData = {"Metadata":{"onPremLocation":"DCTC","userMetaData":{"segments":{"segments":[{"duration":"00:05:51:00","endTime":"01:05:50:29","woo":[],"startTime":"00:59:59;29"},{"duration":"00:06:21:00","endTime":"01:12:31:29","woo":[],"startTime":"01:06:11;01"},{"duration":"00:05:29:00","endTime":"01:18:21:01","woo":[],"startTime":"01:12:51;29"},{"duration":"00:03:19:00","endTime":"01:21:59:27","woo":[],"startTime":"01:18:40;29"}],"voc":false},"tRT":"00:21:00","language":"English","tCType":"DF","videoFormat":"1080i 59.94","cutType":"Cut To Clock","sniVersion":{"abstractScrid":2358403,"showCode":"GH0712H","concreteScrid":2358383},"audioTracks":[{"language":"English","label":"Full Mix Stereo Left","name":"Audio Track 1","typeNum":0,"trackNum":1,"code":"FML"},{"language":"English","label":"Full Mix Stereo Right","name":"Audio Track 2","typeNum":1,"trackNum":2,"code":"FMR"},{"language":"English","label":"Dialog & Narration","name":"Audio Track 3","typeNum":2,"trackNum":3,"code":"DN"},{"language":"English","label":"Music & Effects","name":"Audio Track 4","typeNum":3,"trackNum":4,"code":"ME"},{"language":"English","label":"MOS","name":"Audio Track 5","typeNum":4,"trackNum":5,"code":"MOS"},{"language":"English","label":"MOS","name":"Audio Track 6","typeNum":5,"trackNum":6,"code":"MOS"},{"language":"English","label":"MOS","name":"Audio Track 7","typeNum":6,"trackNum":7,"code":"MOS"},{"language":"English","label":"MOS","name":"Audio Track 8","typeNum":7,"trackNum":8,"code":"MOS"}],"creditStatus":"Embedded","deliverableNotes":""},"hiveMetaData":{"propertyId":171211,"deliverableType":"Program Master File","scrid":2358403,"originalFilename":"HD99621_GH-0712H_I.MXF","paid":"171211.012.02.571","episodeNumber":12}},"skipAllTransforms":true};
+        const initDataStr = JSON.stringify(initData);
+
+        let name = `DKNOXR_${Math.floor(Math.random()*Math.pow(10, 16))}`;
+
+        let req = await allIndexBundle.lib.makeAPIRequest({
+            env: args.env, path: "/assets",
+            method: "POST",
+            payload:   {
+                data: {
+                    attributes: {name},
+                    type: "assets"
+                }
+            }
+        });
+
+        let id = req.data.id;
+        log(`https://discovery-uat.sdvi.com/content/${id}`)
+
+        req = await allIndexBundle.lib.makeAPIRequest({
+            env: args.env, path: "/files",
+            method: "POST",
+            payload: {
+                "data": {
+                    "attributes": {
+                        "label": "SdviMovieFileMaster",
+                        "instances": {
+                            "1": {
+                                "uri": "s3://discovery.com.uat.onramp.usdctcopdeliv.us-east-1/DKNOXR_Master2.mxf"
+                            }
+                        }
+                    },
+                    "relationships": {
+                        "asset": {
+                            "data": {
+                                id,
+                                "type": "assets"
+                            }
+                        }
+                    },
+                    "type": "files"
+                }
+
+            }
+        });
+
+        req = await allIndexBundle.lib.makeAPIRequest({
+            env: args.env, path: "/workflows",
+            method: "POST",
+            payload: {
+                "data": {
+                    "type": "workflows",
+                    "attributes": {initData: initDataStr},
+                    "relationships": {
+                        "movie": {
+                            "data": {
+                                id,
+                                "type": "movies"
+                            }
+                        }, "rule": {
+                            "data": {
+                                "attributes": {
+                                    "name": "AS302 Test DKNOX Recontribution"
+                                },
+                                "type": "rules"
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        log(req.data.relationships.baseWorkflow.data.id);
+
     },
 
     async test(args){

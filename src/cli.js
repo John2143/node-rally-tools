@@ -15,6 +15,7 @@ import {writeFileSync} from "fs";
 import {helpText, arg, param, usage, helpEntries, spawn} from "./decorators.js";
 
 import * as configHelpers from "./config-create.js";
+const False = false; const True = true; const None = null;
 
 let argv = argparse(process.argv.slice(2), {
     string: ["file", "env"],
@@ -120,6 +121,7 @@ let presetsub = {
         log("Loading...");
         let presets = await Preset.getAll(this.env);
         if(args.resolve){
+            Provider.getAll(this.env);
             for(let preset of presets){
                 let resolve = await preset.resolve(this.env);
                 if(args.attach){
@@ -547,12 +549,75 @@ let cli = {
         writeFileSync(configFile, newConfig, {mode: 0o600});
         log(chalk`Created file {green ${configFile}}.`);
     },
-    async asset(args){
-        const initData = {"Metadata":{"onPremLocation":"DCTC","userMetaData":{"segments":{"segments":[{"duration":"00:05:51:00","endTime":"01:05:50:29","woo":[],"startTime":"00:59:59;29"},{"duration":"00:06:21:00","endTime":"01:12:31:29","woo":[],"startTime":"01:06:11;01"},{"duration":"00:05:29:00","endTime":"01:18:21:01","woo":[],"startTime":"01:12:51;29"},{"duration":"00:03:19:00","endTime":"01:21:59:27","woo":[],"startTime":"01:18:40;29"}],"voc":false},"tRT":"00:21:00","language":"English","tCType":"DF","videoFormat":"1080i 59.94","cutType":"Cut To Clock","sniVersion":{"abstractScrid":2358403,"showCode":"GH0712H","concreteScrid":2358383},"audioTracks":[{"language":"English","label":"Full Mix Stereo Left","name":"Audio Track 1","typeNum":0,"trackNum":1,"code":"FML"},{"language":"English","label":"Full Mix Stereo Right","name":"Audio Track 2","typeNum":1,"trackNum":2,"code":"FMR"},{"language":"English","label":"Dialog & Narration","name":"Audio Track 3","typeNum":2,"trackNum":3,"code":"DN"},{"language":"English","label":"Music & Effects","name":"Audio Track 4","typeNum":3,"trackNum":4,"code":"ME"},{"language":"English","label":"MOS","name":"Audio Track 5","typeNum":4,"trackNum":5,"code":"MOS"},{"language":"English","label":"MOS","name":"Audio Track 6","typeNum":5,"trackNum":6,"code":"MOS"},{"language":"English","label":"MOS","name":"Audio Track 7","typeNum":6,"trackNum":7,"code":"MOS"},{"language":"English","label":"MOS","name":"Audio Track 8","typeNum":7,"trackNum":8,"code":"MOS"}],"creditStatus":"Embedded","deliverableNotes":""},"hiveMetaData":{"propertyId":171211,"deliverableType":"Program Master File","scrid":2358403,"originalFilename":"HD99621_GH-0712H_I.MXF","paid":"171211.012.02.571","episodeNumber":12}},"skipAllTransforms":true};
+    async assetElem(args){
+        let id = args._.shift();
+        const initData = {'Metadata': {'onPremLocation': 'DCTC', 'hiveMetaData': {'scrid': 2730633, 'episodeNumber': 3, 'propertyId': 170681, 'paid': '170681.003.01.585', 'originalFilename': 'HD105214_HFORF-503H_I.MXF', 'deliverableType': 'Program Master File'}, 'userMetaData': {'tCType': 'DF', 'language': 'English', 'deliverableNotes': '', 'videoFormat': '1080i 59.94', 'cutType': 'Cut To Clock', 'segments': {'segments': [{'woo': [], 'endTime': '01:06:41;00', 'startTime': '01:00:00;00', 'duration': '00:06:41:00'}, {'woo': [], 'endTime': '01:13:27;28', 'startTime': '01:07:01;00', 'duration': '00:06:27:00'}, {'woo': [], 'endTime': '01:17:17;02', 'startTime': '01:13:48;00', 'duration': '00:03:29:00'}, {'woo': [], 'endTime': '01:22:32;00', 'startTime': '01:17:37;00', 'duration': '00:04:55:00'}], 'voc': False, 'credit': {'outPoint': '01:22:32;00', 'inPoint': '01:22:02;00'}}, 'audioTracks': [{'code': 'FML', 'typeNum': 0, 'language': 'English', 'trackNum': 1, 'label': 'Full Mix Stereo Left', 'name': 'Audio Track 1'}, {'code': 'FMR', 'typeNum': 1, 'language': 'English', 'trackNum': 2, 'label': 'Full Mix Stereo Right', 'name': 'Audio Track 2'}, {'code': 'DN', 'typeNum': 2, 'language': 'English', 'trackNum': 3, 'label': 'Dialog & Narration', 'name': 'Audio Track 3'}, {'code': 'ME', 'typeNum': 3, 'language': 'English', 'trackNum': 4, 'label': 'Music & Effects', 'name': 'Audio Track 4'}, {'code': 'MOS', 'typeNum': 4, 'language': 'English', 'trackNum': 5, 'label': 'MOS', 'name': 'Audio Track 5'}, {'code': 'MOS', 'typeNum': 5, 'language': 'English', 'trackNum': 6, 'label': 'MOS', 'name': 'Audio Track 6'}, {'code': 'MOS', 'typeNum': 6, 'language': 'English', 'trackNum': 7, 'label': 'MOS', 'name': 'Audio Track 7'}, {'code': 'MOS', 'typeNum': 7, 'language': 'English', 'trackNum': 8, 'label': 'MOS', 'name': 'Audio Track 8'}], 'creditStatus': 'Embedded', 'tRT': '00:21:32', 'sniVersion': {'scrid': 2730566, 'showCode': 'HFORF503H', 'abstractScrid': 2730633}}}}
+        initData.elements = ["CaptionEnglish1080i59.94"];
         const initDataStr = JSON.stringify(initData);
 
-        let name = `DKNOXR_${Math.floor(Math.random()*Math.pow(10, 16))}`;
+        let req = await allIndexBundle.lib.makeAPIRequest({
+            env: args.env, path: "/files",
+            method: "POST",
+            payload: {
+                "data": {
+                    "attributes": {
+                        "label": "SdviElementMaster",
+                        "instances": {
+                            "1": {
+                                "uri": "s3://discovery.com.uat.onramp.usdctcopdeliv.us-east-1/DKNOXR_Master2Ele.scc"
+                            }
+                        }
+                    },
+                    "relationships": {
+                        "asset": {
+                            "data": {
+                                id,
+                                "type": "assets"
+                            }
+                        }
+                    },
+                    "type": "files"
+                }
 
+            }
+        });
+        log("Asset OK")
+
+        req = await allIndexBundle.lib.makeAPIRequest({
+            env: args.env, path: "/workflows",
+            method: "POST",
+            payload: {
+                "data": {
+                    "type": "workflows",
+                    "attributes": {initData: initDataStr},
+                    "relationships": {
+                        "movie": {
+                            "data": {
+                                id,
+                                "type": "movies"
+                            }
+                        }, "rule": {
+                            "data": {
+                                "attributes": {
+                                    "name": "AS302 Test DKNOX Recontribution Element"
+                                },
+                                "type": "rules"
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        log(req.data.relationships.baseWorkflow.data.id);
+
+    },
+    async asset(args){
+        const initData = {'Metadata': {'onPremLocation': 'DCTC', 'hiveMetaData': {'scrid': 2730633, 'episodeNumber': 3, 'propertyId': 170681, 'paid': '170681.003.01.585', 'originalFilename': 'HD105214_HFORF-503H_I.MXF', 'deliverableType': 'Program Master File'}, 'userMetaData': {'tCType': 'DF', 'language': 'English', 'deliverableNotes': '', 'videoFormat': '1080i 59.94', 'cutType': 'Cut To Clock', 'segments': {'segments': [{'woo': [], 'endTime': '01:06:41;00', 'startTime': '01:00:00;00', 'duration': '00:06:41:00'}, {'woo': [], 'endTime': '01:13:27;28', 'startTime': '01:07:01;00', 'duration': '00:06:27:00'}, {'woo': [], 'endTime': '01:17:17;02', 'startTime': '01:13:48;00', 'duration': '00:03:29:00'}, {'woo': [], 'endTime': '01:22:32;00', 'startTime': '01:17:37;00', 'duration': '00:04:55:00'}], 'voc': False, 'credit': {'outPoint': '01:22:32;00', 'inPoint': '01:22:02;00'}}, 'audioTracks': [{'code': 'FML', 'typeNum': 0, 'language': 'English', 'trackNum': 1, 'label': 'Full Mix Stereo Left', 'name': 'Audio Track 1'}, {'code': 'FMR', 'typeNum': 1, 'language': 'English', 'trackNum': 2, 'label': 'Full Mix Stereo Right', 'name': 'Audio Track 2'}, {'code': 'DN', 'typeNum': 2, 'language': 'English', 'trackNum': 3, 'label': 'Dialog & Narration', 'name': 'Audio Track 3'}, {'code': 'ME', 'typeNum': 3, 'language': 'English', 'trackNum': 4, 'label': 'Music & Effects', 'name': 'Audio Track 4'}, {'code': 'MOS', 'typeNum': 4, 'language': 'English', 'trackNum': 5, 'label': 'MOS', 'name': 'Audio Track 5'}, {'code': 'MOS', 'typeNum': 5, 'language': 'English', 'trackNum': 6, 'label': 'MOS', 'name': 'Audio Track 6'}, {'code': 'MOS', 'typeNum': 6, 'language': 'English', 'trackNum': 7, 'label': 'MOS', 'name': 'Audio Track 7'}, {'code': 'MOS', 'typeNum': 7, 'language': 'English', 'trackNum': 8, 'label': 'MOS', 'name': 'Audio Track 8'}], 'creditStatus': 'Embedded', 'tRT': '00:21:32', 'sniVersion': {'scrid': 2730566, 'showCode': 'HFORF503H', 'abstractScrid': 2730633}}}}
+        const initDataStr = JSON.stringify(initData);
+
+
+        let name = `USKN-Rally-${Math.floor(Math.random()*Math.pow(10, 16))}`;
         let req = await allIndexBundle.lib.makeAPIRequest({
             env: args.env, path: "/assets",
             method: "POST",
@@ -563,6 +628,7 @@ let cli = {
                 }
             }
         });
+        log(name);
 
         let id = req.data.id;
         log(`https://discovery-uat.sdvi.com/content/${id}`)

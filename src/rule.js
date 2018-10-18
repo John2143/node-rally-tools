@@ -170,7 +170,7 @@ class Rule extends RallyBase{
 
     async resolve(){
         let preset  = await this.resolveField(Preset, "preset", false);
-        log(preset);
+        //log(preset);
         let pNext   = await this.resolveField(Rule, "passNext", false);
         let eNext   = await this.resolveField(Rule, "errorNext", false);
         let proType = await this.resolveField(Provider, "providerType", false);

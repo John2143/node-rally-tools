@@ -173,8 +173,7 @@ export class lib{
         let allResults = []
         let promises = [Promise.resolve(json)];
         for(let i = 2; i <= (opts.limit ? opts.limit : numPages); i++){
-            if(promises.length === 5){
-                log("Chunk found");
+            if(promises.length === 10){
                 await this.doPromises(promises, allResults);
                 promises = []
             }
@@ -316,7 +315,7 @@ export class RallyBase{
     }
     static async getById(env, id){
         if(this.isLoaded(env)){
-            return (await this.constructor.getAll(env)).findById(id);
+            return (await this.getAll(env)).findById(id);
         }else{
             let data = await lib.makeAPIRequest({
                 env, path: `/${this.endpoint}/${id}`,

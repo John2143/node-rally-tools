@@ -122,6 +122,7 @@ class Preset extends RallyBase{
     async resolve(){
         if(this.isGeneric) return;
 
+        //log(this);
         let proType = await this.resolveField(Provider, "providerType");
         this.ext = await proType.getFileExtension();
 

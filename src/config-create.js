@@ -16,6 +16,7 @@ export async function $api(propArray){
     const defaults = {
         DEV:  "https://discovery-dev.sdvi.com/api/v2",
         UAT:  "https://discovery-uat.sdvi.com/api/v2",
+        QA:  "https://discovery-qa.sdvi.com/api/v2",
         PROD: "https://discovery.sdvi.com/api/v2",
     };
 

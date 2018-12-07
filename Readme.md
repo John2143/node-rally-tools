@@ -65,7 +65,8 @@ downloading.
 
 The basic usage is `rally preset list`, which lists all presets. Giving the
 `--resolve` flag will internall resolve the dynamic references in an object.
-You can then add these to the output using `--attach`.
+You can then add these to the output using `--attach`. Ex. `rally preset list
+-e PROD --resolve --attach`
 
 `rally preset upload -e [env] -f [preset]` can be used to upload a file to a
 remote env. You can specify multiple -f arguments to upload multiple files.  If
@@ -77,7 +78,8 @@ rally preset upload -` will upload all changed files using git as the reference.
 local file and a remote one. `--command` can be used to run a command other
 than diff. For example, `rally preset diff -f abc.xyz --command vimdiff -e PROD`
 would compare the local file abc.xyz to the remote version on prod using
-vimdiff. (make sure that zbc.xyz has a proper rally header or this will fail).
+vimdiff. (make sure that zbc.xyz has a proper rally header/metadata or this
+will fail).
 
 #### `rally rule`
 
@@ -86,6 +88,23 @@ See all rules. `rally rule list`. `--raw` available.
 #### `rally provider`
 
 See all providers. `rally provider list`. `--raw` available.
+
+#### `rally asset`
+
+This command allows you to create and launch workflows on assets.
+
+The first part of the command will be getting an asset context. You can either:
+ - Use an asset id (ex. discovery.sdvi.com/content/[id]).
+  - add the `--id [id]` argument
+  - `rally asset --id 12345 launch ...`
+ - Use an asset name
+  - add the `--name [asset name]` argument
+  - `rally asset --name 1232345_004_TCCS_123456_2 launch ...`
+ - Create a new asset
+  - add the argument "create"
+  - supply a name using --name
+  - `#` will be replaces with a random number.
+  - `rally asset create --name "TEST_FILE_#" launch`
 
 #### `rally supply`
 
@@ -241,7 +260,7 @@ Create a new supply chain and print it
 #### Cannot acclimatize shelled preset
 
 Solution: Create the preset on the remote enviornment manually, or run `rally
-preset create` (Not implemented yet)
+preset create`
 
 Under normal usage, presets will have an associated metadata file saved. This
 contains information like its provider type, input and output settings, or

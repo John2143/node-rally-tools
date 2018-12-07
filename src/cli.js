@@ -4,15 +4,17 @@ import argparse from "minimist";
 import * as allIndexBundle from "./index.js"
 import {
     rallyFunctions as funcs,
-    Preset, Rule, SupplyChain, Provider,
+    Preset, Rule, SupplyChain, Provider, Asset,
     AbortError, UnconfiguredEnvError, Collection, APIError
 } from "./index.js";
 
 import {version as packageVersion} from "../package.json";
 import {configFile, configObject, loadConfig} from "./config.js";
-import {writeFileSync} from "fs";
+import {writeFileSync, readFileSync} from "fs";
 
 import {helpText, arg, param, usage, helpEntries, spawn} from "./decorators.js";
+
+import {testFunction} from "./unitTestRally.js";
 
 import * as configHelpers from "./config-create.js";
 const False = false; const True = true; const None = null;
@@ -134,9 +136,13 @@ let presetsub = {
             }
         }
         if(configObject.rawOutput) return presets;
-
         log(chalk`{yellow ${presets.length}} presets on {green ${this.env}}.`);
-        for(let preset of presets) log(preset.chalkPrint());
+        presets.arr.sort((a, b) => {
+            return Number(a.attributes.updatedAt) - Number(b.attributes.updatedAt)
+        });
+        for(let preset of presets){
+            log(preset.chalkPrint());
+        }
     },
     async $upload(args){
         if(!this.files){
@@ -193,6 +199,9 @@ let rulesub = {
         if(configObject.rawOutput) return rules;
 
         log(chalk`{yellow ${rules.length}} rules on {green ${this.env}}.`);
+        rules.arr.sort((a, b) => {
+            return Number(a.data.attributes.updatedAt) - Number(b.data.attributes.updatedAt)
+        });
         for(let rule of rules) log(rule.chalkPrint());
     },
     async $create(args){
@@ -490,6 +499,7 @@ let cli = {
             for(let pro of providers) log(pro.chalkPrint());
         }
     },
+
     @helpText(`Change config for rally tools`)
     @usage("rally config [key] --set [value] --raw")
     @param("key", chalk`Key you want to edit. For example, {green chalk} or {green api.DEV}`)
@@ -549,152 +559,171 @@ let cli = {
         writeFileSync(configFile, newConfig, {mode: 0o600});
         log(chalk`Created file {green ${configFile}}.`);
     },
-    async assetElem(args){
-        let id = args._.shift();
-        const initData = {'Metadata': {'onPremLocation': 'DCTC', 'hiveMetaData': {'scrid': 2730633, 'episodeNumber': 3, 'propertyId': 170681, 'paid': '170681.003.01.585', 'originalFilename': 'HD105214_HFORF-503H_I.MXF', 'deliverableType': 'Program Master File'}, 'userMetaData': {'tCType': 'DF', 'language': 'English', 'deliverableNotes': '', 'videoFormat': '1080i 59.94', 'cutType': 'Cut To Clock', 'segments': {'segments': [{'woo': [], 'endTime': '01:06:41;00', 'startTime': '01:00:00;00', 'duration': '00:06:41:00'}, {'woo': [], 'endTime': '01:13:27;28', 'startTime': '01:07:01;00', 'duration': '00:06:27:00'}, {'woo': [], 'endTime': '01:17:17;02', 'startTime': '01:13:48;00', 'duration': '00:03:29:00'}, {'woo': [], 'endTime': '01:22:32;00', 'startTime': '01:17:37;00', 'duration': '00:04:55:00'}], 'voc': False, 'credit': {'outPoint': '01:22:32;00', 'inPoint': '01:22:02;00'}}, 'audioTracks': [{'code': 'FML', 'typeNum': 0, 'language': 'English', 'trackNum': 1, 'label': 'Full Mix Stereo Left', 'name': 'Audio Track 1'}, {'code': 'FMR', 'typeNum': 1, 'language': 'English', 'trackNum': 2, 'label': 'Full Mix Stereo Right', 'name': 'Audio Track 2'}, {'code': 'DN', 'typeNum': 2, 'language': 'English', 'trackNum': 3, 'label': 'Dialog & Narration', 'name': 'Audio Track 3'}, {'code': 'ME', 'typeNum': 3, 'language': 'English', 'trackNum': 4, 'label': 'Music & Effects', 'name': 'Audio Track 4'}, {'code': 'MOS', 'typeNum': 4, 'language': 'English', 'trackNum': 5, 'label': 'MOS', 'name': 'Audio Track 5'}, {'code': 'MOS', 'typeNum': 5, 'language': 'English', 'trackNum': 6, 'label': 'MOS', 'name': 'Audio Track 6'}, {'code': 'MOS', 'typeNum': 6, 'language': 'English', 'trackNum': 7, 'label': 'MOS', 'name': 'Audio Track 7'}, {'code': 'MOS', 'typeNum': 7, 'language': 'English', 'trackNum': 8, 'label': 'MOS', 'name': 'Audio Track 8'}], 'creditStatus': 'Embedded', 'tRT': '00:21:32', 'sniVersion': {'scrid': 2730566, 'showCode': 'HFORF503H', 'abstractScrid': 2730633}}}}
-        initData.elements = ["CaptionEnglish1080i59.94"];
-        const initDataStr = JSON.stringify(initData);
 
-        let req = await allIndexBundle.lib.makeAPIRequest({
-            env: args.env, path: "/files",
-            method: "POST",
-            payload: {
-                "data": {
-                    "attributes": {
-                        "label": "SdviElementMaster",
-                        "instances": {
-                            "1": {
-                                "uri": "s3://discovery.com.uat.onramp.usdctcopdeliv.us-east-1/DKNOXR_Master2Ele.scc"
-                            }
-                        }
-                    },
-                    "relationships": {
-                        "asset": {
-                            "data": {
-                                id,
-                                "type": "assets"
-                            }
-                        }
-                    },
-                    "type": "files"
-                }
-
-            }
-        });
-        log("Asset OK")
-
-        req = await allIndexBundle.lib.makeAPIRequest({
-            env: args.env, path: "/workflows",
-            method: "POST",
-            payload: {
-                "data": {
-                    "type": "workflows",
-                    "attributes": {initData: initDataStr},
-                    "relationships": {
-                        "movie": {
-                            "data": {
-                                id,
-                                "type": "movies"
-                            }
-                        }, "rule": {
-                            "data": {
-                                "attributes": {
-                                    "name": "AS302 Test DKNOX Recontribution Element"
-                                },
-                                "type": "rules"
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        log(req.data.relationships.baseWorkflow.data.id);
-
-    },
+    @helpText(`create/modify asset`)
+    @usage("rally asset [action] [action...]")
+    @param("action", chalk`Options are create, delete, launch, addfile. You can supply multiple actions to chain them`)
+    @arg(`-i`, `--id`,         chalk`MOVIE_ID of asset to select`)
+    @arg(`-n`, `--name`,       chalk`MOVIE_NAME of asset. with {white create}, '{white #}' will be replaced with a uuid. Default is '{white TEST_#}'`)
+    @arg(`-j`, `--job-name`,   chalk`Job name to start (used with launch)`)
+    @arg(`~`,  `--init-data`,  chalk`Init data to use when launching job. can be string, or {white @path/to/file} for a file`)
+    @arg(`~`,  `--file-label`, chalk`File label (used with addfile)`)
+    @arg(`~`,  `--file-uri`,   chalk`File s3 uri. Can use multiple uri's for the same label (used with addfile)`)
     async asset(args){
-        const initData = {'Metadata': {'onPremLocation': 'DCTC', 'hiveMetaData': {'scrid': 2730633, 'episodeNumber': 3, 'propertyId': 170681, 'paid': '170681.003.01.585', 'originalFilename': 'HD105214_HFORF-503H_I.MXF', 'deliverableType': 'Program Master File'}, 'userMetaData': {'tCType': 'DF', 'language': 'English', 'deliverableNotes': '', 'videoFormat': '1080i 59.94', 'cutType': 'Cut To Clock', 'segments': {'segments': [{'woo': [], 'endTime': '01:06:41;00', 'startTime': '01:00:00;00', 'duration': '00:06:41:00'}, {'woo': [], 'endTime': '01:13:27;28', 'startTime': '01:07:01;00', 'duration': '00:06:27:00'}, {'woo': [], 'endTime': '01:17:17;02', 'startTime': '01:13:48;00', 'duration': '00:03:29:00'}, {'woo': [], 'endTime': '01:22:32;00', 'startTime': '01:17:37;00', 'duration': '00:04:55:00'}], 'voc': False, 'credit': {'outPoint': '01:22:32;00', 'inPoint': '01:22:02;00'}}, 'audioTracks': [{'code': 'FML', 'typeNum': 0, 'language': 'English', 'trackNum': 1, 'label': 'Full Mix Stereo Left', 'name': 'Audio Track 1'}, {'code': 'FMR', 'typeNum': 1, 'language': 'English', 'trackNum': 2, 'label': 'Full Mix Stereo Right', 'name': 'Audio Track 2'}, {'code': 'DN', 'typeNum': 2, 'language': 'English', 'trackNum': 3, 'label': 'Dialog & Narration', 'name': 'Audio Track 3'}, {'code': 'ME', 'typeNum': 3, 'language': 'English', 'trackNum': 4, 'label': 'Music & Effects', 'name': 'Audio Track 4'}, {'code': 'MOS', 'typeNum': 4, 'language': 'English', 'trackNum': 5, 'label': 'MOS', 'name': 'Audio Track 5'}, {'code': 'MOS', 'typeNum': 5, 'language': 'English', 'trackNum': 6, 'label': 'MOS', 'name': 'Audio Track 6'}, {'code': 'MOS', 'typeNum': 6, 'language': 'English', 'trackNum': 7, 'label': 'MOS', 'name': 'Audio Track 7'}, {'code': 'MOS', 'typeNum': 7, 'language': 'English', 'trackNum': 8, 'label': 'MOS', 'name': 'Audio Track 8'}], 'creditStatus': 'Embedded', 'tRT': '00:21:32', 'sniVersion': {'scrid': 2730566, 'showCode': 'HFORF503H', 'abstractScrid': 2730633}}}}
-        const initDataStr = JSON.stringify(initData);
+        function uuid(args){
+            const digits = 16;
+            return String(Math.floor(Math.random() * Math.pow(10, digits))).padStart(digits, "0");
+        }
 
+        let name = args.name || `TEST_#`;
+        let env = args.env;
 
-        let name = `USKN-Rally-${Math.floor(Math.random()*Math.pow(10, 16))}`;
-        let req = await allIndexBundle.lib.makeAPIRequest({
+        let asset;
+        let arg = args._.shift()
+        if(!arg){
+            throw new AbortError(chalk`Missing arguments: see {white 'rally help asset'}`);
+        }
+
+        if(arg == "create"){
+            name = name.replace("#", uuid());
+            asset = await Asset.createNew(name, env);
+        }else{
+            args._.unshift(arg);
+            if(args.id){
+                asset = Asset.lite(args.id, env);
+            }else{
+                asset = await Asset.getByName(env, args.name);
+            }
+        }
+
+        if(!asset){
+            throw new AbortError("No asset found/created");
+        }
+
+        while(arg = args._.shift()){
+            if(arg === "launch"){
+                let initData = args["init-data"];
+                if(initData && initData.startsWith("@")){
+                    log(chalk`Reading init data from {white ${initData.slice(1)}}`);
+                    initData = readFileSync(initData.slice(1), "utf-8");
+                }
+
+                let jobName = args["job-name"];
+                let p = await Rule.getByName(env, jobName);
+                if(!p){
+                    throw new AbortError(`Cannot launch job ${jobName}, does not exist (?)`);
+                }else{
+                    log(chalk`Launching ${p.chalkPrint(false)} on ${asset.chalkPrint(false)}`);
+                }
+
+                asset.startWorkflow(jobName, initData)
+            }else if(arg === "addfile"){
+                await asset.addFile(args["file-label"], args["file-uri"]);
+            }else if(arg === "delete"){
+                await asset.delete();
+            }else if(arg === "create"){
+                throw new AbortError(`Cannot have more than 1 create/get per asset call`);
+            }else if(arg === "show"){
+                log(asset);
+            }
+        }
+    },
+
+    async checkSegments(args){
+        let asset = args._.shift()
+        let res = await allIndexBundle.lib.makeAPIRequest({
+            env: args.env, path: `/movies/${asset}/metadata/Metadata`,
+        });
+        let segments = res.data.attributes.metadata.userMetaData.segments.segments;
+
+        let r = segments.reduce((lastSegment, val, ind) => {
+            let curSegment = val.startTime;
+            if(curSegment < lastSegment){
+                log("bad segment " + (ind + 1))
+            }
+            return val.endTime
+         }, "00:00:00:00");
+    },
+
+    async replaceItem(args){
+    },
+
+    async unitTest(args){
+        await testFunction(args);
+    },
+
+    async findLeslie(args){
+        let allLesieLike = [
+            ...(await this.listAssets(args, "HGTV")),
+
+            ...(await this.listAssets(args, "GAC")),
+            ...(await this.listAssets(args, "Great American Country")),
+
+            ...(await this.listAssets(args, "COOK")),
+            ...(await this.listAssets(args, "Cooking Channel")),
+
+            ...(await this.listAssets(args, "TRAV")),
+            ...(await this.listAssets(args, "Travel Channel")),
+
+            ...(await this.listAssets(args, "DIY")),
+            ...(await this.listAssets(args, "DIY Network")),
+
+            ...(await this.listAssets(args, "FOOD")),
+            ...(await this.listAssets(args, "Food Network")),
+        ];
+
+        return allLesieLike;
+    },
+
+    async listAssets(args, tag){
+        let req = await allIndexBundle.lib.indexPathFast({
             env: args.env, path: "/assets",
-            method: "POST",
-            payload:   {
-                data: {
-                    attributes: {name},
-                    type: "assets"
-                }
-            }
+            qs: {
+                filter: JSON.stringify({
+                    createdBefore: Date.now(), tag,
+                }),
+                noRelationships: true,
+                sort: "id",
+            },
+            chunksize: 30,
         });
-        log(name);
+        return req;
+    },
 
-        let id = req.data.id;
-        log(`https://discovery-uat.sdvi.com/content/${id}`)
-
-        req = await allIndexBundle.lib.makeAPIRequest({
-            env: args.env, path: "/files",
-            method: "POST",
-            payload: {
-                "data": {
-                    "attributes": {
-                        "label": "SdviMovieFileMaster",
-                        "instances": {
-                            "1": {
-                                "uri": "s3://discovery.com.uat.onramp.usdctcopdeliv.us-east-1/DKNOXR_Master2.mxf"
-                            }
-                        }
-                    },
-                    "relationships": {
-                        "asset": {
-                            "data": {
-                                id,
-                                "type": "assets"
-                            }
-                        }
-                    },
-                    "type": "files"
-                }
-
-            }
+    async test2(args){
+        let wfr = await allIndexBundle.lib.indexPath({
+            env: args.env, path: "/workflowRuleMetadata",
         });
+        log(wfr);
 
-        req = await allIndexBundle.lib.makeAPIRequest({
-            env: args.env, path: "/workflows",
-            method: "POST",
-            payload: {
-                "data": {
-                    "type": "workflows",
-                    "attributes": {initData: initDataStr},
-                    "relationships": {
-                        "movie": {
-                            "data": {
-                                id,
-                                "type": "movies"
-                            }
-                        }, "rule": {
-                            "data": {
-                                "attributes": {
-                                    "name": "AS302 Test DKNOX Recontribution"
-                                },
-                                "type": "rules"
-                            }
-                        }
-                    }
-                }
+        for(let wfrm of wfr){
+            try{
+                wfrm.id = undefined;
+                wfrm.links = undefined;
+                log(wfrm);
+                let req = await allIndexBundle.lib.makeAPIRequest({
+                    env: "DEV", path: "/workflowRuleMetadata",
+                    method: "POST",
+                    payload: {data: wfrm},
+                })
+            }catch(e){
+                log("caught");
             }
-        });
-        log(req.data.relationships.baseWorkflow.data.id);
+            //break;
+        }
+    },
 
+    async ["@"](args){
+        args._.unshift("-");
+        args._.unshift("make");
+        return this.supply(args);
     },
 
     async test(args){
-        await Provider.getAll("DEV");
-        //allIndexBundle.lib.indexPathFast({
-            //env: "DEV", path: "/presets",
-        //})
+        let asset = await Asset.getByName("UAT", args.name);
+        log(asset);
     },
+
 
     //Used to test startup and teardown speed.
     noop(){
@@ -720,7 +749,7 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
     }
 
     //API Access tests
-    for(let env of ["UAT", "DEV", "PROD", "LOCAL"]){
+    for(let env of ["LOCAL", "DEV", "UAT", "QA", "PROD"]){
         //Test access. Returns HTTP response code
         let resultStr;
         try{

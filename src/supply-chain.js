@@ -123,12 +123,16 @@ export default class SupplyChain{
     }
     async syncTo(env){
         for(let preset of this.presets){
-            await preset.save(env);
+            try{
+                await preset.save(env);
+            }catch(e){log(e);}
         }
         if(this.rules.arr[0]){
             log("Starting create phase for rules")
             for(let rule of this.rules){
-                await rule.saveA(env);
+                try{
+                    await rule.saveA(env);
+                }catch(e){log(e);}
             }
 
             log("OK")
@@ -136,7 +140,9 @@ export default class SupplyChain{
             Rule.removeCache(env);
 
             for(let rule of this.rules){
-                await rule.saveB(env);
+                try{
+                    await rule.saveB(env);
+                }catch(e){log(e);}
             }
         }
     }

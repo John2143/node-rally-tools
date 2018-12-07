@@ -8,6 +8,7 @@ export {default as Preset} from "./preset.js";
 export {default as Rule} from "./rule.js";
 export {default as Provider} from "./providers.js";
 export {default as Notification} from "./notification.js";
+export {default as Asset} from "./asset.js";
 
 export * from "./config.js";
 

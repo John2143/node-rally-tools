@@ -1,0 +1,127 @@
+{
+    "elements": ["CaptionEnglish1080i59.94"],
+    "Metadata": {
+        "onPremLocation": "DCTC",
+        "hiveMetaData": {
+            "scrid": 2730633,
+            "episodeNumber": 3,
+            "propertyId": 170681,
+            "paid": "170681.003.01.585",
+            "originalFilename": "HD105214_HFORF-503H_I.MXF",
+            "deliverableType": "Program Master File"
+        },
+        "userMetaData": {
+            "tCType": "DF",
+            "language": "English",
+            "deliverableNotes": "",
+            "videoFormat": "1080i 59.94",
+            "cutType": "Cut To Clock",
+            "segments": {
+                "segments": [
+                    {
+                        "woo": [],
+                        "endTime": "01:06:41;00",
+                        "startTime": "01:00:00;00",
+                        "duration": "00:06:41:00"
+                    },
+                    {
+                        "woo": [],
+                        "endTime": "01:13:27;28",
+                        "startTime": "01:07:01;00",
+                        "duration": "00:06:27:00"
+                    },
+                    {
+                        "woo": [],
+                        "endTime": "01:17:17;02",
+                        "startTime": "01:13:48;00",
+                        "duration": "00:03:29:00"
+                    },
+                    {
+                        "woo": [],
+                        "endTime": "01:22:32;00",
+                        "startTime": "01:17:37;00",
+                        "duration": "00:04:55:00"
+                    }
+                ],
+                "voc": false,
+                "credit": {
+                    "outPoint": "01:22:32;00",
+                    "inPoint": "01:22:02;00"
+                }
+            },
+            "audioTracks": [
+                {
+                    "code": "FML",
+                    "typeNum": 0,
+                    "language": "English",
+                    "trackNum": 1,
+                    "label": "Full Mix Stereo Left",
+                    "name": "Audio Track 1"
+                },
+                {
+                    "code": "FMR",
+                    "typeNum": 1,
+                    "language": "English",
+                    "trackNum": 2,
+                    "label": "Full Mix Stereo Right",
+                    "name": "Audio Track 2"
+                },
+                {
+                    "code": "DN",
+                    "typeNum": 2,
+                    "language": "English",
+                    "trackNum": 3,
+                    "label": "Dialog & Narration",
+                    "name": "Audio Track 3"
+                },
+                {
+                    "code": "ME",
+                    "typeNum": 3,
+                    "language": "English",
+                    "trackNum": 4,
+                    "label": "Music & Effects",
+                    "name": "Audio Track 4"
+                },
+                {
+                    "code": "MOS",
+                    "typeNum": 4,
+                    "language": "English",
+                    "trackNum": 5,
+                    "label": "MOS",
+                    "name": "Audio Track 5"
+                },
+                {
+                    "code": "MOS",
+                    "typeNum": 5,
+                    "language": "English",
+                    "trackNum": 6,
+                    "label": "MOS",
+                    "name": "Audio Track 6"
+                },
+                {
+                    "code": "MOS",
+                    "typeNum": 6,
+                    "language": "English",
+                    "trackNum": 7,
+                    "label": "MOS",
+                    "name": "Audio Track 7"
+                },
+                {
+                    "code": "MOS",
+                    "typeNum": 7,
+                    "language": "English",
+                    "trackNum": 8,
+                    "label": "MOS",
+                    "name": "Audio Track 8"
+                }
+            ],
+            "creditStatus": "Embedded",
+            "tRT": "00:21:32",
+            "sniVersion": {
+                "scrid": 2730566,
+                "showCode": "HFORF503H",
+                "abstractScrid": 2730633
+            }
+        }
+    }
+}

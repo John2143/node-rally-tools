@@ -50,7 +50,7 @@ export class lib{
 
         path = path_full || rally_api + path;
         if(payload){
-            body = JSON.stringify(payload);
+            body = JSON.stringify(payload, null, 4);
         }
 
         if(configObject.vverbose){
@@ -111,6 +111,8 @@ export class lib{
     //Index a json endpoint that returns a {links} field.
     //This function returns the merged data objects as an array
     //
+    //Additonal options (besides makeAPIRequest options):
+    // - Observe: function to be called for each set of data from the api
     static async indexPath(env, path){
         let all = [];
 
@@ -123,6 +125,7 @@ export class lib{
         all = [...json.data];
         while(json.links.next){
             json = await this.makeAPIRequest({...opts, path_full: json.links.next});
+            if(opts.observe) opts.observe(json.data);
             all = [...all, ...json.data];
         }
 
@@ -142,11 +145,25 @@ export class lib{
         return newArr;
     }
 
-    static async doPromises(promises, result = []){
+    static async doPromises(promises, result = [], cb){
         for(let promise of promises){
-            result.push(await promise);
+            let res = await promise;
+            result.push(res);
+            if(cb){
+                cb(res.data);
+            }
         }
         return result
+    }
+
+    static async drawProgress(i, max, size = 30){
+        let pct = Number(i) / Number(max);
+        //clamp between 0 and 1
+        pct = pct < 0 ? 0 : pct > 1 ? 1 : pct;
+        let numFilled = Math.floor(pct * size);
+        let numEmpty = size - numFilled;
+
+        process.stderr.write(`\r${" ".repeat(size + 8)}\r[${"*".repeat(numFilled)}${" ".repeat(numEmpty)}] ${i} / ${max}`);
     }
 
 
@@ -158,6 +175,9 @@ export class lib{
     //This function assumes that the content from the inital request is the
     //first page, so starting on another page may cause issues. Consider
     //indexPath for that.
+    //
+    //Additional opts, besides default indexPath opts:
+    // - chunksize[10]: How often to break apart concurrent requests
     static async indexPathFast(env, path){
         let opts = typeof env === "string" ? {env, path} : env;
         let json = await this.makeAPIRequest(opts);
@@ -172,16 +192,19 @@ export class lib{
         //Assume that the content from the inital request is the first page.
         let allResults = []
         let promises = [Promise.resolve(json)];
+
+        opts.chunksize = opts.chunksize || 10
         for(let i = 2; i <= (opts.limit ? opts.limit : numPages); i++){
-            if(promises.length === 10){
-                await this.doPromises(promises, allResults);
+            this.drawProgress(i, opts.limit || numPages);
+            if(promises.length === opts.chunksize){
+                await this.doPromises(promises, allResults, opts.observe);
                 promises = []
             }
 
             let req = this.makeAPIRequest({...opts, path_full: linkToPage(i)});
             promises.push(req);
         }
-        await this.doPromises(promises, allResults);
+        await this.doPromises(promises, allResults, opts.observe);
 
         let all = [];
         for(let result of allResults){
@@ -313,26 +336,28 @@ export class RallyBase{
         if(!this.hasLoadedAll) return;
         return this.hasLoadedAll[env];
     }
-    static async getById(env, id){
+    static async getById(env, id, qs){
         if(this.isLoaded(env)){
             return (await this.getAll(env)).findById(id);
         }else{
             let data = await lib.makeAPIRequest({
                 env, path: `/${this.endpoint}/${id}`,
+                qs
             });
-            if(data.data) return new this({data: data.data, remote: env});
+            if(data.data) return new this({data: data.data, remote: env, included: data.included});
         }
     }
 
-    static async getByName(env, name){
+    static async getByName(env, name, qs){
         if(this.isLoaded(env)){
             return (await this.getAll(env)).findByName(name);
         }else{
             let data = await lib.makeAPIRequest({
                 env, path: `/${this.endpoint}`,
-                qs: {filter: `name=${name}`},
+                qs: {...qs, filter: `name=${name}` + (qs ? qs.filter : "")},
             });
-            if(data.data[0]) return new this({data: data.data[0], remote: env});
+            //TODO included might not wokr correctly here
+            if(data.data[0]) return new this({data: data.data[0], remote: env, included: data.included});
         }
     }
 

@@ -87,7 +87,7 @@ class Preset extends RallyBase{
         delete this.attributes["updatedAt"];
     }
     async acclimatize(env){
-        if(!this.isGeneric) throw AbortError("Cannot acclimatize non-generics or shells");
+        if(!this.isGeneric) throw new AbortError("Cannot acclimatize non-generics or shells");
         let providers = await Provider.getAll(env);
         let ptype = this.relationships["providerType"];
             ptype = ptype.data;
@@ -153,9 +153,9 @@ class Preset extends RallyBase{
             await this.resolve();
         }
 
-        //log(chalk`Saving {green ${this.name}} to {blue ${lib.envName(env)}}.`)
         this.cleanup();
         if(lib.isLocalEnv(env)){
+            log(chalk`Saving {green ${this.name}} to {blue ${lib.envName(env)}}.`)
             await this.saveLocal();
         }else{
             await this.uploadRemote(env);

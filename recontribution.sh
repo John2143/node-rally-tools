@@ -3,9 +3,9 @@ new(){
 rally asset \
     create --name "USKN-Rally_#" \
     addfile --file-label "SdviMovieFileMaster" \
-            --file-uri "s3://discovery.com.uat.onramp.archive.us-east-1/DKNOXR_Master2.mxf" \
+            --file-uri "s3://discovery.com.uat.onramp.archive.us-east-1/edam/mbr/broadcast/1204/HD120468_CCALI-507H_I.MXF" \
     launch --job-name "AS302 Test DKNOX Recontribution" \
-           --init-data @recontribution_init.json 
+           --init-data @recontribution_init.json
 }
 
 elemn(){

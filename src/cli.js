@@ -85,8 +85,16 @@ let presetsub = {
 
         let presets = this.files.map(path => new Preset({path, remote: false}));
         for(let preset of presets){
+            //TODO small refactor
             await preset.grabMetadata(this.env);
             await preset.saveLocalMetadata();
+
+            if(args.full){
+                let remo = await Preset.getByName(this.env, preset.name);
+                await remo.resolve();
+                await remo.downloadCode();
+                await remo.saveLocalFile();
+            }
         }
     },
     async $create(args){
@@ -340,20 +348,30 @@ let supplysub = {
             await Promise.all(otherPresets.arr.map(obj => obj.downloadCode()));
             await Promise.all(otherPresets.arr.map(obj => obj.resolve()));
 
-            for(let preset of this.chain.presets){
-                let otherPreset = otherPresets.arr.find(x => x.name === preset.name);
+            const printPresets = (preset, otherPreset) => {
                 log(preset.chalkPrint(true));
-                if(otherPreset){
+                if(otherPreset.name){
                     log(otherPreset.chalkPrint(true));
                 }else{
-                    otherPreset = {};
                     log(chalk`{red (None)}`);
                 }
+            }
+
+            for(let preset of this.chain.presets){
+                let otherPreset = otherPresets.arr.find(x => x.name === preset.name) || {};
 
                 if(preset.code === otherPreset.code){
-                    log("Code Same");
+                    if(!args["ignore-same"]){
+                        printPresets(preset, otherPreset);
+                        log("Code Same");
+                    }
                 }else{
-                    log("Code Different");
+                    printPresets(preset, otherPreset);
+                    if(args["ignore-same"]){
+                        log("-------");
+                    }else{
+                        log("Code Different");
+                    }
                 }
             }
 
@@ -679,18 +697,57 @@ let cli = {
         let req = await allIndexBundle.lib.indexPathFast({
             env: args.env, path: "/assets",
             qs: {
-                filter: JSON.stringify({
-                    createdBefore: Date.now(), tag,
-                }),
                 noRelationships: true,
                 sort: "id",
             },
             chunksize: 30,
         });
+        for(let asset of req){
+            log(asset.id);
+        }
+
         return req;
     },
 
+    async listSegments(args){
+        let f = JSON.parse(readFileSync(args.file, "utf-8"));
+
+        for(let asset of f){
+            let r = await allIndexBundle.lib.makeAPIRequest({
+                env: args.env, path: `/movies/${asset.id}/metadata/Metadata`,
+            });
+
+            let segs = r.data.attributes.metadata.userMetaData?.segments?.segments;
+            if(segs && segs.length > 1){
+                log(asset.id);
+                log(asset.name);
+            }
+        }
+    },
     async test2(args){
+        let wfr = await allIndexBundle.lib.indexPath({
+            env: args.env, path: "/workflowRuleMetadata",
+        });
+        log(wfr);
+
+        for(let wfrm of wfr){
+            try{
+                wfrm.id = undefined;
+                wfrm.links = undefined;
+                log(wfrm);
+                let req = await allIndexBundle.lib.makeAPIRequest({
+                    env: "DEV", path: "/workflowRuleMetadata",
+                    method: "POST",
+                    payload: {data: wfrm},
+                })
+            }catch(e){
+                log("caught");
+            }
+            //break;
+        }
+    },
+
+    async test3(args){
         let wfr = await allIndexBundle.lib.indexPath({
             env: args.env, path: "/workflowRuleMetadata",
         });
@@ -769,6 +826,8 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
                 if(!e.response.body){
                     resultStr = chalk`{red Timeout (?)}`;
                 }
+            }else if(e.name == "RequestError"){
+                resultStr = chalk`{red Low level error (check internet): ${e.error.errno}}`;
             }else{
                 throw e;
             }

@@ -11,7 +11,7 @@ class Asset extends RallyBase{
             this.meta.metadata = this.normalizeMetadata(included);
         }
     }
-    normalizeMetadata(payload){
+    static normalizeMetadata(payload){
         let newMetadata = {}
         for(let md of payload){
             if(md.type !== "metadata") continue;

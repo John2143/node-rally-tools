@@ -36,7 +36,7 @@ export class lib{
         //Keys are defined in enviornment variables
         let config = configObject?.api?.[env];
         if(!config) {
-            throw new Error(env);
+            throw new UnconfiguredEnvError(env);
         };
         //Protect PROD and UAT(?) if the --no-protect flag was not set.
         if(method !== "GET" && !configObject.dangerModify){
@@ -165,6 +165,16 @@ export class lib{
 
         process.stderr.write(`\r${" ".repeat(size + 8)}\r[${"*".repeat(numFilled)}${" ".repeat(numEmpty)}] ${i} / ${max}`);
     }
+
+    //TODO implelement
+    //static async processPromises({
+        //promiseGenerator, chunksize, startingPromises = [],
+        //observe,
+    //}){
+        //let promises = startingPromises
+        //for(let promise of promiseGenerator()){
+        //}
+    //}
 
 
     //Index a json endpoint that returns a {links} field.

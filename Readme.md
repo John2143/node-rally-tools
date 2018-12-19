@@ -63,10 +63,14 @@ documentation.
 This command deals with preset actions such as creating, uploading, and
 downloading.
 
-The basic usage is `rally preset list`, which lists all presets. Giving the
-`--resolve` flag will internall resolve the dynamic references in an object.
-You can then add these to the output using `--attach`. Ex. `rally preset list
--e PROD --resolve --attach`
+`rally preset create` can be used to create a preset. When run without
+arguments, a command line UI will be given. If you wish to script this, the flags
+`--provider`, `--ext`, and `--name` can be given. 
+
+The basic download usage is `rally preset list`, which lists all presets.
+Giving the `--resolve` flag will internall resolve the dynamic references in an
+object.  You can then add these to the output using `--attach`. Ex. `rally
+preset list -e PROD --resolve --attach`
 
 `rally preset upload -e [env] -f [preset]` can be used to upload a file to a
 remote env. You can specify multiple -f arguments to upload multiple files.  If
@@ -80,6 +84,9 @@ than diff. For example, `rally preset diff -f abc.xyz --command vimdiff -e PROD`
 would compare the local file abc.xyz to the remote version on prod using
 vimdiff. (make sure that zbc.xyz has a proper rally header/metadata or this
 will fail).
+
+`rally preset grab -f [preset]` will attempt to download the metadata file for
+this asset. The `--full` argument can be given to also download the `code`, too.
 
 #### `rally rule`
 
@@ -217,6 +224,8 @@ If you edited those 3 files locally, then commited to git, you should be able
 to see the diff with the git command `git diff HEAD HEAD^`. We are only
 interested in the names, so lets get those.
 
+Quick note: The shorthand for `rally supply make -` is `rally @`.
+
 ```
 $ git diff HEAD HEAD^ --name-only
 silo-presets/NL - EST - Util Library
@@ -224,7 +233,7 @@ silo-presets/NL P1000 - MP - Non Linear Media Preparation Workflow
 silo-rules/NL R1000 - MP - Non Linear Media Preparation Workflow
 
 $ #Passing those to make will produce a supply chain based on LOCAL
-$ git diff HEAD HEAD^ --name-only | rally supply make -
+$ git diff HEAD HEAD^ --name-only | rally @
 Reading from stdin
 Required notifications: 
 Required rules: 1
@@ -235,10 +244,26 @@ Required presets: 2
 ```
 
 To give a generic approach, in order to deploy all the changes between 2
-commits, run `git diff featureCommit baseCommit --name-only | rally supply make -
+commits, run `git diff featureCommit baseCommit --name-only | rally @
 --to DEV`. `rally` is currently stateless: It does not remember what is
 deployed, who deployed it or when. All this should be tracked through git.
-Therefore, I would suggest tagging releases or using a release branch.
+Therefore, tagging releases or using a release branch would allow for basic
+version control.
+
+#### Automated deployments
+
+Automated deployments should be constructed telling rally tools the list of
+changed presets and rules. Silo constants, notification presets, and silo
+metadata should be changed manually before an automatic deploy, as these can not
+be stored in source control.
+
+For example, if the previous deployment to prod was the tagged commit `v1.2.3`,
+and the new deployment will be version `v2.0.0`, then the deployment script will
+be `git diff v2.0.0 v1.2.3 --name-only | rally @ --to PROD --no-protect`
+
+This will need to be run on a computer with a .rallyconfig in the home
+directory, otherwise the config should be given by the --config flag to the
+rally command.
 
 #### Examples
 Heres some other examples of common usage:
@@ -254,6 +279,46 @@ Clone some ffmpeg jobs you want to edit (`vipe` optional)
 
 Create a new supply chain and print it
 `rally supply calc ORHIVE`
+
+#### Header Parsing
+
+Rally tools supports a standard header format. Preset name
+
+```
+'''
+name: (Name of the preset as it exists on the silo)
+autotest: (Name of movie for testing purposes)
+autotest: (Name of movie, supports and arbitrary nubmer)
+autotest: (Name of movie, ....)
+autotest: id: (id of movie to test)
+'''
+```
+
+This can also exist using any other comment symbol except `-` directly
+preceding a key. For this reason, `-` can be used to disable autotests
+temporarily.
+
+```
+# name: ok
+# autotest: ok
+// name: also works
+-autotest: will not run
+-- autotest: this will run
+```
+
+#### Atom integration
+
+Rally tools now supports a basic amount of atom integration including testing,
+uploading, downloading, and rule managment. Two plugins are used for this:
+process-pallete, and optionally, file-watcher. Please see the file
+`process-pallete.json` in `jderby/ONRAMP_WORKFLOW_PYTHON`.
+
+This should be copied into your base directory (same level as the silo-\*
+folders)
+
+This is still early in testing and does not support features like diffs and
+inline live test results
+
 
 ## Troubleshooting
 

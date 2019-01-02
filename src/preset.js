@@ -3,6 +3,7 @@ import {basename, resolve as pathResolve, dirname} from "path";
 import {cached, defineAssoc} from "./decorators.js";
 import {configObject} from "./config.js";
 import Provider from "./providers.js";
+import Asset from "./asset.js";
 
 import fs from "fs";
 import path from "path";
@@ -45,6 +46,7 @@ class Preset extends RallyBase{
                     this.isGeneric = true;
                     name = this.name;
                 }catch(e){
+                    log(chalk`{yellow Warning}: ${this.name} does not have a readable metadata file! Looking for ${this.localmetadatapath}`);
                     this.data = Preset.newShell();
                     this.isGeneric = false;
                 }
@@ -98,7 +100,7 @@ class Preset extends RallyBase{
     get test(){
         if(!this.code) return;
 
-        const regex = /autotest:\s?([\w\d_\-. \/]+)[\r\s\n]*?/gm;
+        const regex = /[^-]autotest:\s?([\w\d_\-. \/]+)[\r\s\n]*?/gm;
         let match
         let matches = []
         while(match = regex.exec(this.code)){
@@ -109,21 +111,33 @@ class Preset extends RallyBase{
     async runTest(env){
         let remote = await Preset.getByName(env, this.name);
         for(let test of this.test){
-            write(chalk`Starting job {green ${this.name}} on {green ${test}}... `);
-            let {movieId} = await lib.startJob(env, test, remote.id);
-            if(movieId){
-                write(chalk`movie {blue ${movieId}}. `);
-                log(chalk`OK`);
+            let asset;
+
+            if(test.startsWith("id")){
+                let match = /id:\s*(\d+)/g.exec(test);
+                if(!match){
+                    log(chalk`{red Could not parse autotest} ${test}.`);
+                    throw new AbortError("Could not properly parse the preset header");
+                }
+                asset = await Asset.getById(env, match[1]);
             }else{
-                log(chalk`{red No movie found}, Fail.`);
+                asset = await Asset.getByName(env, test);
             }
+
+            if(!asset){
+                log(chalk`{yellow No movie found}, skipping test.`);
+                continue;
+            }
+
+            write(chalk`Starting job {green ${this.name}} on ${asset.chalkPrint(false)}... `);
+            await asset.startEvaluate(env, remote.id);
         }
     }
     async resolve(){
         if(this.isGeneric) return;
 
-        //log(this);
         let proType = await this.resolveField(Provider, "providerType");
+
         this.ext = await proType.getFileExtension();
 
         this.isGeneric = true;
@@ -262,7 +276,7 @@ class Preset extends RallyBase{
         this.data = remote.data;
         this.remote = env;
     }
-    async uploadCodeToEnv(env, includeMetadata){
+    async uploadCodeToEnv(env, includeMetadata, shouldTest = true){
         if(!this.name){
             log(chalk`Failed uploading {red ${this.path}}. No name found.`);
             return;
@@ -308,8 +322,7 @@ class Preset extends RallyBase{
             await this.uploadPresetData(env, id);
         }
         write("Done. ");
-        if(this.test){
-            log("test...")
+        if(this.test && shouldTest){
             this.runTest(env)
         }else{
             log("No test");

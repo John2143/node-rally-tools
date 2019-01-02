@@ -87,18 +87,22 @@ export async function $defaultEnv(propArray){
 
 //Internal usage/testing
 export async function selectProvider(providers, autoDefault = false){
+    addAutoCompletePrompt();
     let defaultProvider = providers.findByName("SdviEvaluate");
     if(autoDefault){
         return defaultProvider;
     }else{
+        let choices = providers.arr.map(x => ({
+            name: x.chalkPrint(true),
+            value: x,
+        }))
         let q = await inquirer.prompt([{
-            type: "list",
+            type: "autocomplete",
             name: "provider",
             default: defaultProvider,
-            choices: providers.arr.map(x => ({
-                name: x.chalkPrint(true),
-                value: x,
-            })),
+            source: async (sofar, input) => {
+                return choices.filter(x => input ? x.value.name.toLowerCase().includes(input.toLowerCase()) : true);
+            },
         }]);
         return q.provider;
     }

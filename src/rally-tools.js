@@ -232,42 +232,6 @@ export class lib{
         if(this.isLocalEnv(env)) return "LOCAL";
         return env;
     }
-    static async startJob(env, movie, preset){
-        let movieObj = await this.makeAPIRequest({
-            env, path: "/movies", qs: {
-                filter: `name=${movie}`
-            }
-        });
-
-        let id = movieObj?.data?.[0]?.id
-        if(!id) return {};
-
-        // Fire and forget.
-        let data = await this.makeAPIRequest({
-            env, path: "/jobs", method: "POST",
-            payload: {
-                data: {
-                    type: "jobs",
-                    relationships: {
-                        movie: {
-                            data: {
-                                id: id,
-                                type: "movies",
-                            }
-                        }, preset: {
-                            data: {
-                                id: preset,
-                                type: "presets",
-                            }
-                        }
-                    }
-                }
-            }
-        });
-        return {
-            movieId: id, reqData: data,
-        };
-    }
 };
 
 export class AbortError extends Error{

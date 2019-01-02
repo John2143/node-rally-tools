@@ -16,6 +16,8 @@ import {helpText, arg, param, usage, helpEntries, spawn} from "./decorators.js";
 
 import {testFunction} from "./unitTestRally.js";
 
+import baseCode from "./baseCode.js";
+
 import * as configHelpers from "./config-create.js";
 const False = false; const True = true; const None = null;
 
@@ -100,7 +102,7 @@ let presetsub = {
     async $create(args){
         let provider, name, ext;
         if(args.provider){
-            provider = args.provider;
+            provider = {name: args.provider};
             ext = args.ext
         }else{
             provider = await configHelpers.selectProvider(await Provider.getAll(this.env));
@@ -118,10 +120,10 @@ let presetsub = {
         preset.isGeneric = true;
         preset.name = name;
         preset.ext = ext;
-        if(provider.name === "SdviEvaluate"){
-            preset._code = `'''\nname: ${name}\n'''\n\n# code here\n`;
+        if(baseCode[provider.name]){
+            preset._code = baseCode[provider.name].replace("{name}", name);
         }else{
-            preset._code = ""
+            preset._code = " ";
         }
 
         preset.saveLocalMetadata();

@@ -117,6 +117,31 @@ class Asset extends RallyBase{
         });
         return req;
     }
+    async startEvaluate(env, presetid){
+        // Fire and forget.
+        let data = await lib.makeAPIRequest({
+            env, path: "/jobs", method: "POST",
+            payload: {
+                data: {
+                    type: "jobs",
+                    relationships: {
+                        movie: {
+                            data: {
+                                id: this.id,
+                                type: "movies",
+                            }
+                        }, preset: {
+                            data: {
+                                id: presetid,
+                                type: "presets",
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        return data;
+    }
 }
 
 defineAssoc(Asset, "id", "data.id");

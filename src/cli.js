@@ -388,7 +388,7 @@ let supplysub = {
             set.add(await categorizeString(file));
         }
         let files = [...set];
-        files = files.filter(f => f);
+        files = files.filter(f => f && !f.missing);
         this.chain = new SupplyChain();
 
         this.chain.rules = new Collection(files.filter(f => f instanceof Rule));
@@ -869,6 +869,10 @@ async function $main(){
         global.log = ()=>{};
         global.errorLog = ()=>{};
         global.write = ()=>{};
+    }
+
+    if(argv["ignore-missing"]){
+        configObject.ignoreMissing = true;
     }
 
     //Default enviornment should normally be from config, but it can be

@@ -13,7 +13,6 @@ var argparse = _interopDefault(require('minimist'));
 var chalk$1 = _interopDefault(require('chalk'));
 var os = require('os');
 var fs = require('fs');
-var fs__default = _interopDefault(fs);
 var child_process = require('child_process');
 var perf_hooks = require('perf_hooks');
 var path = require('path');
@@ -221,7 +220,7 @@ class lib {
     qs,
     headers = {},
     fullResponse = false,
-    timeout = configObject.timeout || 0
+    timeout = configObject.timeout || 20000
   }) {
     var _configObject$api;
 
@@ -932,8 +931,13 @@ class Preset extends RallyBase {
         try {
           this.code = this.getLocalCode();
         } catch (e) {
-          log(chalk`{red Node Error} ${e.message}`);
-          throw new AbortError("Could not load code of local file");
+          if (e.code === "ENOENT" && configObject.ignoreMissing) {
+            this.missing = true;
+            return undefined;
+          } else {
+            log(chalk`{red Node Error} ${e.message}`);
+            throw new AbortError("Could not load code of local file");
+          }
         }
 
         let name = this.parseFilenameForName() || this.parseCodeForName();
@@ -943,7 +947,7 @@ class Preset extends RallyBase {
           this.isGeneric = true;
           name = this.name;
         } catch (e) {
-          log(chalk`{yellow Warning}: ${this.name} does not have a readable metadata file! Looking for ${this.localmetadatapath}`);
+          log(chalk`{yellow Warning}: ${path$$1} does not have a readable metadata file! Looking for ${this.localmetadatapath}`);
           this.data = Preset.newShell();
           this.isGeneric = false;
         }
@@ -962,7 +966,16 @@ class Preset extends RallyBase {
 
 
   static async fromMetadata(path$$1) {
-    let data = JSON.parse(fs__default.readFileSync(path$$1));
+    try {
+      let data = JSON.parse(readFileSync(path$$1));
+    } catch (e) {
+      if (e.code === "ENOENT" && configObject.ignoreMissing) {
+        return null;
+      } else {
+        throw e;
+      }
+    }
+
     let provider = await Provider.getByName("DEV", data.relationships.providerType.data.name);
     let ext = await provider.getFileExtension();
     let name = data.attributes.name;
@@ -1060,11 +1073,11 @@ class Preset extends RallyBase {
       this.cleanup();
     }
 
-    fs__default.writeFileSync(this.localmetadatapath, JSON.stringify(this.data, null, 4));
+    fs.writeFileSync(this.localmetadatapath, JSON.stringify(this.data, null, 4));
   }
 
   async saveLocalFile() {
-    fs__default.writeFileSync(this.localpath, this.code);
+    fs.writeFileSync(this.localpath, this.code);
   }
 
   async uploadRemote(env) {
@@ -1278,11 +1291,11 @@ class Preset extends RallyBase {
   }
 
   getLocalMetadata() {
-    return JSON.parse(fs__default.readFileSync(this.localmetadatapath, "utf-8"));
+    return JSON.parse(readFileSync(this.localmetadatapath, "utf-8"));
   }
 
   getLocalCode() {
-    return fs__default.readFileSync(this.path, "utf-8");
+    return readFileSync(this.path, "utf-8");
   }
 
 }
@@ -1341,12 +1354,21 @@ class Rule extends RallyBase {
 
     if (path$$1) {
       path$$1 = path.resolve(path$$1);
-      let f = fs__default.readFileSync(path$$1, "utf-8");
 
       try {
-        data = JSON.parse(fs__default.readFileSync(path$$1, "utf-8"));
+        let f = fs.readFileSync(path$$1, "utf-8");
+        data = JSON.parse(fs.readFileSync(path$$1, "utf-8"));
       } catch (e) {
-        throw new AbortError(`Unreadable JSON in ${path$$1}. ${e}`);
+        if (e.code === "ENOENT") {
+          if (configObject.ignoreMissing) {
+            this.missing = true;
+            return undefined;
+          } else {
+            throw new AbortError("Could not load code of local file");
+          }
+        } else {
+          throw new AbortError(`Unreadable JSON in ${path$$1}. ${e}`);
+        }
       }
     }
 
@@ -1397,7 +1419,9 @@ class Rule extends RallyBase {
     this.cleanup();
 
     if (lib.isLocalEnv(env)) {
-      fs__default.writeFileSync(this.localpath, JSON.stringify(this.data, null, 4));
+      log("Writing to local path: ");
+      log(this.localpath);
+      fs.writeFileSync(this.localpath, JSON.stringify(this.data, null, 4));
     } else {
       await this.acclimatize(env);
       await this.uploadRemote(env);
@@ -1573,22 +1597,27 @@ class SupplyChain {
   }
 
   async calculate() {
-    write("Getting rules... ");
+    log("Getting rules... ");
     this.allRules = await Rule.getAll(this.remote);
     log(this.allRules.length);
-    write("Getting presets... ");
+    log("Getting presets... ");
     this.allPresets = await Preset.getAll(this.remote);
     log(this.allPresets.length);
-    write("Getting providers... ");
+    log("Getting providers... ");
     this.allProviders = await Provider.getAll(this.remote);
     log(this.allProviders.length);
-    write("Getting notifications... ");
+    log("Getting notifications... ");
     this.allNotifications = await Notification.getAll(this.remote);
     log(this.allNotifications.length);
-    write("Downloading code... ");
-    await Promise.all(this.allPresets.arr.map(obj => obj.downloadCode()));
-    log("Done!"); //fs.writeFileSync("test.json", JSON.stringify(this, null, 4))
-    //Now we have everything we need to find a whole supply chain
+    log("Downloading code... ");
+    let i = 0;
+
+    for (let preset of this.allPresets) {
+      write(`\r${" ".repeat(process.env.COLUMNS || 30)}\r${i++} / ${this.allPresets.arr.length} ${preset.name}`);
+      await preset.downloadCode();
+    }
+
+    log("Done!"); //Now we have everything we need to find a whole supply chain
 
     write("Calculating Supply chain... ");
     log(this.startingRule.chalkPrint());
@@ -1760,7 +1789,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   RallyBase: RallyBase
 });
 
-var version = "1.10.1";
+var version = "1.10.2";
 
 let testCases = [["one segment good", {
   "userMetaData": {
@@ -2675,7 +2704,7 @@ let supplysub = {
     }
 
     let files = [...set];
-    files = files.filter(f => f);
+    files = files.filter(f => f && !f.missing);
     this.chain = new SupplyChain();
     this.chain.rules = new Collection(files.filter(f => f instanceof Rule));
     this.chain.presets = new Collection(files.filter(f => f instanceof Preset));
@@ -3135,6 +3164,10 @@ async function $main() {
     global.errorLog = () => {};
 
     global.write = () => {};
+  }
+
+  if (argv["ignore-missing"]) {
+    configObject.ignoreMissing = true;
   } //Default enviornment should normally be from config, but it can be
   //overridden by the -e/--env flag
 

@@ -5,7 +5,7 @@ import {configObject} from "./config.js";
 import Provider from "./providers.js";
 import Asset from "./asset.js";
 
-import fs from "fs";
+import {writeFileSync, feadFileSync} from "fs";
 import path from "path";
 
 let exists = {};
@@ -37,8 +37,13 @@ class Preset extends RallyBase{
                 try{
                     this.code = this.getLocalCode();
                 }catch(e){
-                    log(chalk`{red Node Error} ${e.message}`);
-                    throw new AbortError("Could not load code of local file");
+                    if(e.code === "ENOENT" && configObject.ignoreMissing){
+                        this.missing = true;
+                        return undefined;
+                    }else{
+                        log(chalk`{red Node Error} ${e.message}`);
+                        throw new AbortError("Could not load code of local file");
+                    }
                 }
                 let name = this.parseFilenameForName() || this.parseCodeForName();
                 try{
@@ -46,7 +51,7 @@ class Preset extends RallyBase{
                     this.isGeneric = true;
                     name = this.name;
                 }catch(e){
-                    log(chalk`{yellow Warning}: ${this.name} does not have a readable metadata file! Looking for ${this.localmetadatapath}`);
+                    log(chalk`{yellow Warning}: ${path} does not have a readable metadata file! Looking for ${this.localmetadatapath}`);
                     this.data = Preset.newShell();
                     this.isGeneric = false;
                 }
@@ -63,7 +68,15 @@ class Preset extends RallyBase{
     }
     //Given a metadata file, get its actualy file
     static async fromMetadata(path){
-        let data = JSON.parse(fs.readFileSync(path));
+        try{
+            let data = JSON.parse(readFileSync(path));
+        }catch(e){
+            if(e.code === "ENOENT" && configObject.ignoreMissing){
+                return null;
+            }else{
+                throw e
+            }
+        }
         let provider = await Provider.getByName("DEV", data.relationships.providerType.data.name);
 
         let ext = await provider.getFileExtension();
@@ -153,10 +166,10 @@ class Preset extends RallyBase{
             await this.resolve();
             this.cleanup();
         }
-        fs.writeFileSync(this.localmetadatapath, JSON.stringify(this.data, null, 4));
+        writeFileSync(this.localmetadatapath, JSON.stringify(this.data, null, 4));
     }
     async saveLocalFile(){
-        fs.writeFileSync(this.localpath, this.code);
+        writeFileSync(this.localpath, this.code);
     }
     async uploadRemote(env){
         await this.uploadCodeToEnv(env, true);
@@ -330,10 +343,10 @@ class Preset extends RallyBase{
     }
 
     getLocalMetadata(){
-        return JSON.parse(fs.readFileSync(this.localmetadatapath, "utf-8"));
+        return JSON.parse(readFileSync(this.localmetadatapath, "utf-8"));
     }
     getLocalCode(){
-        return fs.readFileSync(this.path, "utf-8");
+        return readFileSync(this.path, "utf-8");
     }
 }
 

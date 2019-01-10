@@ -5,8 +5,6 @@ import Notification from "./notification.js";
 import {Collection} from "./rally-tools.js";
 import {configObject} from "./config.js";
 
-import fs from "fs";
-
 export default class SupplyChain{
     constructor(startingRule, stopRule){
         if(startingRule){
@@ -16,27 +14,29 @@ export default class SupplyChain{
         }
     }
     async calculate(){
-        write("Getting rules... ");
+        log("Getting rules... ");
         this.allRules = await Rule.getAll(this.remote);
         log(this.allRules.length);
 
-        write("Getting presets... ");
+        log("Getting presets... ");
         this.allPresets = await Preset.getAll(this.remote);
         log(this.allPresets.length);
 
-        write("Getting providers... ");
+        log("Getting providers... ");
         this.allProviders = await Provider.getAll(this.remote);
         log(this.allProviders.length);
 
-        write("Getting notifications... ");
+        log("Getting notifications... ");
         this.allNotifications = await Notification.getAll(this.remote);
         log(this.allNotifications.length);
 
-        write("Downloading code... ");
-        await Promise.all(this.allPresets.arr.map(obj => obj.downloadCode()));
+        log("Downloading code... ");
+        let i = 0;
+        for(let preset of this.allPresets){
+            write(`\r${" ".repeat(process.env.COLUMNS || 30)}\r${i++} / ${this.allPresets.arr.length} ${preset.name}`);
+            await preset.downloadCode();
+        }
         log("Done!");
-
-        //fs.writeFileSync("test.json", JSON.stringify(this, null, 4))
 
         //Now we have everything we need to find a whole supply chain
 

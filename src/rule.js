@@ -5,7 +5,7 @@ import Preset from "./preset.js";
 import Provider from "./providers.js";
 import Notification from "./notification.js";
 
-import fs from "fs";
+import {readFileSync, writeFileSync} from "fs";
 import {join, resolve as pathResolve} from "path";
 
 class Rule extends RallyBase{
@@ -13,11 +13,20 @@ class Rule extends RallyBase{
         super();
         if(path){
             path = pathResolve(path);
-            let f = fs.readFileSync(path, "utf-8")
             try{
-                data = JSON.parse(fs.readFileSync(path, "utf-8"));
+                let f = readFileSync(path, "utf-8")
+                data = JSON.parse(readFileSync(path, "utf-8"));
             }catch(e){
-                throw new AbortError(`Unreadable JSON in ${path}. ${e}`);
+                if(e.code === "ENOENT"){
+                    if(configObject.ignoreMissing){
+                        this.missing = true;
+                        return undefined;
+                    }else{
+                        throw new AbortError("Could not load code of local file");
+                    }
+                }else{
+                    throw new AbortError(`Unreadable JSON in ${path}. ${e}`);
+                }
             }
         }
         if(!data){
@@ -65,7 +74,9 @@ class Rule extends RallyBase{
         }
         this.cleanup();
         if(lib.isLocalEnv(env)){
-            fs.writeFileSync(this.localpath, JSON.stringify(this.data, null, 4));
+            log("Writing to local path: ")
+            log(this.localpath)
+            writeFileSync(this.localpath, JSON.stringify(this.data, null, 4));
         }else{
             await this.acclimatize(env);
             await this.uploadRemote(env);

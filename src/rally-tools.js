@@ -31,7 +31,7 @@ export class lib{
         env, path, path_full,
         payload, body, method = "GET",
         qs, headers = {},
-        fullResponse = false, timeout = configObject.timeout || 0
+        fullResponse = false, timeout = configObject.timeout || 20000
     }){
         //Keys are defined in enviornment variables
         let config = configObject?.api?.[env];

@@ -10,7 +10,7 @@ import {
 
 import {version as packageVersion} from "../package.json";
 import {configFile, configObject, loadConfig} from "./config.js";
-import {writeFileSync, readFileSync} from "fs";
+import {readFileSync, writeFileSync} from "fs";
 
 import {helpText, arg, param, usage, helpEntries, spawn} from "./decorators.js";
 

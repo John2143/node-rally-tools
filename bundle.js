@@ -13,6 +13,7 @@ var argparse = _interopDefault(require('minimist'));
 var chalk$1 = _interopDefault(require('chalk'));
 var os = require('os');
 var fs = require('fs');
+var fs__default = _interopDefault(fs);
 var child_process = require('child_process');
 var perf_hooks = require('perf_hooks');
 var path = require('path');
@@ -895,6 +896,26 @@ defineAssoc(Asset, "remote", "meta.remote");
 defineAssoc(Asset, "md", "meta.metadata");
 Asset.endpoint = "movies";
 
+const colon = /:/g;
+const siloLike = /(silo\-\w+?)s?\/([^\/]+)\.([\w1234567890]+)$/g;
+function pathTransform(path$$1) {
+  if (path$$1.includes(":")) {
+    path$$1 = path$$1.replace(colon, "--");
+  }
+
+  if (configObject.invertedPath) {
+    path$$1 = path$$1.replace(siloLike, "$2-$1.$3");
+  }
+
+  return path$$1;
+}
+function readFileSync(path$$1, options) {
+  return fs__default.readFileSync(pathTransform(path$$1), options);
+}
+function writeFileSync(path$$1, data, options) {
+  return fs__default.writeFileSync(pathTransform(path$$1), data, options);
+}
+
 let exists = {};
 
 class Preset extends RallyBase {
@@ -962,6 +983,9 @@ class Preset extends RallyBase {
 
       this.isGeneric = false;
     }
+
+    this.data.rallyConfiguration = undefined;
+    this.data.systemManaged = undefined;
   } //Given a metadata file, get its actualy file
 
 
@@ -1073,11 +1097,11 @@ class Preset extends RallyBase {
       this.cleanup();
     }
 
-    fs.writeFileSync(this.localmetadatapath, JSON.stringify(this.data, null, 4));
+    writeFileSync(this.localmetadatapath, JSON.stringify(this.data, null, 4));
   }
 
   async saveLocalFile() {
-    fs.writeFileSync(this.localpath, this.code);
+    writeFileSync(this.localpath, this.code);
   }
 
   async uploadRemote(env) {
@@ -1356,8 +1380,8 @@ class Rule extends RallyBase {
       path$$1 = path.resolve(path$$1);
 
       try {
-        let f = fs.readFileSync(path$$1, "utf-8");
-        data = JSON.parse(fs.readFileSync(path$$1, "utf-8"));
+        let f = readFileSync(path$$1, "utf-8");
+        data = JSON.parse(readFileSync(path$$1, "utf-8"));
       } catch (e) {
         if (e.code === "ENOENT") {
           if (configObject.ignoreMissing) {
@@ -1421,7 +1445,7 @@ class Rule extends RallyBase {
     if (lib.isLocalEnv(env)) {
       log("Writing to local path: ");
       log(this.localpath);
-      fs.writeFileSync(this.localpath, JSON.stringify(this.data, null, 4));
+      writeFileSync(this.localpath, JSON.stringify(this.data, null, 4));
     } else {
       await this.acclimatize(env);
       await this.uploadRemote(env);
@@ -1789,7 +1813,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   RallyBase: RallyBase
 });
 
-var version = "1.10.2";
+var version = "1.10.3";
 
 let testCases = [["one segment good", {
   "userMetaData": {

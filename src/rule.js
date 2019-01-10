@@ -5,7 +5,7 @@ import Preset from "./preset.js";
 import Provider from "./providers.js";
 import Notification from "./notification.js";
 
-import {readFileSync, writeFileSync} from "fs";
+import {writeFileSync, readFileSync} from "./fswrap.js";
 import {join, resolve as pathResolve} from "path";
 
 class Rule extends RallyBase{

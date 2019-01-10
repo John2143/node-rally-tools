@@ -5,7 +5,7 @@ import {configObject} from "./config.js";
 import Provider from "./providers.js";
 import Asset from "./asset.js";
 
-import {writeFileSync, feadFileSync} from "fs";
+import {writeFileSync, readFileSync} from "./fswrap.js";
 import path from "path";
 
 let exists = {};
@@ -65,6 +65,8 @@ class Preset extends RallyBase{
             //this.id = data.id;
             this.isGeneric = false;
         }
+        this.data.rallyConfiguration = undefined;
+        this.data.systemManaged = undefined;
     }
     //Given a metadata file, get its actualy file
     static async fromMetadata(path){

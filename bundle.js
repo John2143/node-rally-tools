@@ -761,7 +761,7 @@ class Asset extends RallyBase {
 
   chalkPrint(pad = false) {
     let id = String("A-" + (this.remote && this.remote + "-" + this.id || "LOCAL"));
-    if (pad) id = id.padStart(7);
+    if (pad) id = id.padStart(15);
     return chalk`{green ${id}}: {blue ${this.data.attributes ? this.name : "(lite asset)"}}`;
   }
 
@@ -910,6 +910,7 @@ const colon = /:/g;
 const siloLike = /(silo\-\w+?)s?\/([^\/]+)\.([\w1234567890]+)$/g;
 function pathTransform(path$$1) {
   if (path$$1.includes(":")) {
+    //Ignore the first colon in window-like filesystems
     path$$1 = path$$1.slice(0, 3) + path$$1.slice(3).replace(colon, "--");
   }
 
@@ -1827,7 +1828,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   RallyBase: RallyBase
 });
 
-var version = "1.11.1";
+var version = "1.11.2";
 
 let testCases = [["one segment good", {
   "userMetaData": {
@@ -2118,13 +2119,11 @@ name: {name}
 const inquirer = importLazy("inquirer");
 const readdir = importLazy("recursive-readdir");
 let hasAutoCompletePrompt = false;
-
 function addAutoCompletePrompt() {
   if (hasAutoCompletePrompt) return;
   hasAutoCompletePrompt = true;
   inquirer.registerPrompt("autocomplete", require("inquirer-autocomplete-prompt"));
 }
-
 async function $api(propArray) {
   const defaults = {
     DEV: "https://discovery-dev.sdvi.com/api/v2",
@@ -2281,6 +2280,8 @@ async function askQuestion(question) {
 }
 
 var configHelpers = /*#__PURE__*/Object.freeze({
+  inquirer: inquirer,
+  addAutoCompletePrompt: addAutoCompletePrompt,
   $api: $api,
   $chalk: $chalk,
   $restrictUAT: $restrictUAT,
@@ -3110,6 +3111,47 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
       } //break;
 
     }
+  },
+
+  sleep(time = 1000) {
+    return new Promise(resolve => setTimeout(resolve, time));
+  },
+
+  async getAssets(env, name$$1) {
+    if (!this.callid) this.callid = 0;
+    this.callid++;
+    let callid = this.callid;
+    await this.sleep(500);
+    if (callid != this.callid) return this.lastResult || [];
+    let req = await lib.makeAPIRequest({
+      env,
+      path: `/assets`,
+      qs: name$$1 ? {
+        filter: `nameContains=${name$$1}`
+      } : undefined
+    });
+    this.lastCall = Date.now();
+    return this.lastResult = req.data;
+  },
+
+  async content(args) {
+    addAutoCompletePrompt();
+    let q = await inquirer.prompt([{
+      type: "autocomplete",
+      name: "what",
+      message: `What asset do you want?`,
+      source: async (sofar, input) => {
+        let assets = await this.getAssets(args.env, input);
+        assets = assets.map(x => new Asset({
+          data: x,
+          remote: args.env
+        }));
+        return assets.map(x => ({
+          name: x.chalkPrint(true) + ": " + x.data.links.self.replace("/api/v2/assets/", "/content/"),
+          value: x
+        }));
+      }
+    }]);
   },
 
   async ["@"](args) {

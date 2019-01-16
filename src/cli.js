@@ -781,6 +781,45 @@ let cli = {
         }
     },
 
+    sleep(time = 1000){
+        return new Promise(resolve => setTimeout(resolve, time));
+    },
+
+    async getAssets(env, name){
+        if(!this.callid) this.callid = 0;
+        this.callid++;
+        let callid = this.callid;
+
+        await this.sleep(500);
+
+        if(callid != this.callid) return this.lastResult || [];
+
+        let req = await allIndexBundle.lib.makeAPIRequest({
+            env, path: `/assets`,
+            qs: name ? {filter: `nameContains=${name}`} : undefined,
+        })
+        this.lastCall = Date.now();
+
+        return this.lastResult = req.data;
+    },
+
+    async content(args){
+        configHelpers.addAutoCompletePrompt();
+        let q = await configHelpers.inquirer.prompt([{
+            type: "autocomplete",
+            name: "what",
+            message: `What asset do you want?`,
+            source: async (sofar, input) => {
+                let assets = await this.getAssets(args.env, input);
+                assets = assets.map(x => new Asset({data: x, remote: args.env}));
+                return assets.map(x => ({
+                    name: x.chalkPrint(true) + ": " + x.data.links.self.replace("/api/v2/assets/", "/content/"),
+                    value: x,
+                }));
+            },
+        }]);
+    },
+
     async ["@"](args){
         args._.unshift("-");
         args._.unshift("make");

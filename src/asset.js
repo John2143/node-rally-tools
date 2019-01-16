@@ -26,7 +26,7 @@ class Asset extends RallyBase{
 
     chalkPrint(pad=false){
         let id = String("A-" + (this.remote && this.remote + "-" + this.id || "LOCAL"))
-        if(pad) id = id.padStart(7);
+        if(pad) id = id.padStart(15);
         return chalk`{green ${id}}: {blue ${this.data.attributes ? this.name : "(lite asset)"}}`;
     }
 

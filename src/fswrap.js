@@ -6,6 +6,7 @@ const colon = /:/g;
 const siloLike = /(silo\-\w+?)s?\/([^\/]+)\.([\w1234567890]+)$/g;
 export function pathTransform(path){
     if(path.includes(":")){
+        //Ignore the first colon in window-like filesystems
         path = path.slice(0, 3) + path.slice(3).replace(colon, "--");
     }
     if(configObject.invertedPath){

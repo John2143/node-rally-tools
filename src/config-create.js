@@ -2,11 +2,11 @@ import {configObject} from "./config.js";
 import {join} from "path";
 import Preset from "./preset.js";
 import Rule from "./rule.js";
-const inquirer = importLazy("inquirer");
+export const inquirer = importLazy("inquirer");
 const readdir = importLazy("recursive-readdir");
 
 let hasAutoCompletePrompt = false;
-function addAutoCompletePrompt(){
+export function addAutoCompletePrompt(){
     if(hasAutoCompletePrompt) return
     hasAutoCompletePrompt = true;
     inquirer.registerPrompt("autocomplete", require("inquirer-autocomplete-prompt"));

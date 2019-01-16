@@ -6,7 +6,7 @@ const colon = /:/g;
 const siloLike = /(silo\-\w+?)s?\/([^\/]+)\.([\w1234567890]+)$/g;
 export function pathTransform(path){
     if(path.includes(":")){
-        path = path.splice(0, 3) + path.splice(3).replace(colon, "--");
+        path = path.slice(0, 3) + path.slice(3).replace(colon, "--");
     }
     if(configObject.invertedPath){
         path = path.replace(siloLike, "$2-$1.$3")

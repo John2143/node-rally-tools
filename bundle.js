@@ -910,7 +910,7 @@ const colon = /:/g;
 const siloLike = /(silo\-\w+?)s?\/([^\/]+)\.([\w1234567890]+)$/g;
 function pathTransform(path$$1) {
   if (path$$1.includes(":")) {
-    path$$1 = path$$1.splice(0, 3) + path$$1.splice(3).replace(colon, "--");
+    path$$1 = path$$1.slice(0, 3) + path$$1.slice(3).replace(colon, "--");
   }
 
   if (configObject.invertedPath) {
@@ -1827,7 +1827,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   RallyBase: RallyBase
 });
 
-var version = "1.11.0";
+var version = "1.11.1";
 
 let testCases = [["one segment good", {
   "userMetaData": {

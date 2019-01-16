@@ -70,13 +70,14 @@ class Preset extends RallyBase{
     }
     //Given a metadata file, get its actualy file
     static async fromMetadata(path){
+        let data;
         try{
-            let data = JSON.parse(readFileSync(path));
+            data = JSON.parse(readFileSync(path));
         }catch(e){
             if(e.code === "ENOENT" && configObject.ignoreMissing){
                 return null;
             }else{
-                throw e
+                throw e;
             }
         }
         let provider = await Provider.getByName("DEV", data.relationships.providerType.data.name);
@@ -126,6 +127,7 @@ class Preset extends RallyBase{
     async runTest(env){
         let remote = await Preset.getByName(env, this.name);
         for(let test of this.test){
+            log("Tests...");
             let asset;
 
             if(test.startsWith("id")){
@@ -144,7 +146,7 @@ class Preset extends RallyBase{
                 continue;
             }
 
-            write(chalk`Starting job {green ${this.name}} on ${asset.chalkPrint(false)}... `);
+            log(chalk`Starting job {green ${this.name}} on ${asset.chalkPrint(false)}... `);
             await asset.startEvaluate(env, remote.id);
         }
     }
@@ -208,7 +210,9 @@ class Preset extends RallyBase{
     chalkPrint(pad=true){
         let id = String("P-" + (this.remote && this.remote + "-" + this.id || "LOCAL"))
         if(pad) id = id.padStart(10);
-        if(this.meta.proType){
+        if(this.name == undefined){
+            return chalk`{green ${id}}: {red ${this.path}}`;
+        }else if(this.meta.proType){
             return chalk`{green ${id}}: {red ${this.meta.proType.name}} {blue ${this.name}}`;
         }else{
             return chalk`{green ${id}}: {blue ${this.name}}`;
@@ -280,7 +284,7 @@ class Preset extends RallyBase{
             env, path: `/presets/${id}/providerData`,
             body: this.code, method: "PUT", fullResponse: true, timeout: 5000
         });
-        write(chalk`response {yellow ${res.statusCode}} `);
+        write(chalk`code up {yellow ${res.statusCode}}, `);
     }
     async grabMetadata(env){
         let remote = await Preset.getByName(env, this.name);
@@ -311,11 +315,12 @@ class Preset extends RallyBase{
             //If it exists we can replace it
             write("replace, ");
             if(includeMetadata){
-                await lib.makeAPIRequest({
+                let res = await lib.makeAPIRequest({
                     env, path: `/presets/${remote.id}`, method: "PATCH",
                     payload: {data: {attributes: this.data.attributes, type: "presets"}},
+                    fullResponse: true,
                 });
-                write("metadata OK, ");
+                write(chalk`metadata {yellow ${res.statusCode}}, `);
             }
 
             await this.uploadPresetData(env, remote.id);
@@ -336,11 +341,10 @@ class Preset extends RallyBase{
             write(chalk`Created id {green ${id}}... Uploading Code... `);
             await this.uploadPresetData(env, id);
         }
-        write("Done. ");
-        if(this.test && shouldTest){
-            this.runTest(env)
+        if(this.test[0] && shouldTest){
+            await this.runTest(env);
         }else{
-            log("No test");
+            log("No tests. Done.");
         }
     }
 

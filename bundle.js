@@ -186,11 +186,15 @@ function spawn(options, ...args) {
 const rp = importLazy("request-promise");
 global.chalk = chalk$1;
 
-global.log = text => console.log(text);
+global.log = (...text) => console.log(...text);
 
-global.write = text => process.stdout.write(text);
+global.write = (...text) => process.stdout.write(...text);
 
-global.errorLog = text => log(chalk$1.red(text));
+global.elog = (...text) => console.log(...text);
+
+global.ewrite = (...text) => process.stderr.write(...text);
+
+global.errorLog = (...text) => log(...text.map(chalk$1.red));
 
 class lib {
   //This function takes 2 required arguemnts:
@@ -288,7 +292,7 @@ class lib {
     } //Throw an error for any 5xx or 4xx
 
 
-    if (!fullResponse && ![200, 201, 204].includes(response.statusCode)) {
+    if (!fullResponse && ![200, 201, 202, 203, 204].includes(response.statusCode)) {
       throw new APIError(response, requestOptions, body);
     }
 
@@ -364,13 +368,18 @@ class lib {
     return result;
   }
 
+  static clearProgress(size = 30) {
+    process.stderr.write(`\r${" ".repeat(size + 8)}\r`);
+  }
+
   static async drawProgress(i, max, size = 30) {
     let pct = Number(i) / Number(max); //clamp between 0 and 1
 
     pct = pct < 0 ? 0 : pct > 1 ? 1 : pct;
     let numFilled = Math.floor(pct * size);
     let numEmpty = size - numFilled;
-    process.stderr.write(`\r${" ".repeat(size + 8)}\r[${"*".repeat(numFilled)}${" ".repeat(numEmpty)}] ${i} / ${max}`);
+    this.clearProgress();
+    process.stderr.write(`[${"*".repeat(numFilled)}${" ".repeat(numEmpty)}] ${i} / ${max}`);
   } //TODO implelement
   //static async processPromises({
   //promiseGenerator, chunksize, startingPromises = [],
@@ -426,6 +435,7 @@ class lib {
     }
 
     await this.doPromises(promises, allResults, opts.observe);
+    this.clearProgress();
     let all = [];
 
     for (let result of allResults) {
@@ -900,7 +910,7 @@ const colon = /:/g;
 const siloLike = /(silo\-\w+?)s?\/([^\/]+)\.([\w1234567890]+)$/g;
 function pathTransform(path$$1) {
   if (path$$1.includes(":")) {
-    path$$1 = path$$1.replace(colon, "--");
+    path$$1 = path$$1.splice(0, 3) + path$$1.splice(3).replace(colon, "--");
   }
 
   if (configObject.invertedPath) {
@@ -990,8 +1000,10 @@ class Preset extends RallyBase {
 
 
   static async fromMetadata(path$$1) {
+    let data;
+
     try {
-      let data = JSON.parse(readFileSync(path$$1));
+      data = JSON.parse(readFileSync(path$$1));
     } catch (e) {
       if (e.code === "ENOENT" && configObject.ignoreMissing) {
         return null;
@@ -1051,6 +1063,7 @@ class Preset extends RallyBase {
     let remote = await Preset.getByName(env, this.name);
 
     for (let test of this.test) {
+      log("Tests...");
       let asset;
 
       if (test.startsWith("id")) {
@@ -1071,7 +1084,7 @@ class Preset extends RallyBase {
         continue;
       }
 
-      write(chalk`Starting job {green ${this.name}} on ${asset.chalkPrint(false)}... `);
+      log(chalk`Starting job {green ${this.name}} on ${asset.chalkPrint(false)}... `);
       await asset.startEvaluate(env, remote.id);
     }
   }
@@ -1146,7 +1159,9 @@ class Preset extends RallyBase {
     let id = String("P-" + (this.remote && this.remote + "-" + this.id || "LOCAL"));
     if (pad) id = id.padStart(10);
 
-    if (this.meta.proType) {
+    if (this.name == undefined) {
+      return chalk`{green ${id}}: {red ${this.path}}`;
+    } else if (this.meta.proType) {
       return chalk`{green ${id}}: {red ${this.meta.proType.name}} {blue ${this.name}}`;
     } else {
       return chalk`{green ${id}}: {blue ${this.name}}`;
@@ -1230,7 +1245,7 @@ class Preset extends RallyBase {
       fullResponse: true,
       timeout: 5000
     });
-    write(chalk`response {yellow ${res.statusCode}} `);
+    write(chalk`code up {yellow ${res.statusCode}}, `);
   }
 
   async grabMetadata(env) {
@@ -1266,7 +1281,7 @@ class Preset extends RallyBase {
       write("replace, ");
 
       if (includeMetadata) {
-        await lib.makeAPIRequest({
+        let res = await lib.makeAPIRequest({
           env,
           path: `/presets/${remote.id}`,
           method: "PATCH",
@@ -1275,9 +1290,10 @@ class Preset extends RallyBase {
               attributes: this.data.attributes,
               type: "presets"
             }
-          }
+          },
+          fullResponse: true
         });
-        write("metadata OK, ");
+        write(chalk`metadata {yellow ${res.statusCode}}, `);
       }
 
       await this.uploadPresetData(env, remote.id);
@@ -1305,12 +1321,10 @@ class Preset extends RallyBase {
       await this.uploadPresetData(env, id);
     }
 
-    write("Done. ");
-
-    if (this.test && shouldTest) {
-      this.runTest(env);
+    if (this.test[0] && shouldTest) {
+      await this.runTest(env);
     } else {
-      log("No test");
+      log("No tests. Done.");
     }
   }
 
@@ -1813,7 +1827,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   RallyBase: RallyBase
 });
 
-var version = "1.10.3";
+var version = "1.11.0";
 
 let testCases = [["one segment good", {
   "userMetaData": {
@@ -2672,11 +2686,21 @@ let supplysub = {
 
       if (this.chain.presets.arr[0]) {
         log("Loading code");
-        await Promise.all(this.chain.presets.arr.map(obj => obj.downloadCode()));
+
+        for (let preset of this.chain.presets) {
+          await preset.downloadCode();
+        }
+
         log("Done");
       }
 
-      await this.chain.syncTo(args["to"]);
+      if (Array.isArray(args["to"])) {
+        for (let to of args["to"]) {
+          await this.chain.syncTo(to);
+        }
+      } else {
+        await this.chain.syncTo(args["to"]);
+      }
     } else if (args["diff"]) {
       //Very basic diff
       let env = args["diff"];

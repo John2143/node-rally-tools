@@ -4,9 +4,11 @@ import {cached} from "./decorators.js";
 const rp = importLazy("request-promise")
 
 global.chalk = chalk;
-global.log = text => console.log(text);
-global.write = text => process.stdout.write(text);
-global.errorLog = text => log(chalk.red(text));
+global.log      = (...text) => console.log(...text);
+global.write    = (...text) => process.stdout.write(...text);
+global.elog     = (...text) => console.log(...text);
+global.ewrite   = (...text) => process.stderr.write(...text);
+global.errorLog = (...text) => log(...text.map(chalk.red));
 
 export class lib{
     //This function takes 2 required arguemnts:
@@ -88,7 +90,7 @@ export class lib{
         }
 
         //Throw an error for any 5xx or 4xx
-        if(!fullResponse && ![200, 201, 204].includes(response.statusCode)){
+        if(!fullResponse && ![200, 201, 202, 203, 204].includes(response.statusCode)){
             throw new APIError(response, requestOptions, body);
         }
         let contentType = response.headers["content-type"];
@@ -156,6 +158,10 @@ export class lib{
         return result
     }
 
+    static clearProgress(size = 30){
+        process.stderr.write(`\r${" ".repeat(size + 8)}\r`);
+    }
+
     static async drawProgress(i, max, size = 30){
         let pct = Number(i) / Number(max);
         //clamp between 0 and 1
@@ -163,7 +169,8 @@ export class lib{
         let numFilled = Math.floor(pct * size);
         let numEmpty = size - numFilled;
 
-        process.stderr.write(`\r${" ".repeat(size + 8)}\r[${"*".repeat(numFilled)}${" ".repeat(numEmpty)}] ${i} / ${max}`);
+        this.clearProgress();
+        process.stderr.write(`[${"*".repeat(numFilled)}${" ".repeat(numEmpty)}] ${i} / ${max}`);
     }
 
     //TODO implelement
@@ -215,6 +222,7 @@ export class lib{
             promises.push(req);
         }
         await this.doPromises(promises, allResults, opts.observe);
+        this.clearProgress();
 
         let all = [];
         for(let result of allResults){

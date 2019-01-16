@@ -335,10 +335,19 @@ let supplysub = {
             this.chain.log();
             if(this.chain.presets.arr[0]){
                 log("Loading code");
-                await Promise.all(this.chain.presets.arr.map(obj => obj.downloadCode()));
+                for(let preset of this.chain.presets){
+                    await preset.downloadCode();
+                }
                 log("Done");
             }
-            await this.chain.syncTo(args["to"]);
+
+            if(Array.isArray(args["to"])){
+                for(let to of args["to"]){
+                    await this.chain.syncTo(to);
+                }
+            }else{
+                await this.chain.syncTo(args["to"]);
+            }
         }else if(args["diff"]){
             //Very basic diff
             let env = args["diff"];

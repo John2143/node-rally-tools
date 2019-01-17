@@ -1013,7 +1013,15 @@ class Preset extends RallyBase {
       }
     }
 
-    let provider = await Provider.getByName("DEV", data.relationships.providerType.data.name);
+    let providerType = data.relationships.providerType.data.name;
+    let provider = await Provider.getByName("DEV", providerType);
+
+    if (!provider) {
+      log(chalk`{red The provider type {green ${providerType}} does not exist}`);
+      log(chalk`{red Skipping {green ${path$$1}}.}`);
+      return null;
+    }
+
     let ext = await provider.getFileExtension();
     let name = data.attributes.name;
     let realpath = Preset.getLocalPath(name, ext);
@@ -1828,7 +1836,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   RallyBase: RallyBase
 });
 
-var version = "1.11.2";
+var version = "1.11.3";
 
 let testCases = [["one segment good", {
   "userMetaData": {

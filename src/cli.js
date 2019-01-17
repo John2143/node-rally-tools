@@ -831,11 +831,10 @@ let cli = {
         log(asset);
     },
 
-
     //Used to test startup and teardown speed.
     noop(){
         return true;
-    }
+    },
 };
 async function unknownCommand(cmd){
     log(chalk`Unknown command {red ${cmd}}.`);

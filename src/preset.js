@@ -80,7 +80,14 @@ class Preset extends RallyBase{
                 throw e;
             }
         }
-        let provider = await Provider.getByName("DEV", data.relationships.providerType.data.name);
+        let providerType = data.relationships.providerType.data.name;
+        let provider = await Provider.getByName("DEV", providerType);
+
+        if(!provider){
+            log(chalk`{red The provider type {green ${providerType}} does not exist}`);
+            log(chalk`{red Skipping {green ${path}}.}`);
+            return null;
+        }
 
         let ext = await provider.getFileExtension();
         let name = data.attributes.name;

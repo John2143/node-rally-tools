@@ -55,10 +55,15 @@ export class lib{
             body = JSON.stringify(payload, null, 4);
         }
 
-        if(configObject.vverbose){
+        if(configObject.vverbose || configObject.vvverbose){
             log(chalk`${method} @ ${path}`);
             if(qs){
                 log(qs)
+            }
+        }
+        if(configObject.vvverbose){
+            if(payload || body){
+                log(payload || body);
             }
         }
 
@@ -95,6 +100,10 @@ export class lib{
         }
         let contentType = response.headers["content-type"];
         let isJSONResponse = contentType === "application/vnd.api+json" || contentType === "application/json";
+
+        if(configObject.vvverbose){
+            log(response.body);
+        }
 
         if(fullResponse){
             return response;

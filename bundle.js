@@ -250,11 +250,17 @@ class lib {
       body = JSON.stringify(payload, null, 4);
     }
 
-    if (configObject.vverbose) {
+    if (configObject.vverbose || configObject.vvverbose) {
       log(chalk$1`${method} @ ${path$$1}`);
 
       if (qs) {
         log(qs);
+      }
+    }
+
+    if (configObject.vvverbose) {
+      if (payload || body) {
+        log(payload || body);
       }
     }
 
@@ -298,6 +304,10 @@ class lib {
 
     let contentType = response.headers["content-type"];
     let isJSONResponse = contentType === "application/vnd.api+json" || contentType === "application/json";
+
+    if (configObject.vvverbose) {
+      log(response.body);
+    }
 
     if (fullResponse) {
       return response;
@@ -735,7 +745,7 @@ class Asset extends RallyBase {
     this.remote = remote;
 
     if (included) {
-      this.meta.metadata = this.normalizeMetadata(included);
+      this.meta.metadata = Asset.normalizeMetadata(included);
     }
   }
 
@@ -869,10 +879,10 @@ class Asset extends RallyBase {
     return req;
   }
 
-  async startEvaluate(env, presetid) {
+  async startEvaluate(presetid) {
     // Fire and forget.
     let data = await lib.makeAPIRequest({
-      env,
+      env: this.remote,
       path: "/jobs",
       method: "POST",
       payload: {
@@ -1836,7 +1846,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   RallyBase: RallyBase
 });
 
-var version = "1.11.3";
+var version = "1.11.4";
 
 let testCases = [["one segment good", {
   "userMetaData": {
@@ -2504,12 +2514,15 @@ let presetsub = {
     let tempfile = require("tempy").file;
 
     let temp = tempfile({
-      extension: preset.ext
+      extension: `${this.env}.${preset.ext}`
     });
     fs.writeFileSync(temp, preset2.code);
     let ptr = `${file},${temp}`; //raw output returns "file1" "file2"
 
-    if (configObject.rawOutput) return ptr; //standard diff
+    if (configObject.rawOutput) {
+      if (args["only-new"]) return temp;else return ptr;
+    } //standard diff
+
 
     argv.command = argv.command || "diff";
     await spawn(argv.command, [file, temp], {
@@ -3280,6 +3293,10 @@ async function $main() {
     configObject.vverbose = true;
   } else if (argv["verbose"]) {
     configObject.verbose = argv["verbose"];
+  } else if (argv["vvverbose"]) {
+    configObject.verbose = true;
+    configObject.vverbose = true;
+    configObject.vvverbose = true;
   } //copy argument array to new object to allow modification
 
 

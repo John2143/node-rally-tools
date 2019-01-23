@@ -181,17 +181,21 @@ let presetsub = {
         await preset2.downloadCode();
 
         let tempfile = require("tempy").file;
-        let temp = tempfile({extension: preset.ext});
+        let temp = tempfile({extension: `${this.env}.${preset.ext}`});
         writeFileSync(temp, preset2.code);
 
         let ptr = `${file},${temp}`;
 
+
         //raw output returns "file1" "file2"
-        if(configObject.rawOutput) return ptr;
+        if(configObject.rawOutput){
+            if(args["only-new"]) return temp;
+            else return ptr;
+        }
 
         //standard diff
         argv.command = argv.command || "diff";
-        await spawn(argv.command,  [file, temp], {stdio: "inherit"});
+        await spawn(argv.command, [file, temp], {stdio: "inherit"});
     },
     async unknown(arg, args){
         log(chalk`Unknown action {red ${arg}} try '{white rally help preset}'`);
@@ -934,6 +938,10 @@ async function $main(){
         configObject.vverbose = true;
     }else if(argv["verbose"]){
         configObject.verbose = argv["verbose"]
+    }else if(argv["vvverbose"]){
+        configObject.verbose = true;
+        configObject.vverbose = true;
+        configObject.vvverbose = true;
     }
 
     //copy argument array to new object to allow modification

@@ -8,7 +8,7 @@ class Asset extends RallyBase{
         this.meta = {};
         this.remote = remote;
         if(included){
-            this.meta.metadata = this.normalizeMetadata(included);
+            this.meta.metadata = Asset.normalizeMetadata(included);
         }
     }
     static normalizeMetadata(payload){
@@ -117,10 +117,10 @@ class Asset extends RallyBase{
         });
         return req;
     }
-    async startEvaluate(env, presetid){
+    async startEvaluate(presetid){
         // Fire and forget.
         let data = await lib.makeAPIRequest({
-            env, path: "/jobs", method: "POST",
+            env: this.remote, path: "/jobs", method: "POST",
             payload: {
                 data: {
                     type: "jobs",

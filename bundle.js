@@ -49,6 +49,15 @@ function _applyDecoratedDescriptor(target, property, decorators, descriptor, con
 }
 
 let configFile = os.homedir() + "/.rallyconfig";
+
+function nodeConfigPackageLoad() {
+  try {
+    require("config").get("rallytools");
+
+    log("Config loaded from config pagkage");
+  } catch (e) {}
+}
+
 let configObject;
 function loadConfig(file) {
   if (file) configFile = file;
@@ -61,7 +70,14 @@ function loadConfig(file) {
     configObject = JSON.parse(json);
   } catch (e) {
     if (e.code == "ENOENT") {
-      configObject.hasConfig = false; //ok, they should probably make a config
+      let nodeConfig = nodeConfigPackageLoad();
+
+      if (nodeConfig) {
+        configObject = nodeConfig;
+        nodeConfig.hasConfig = true;
+      } else {
+        configObject.hasConfig = false; //ok, they should probably make a config
+      }
     } else {
       throw e;
     }
@@ -1846,7 +1862,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   RallyBase: RallyBase
 });
 
-var version = "1.11.4";
+var version = "1.11.5";
 
 let testCases = [["one segment good", {
   "userMetaData": {

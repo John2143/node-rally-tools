@@ -154,7 +154,7 @@ class Preset extends RallyBase{
             }
 
             log(chalk`Starting job {green ${this.name}} on ${asset.chalkPrint(false)}... `);
-            await asset.startEvaluate(env, remote.id);
+            await asset.startEvaluate(remote.id);
         }
     }
     async resolve(){

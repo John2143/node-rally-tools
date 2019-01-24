@@ -52,9 +52,7 @@ let configFile = os.homedir() + "/.rallyconfig";
 
 function nodeConfigPackageLoad() {
   try {
-    require("config").get("rallytools");
-
-    log("Config loaded from config pagkage");
+    return require("config").get("rallytools");
   } catch (e) {}
 }
 

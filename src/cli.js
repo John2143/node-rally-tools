@@ -14,8 +14,6 @@ import {readFileSync, writeFileSync} from "fs";
 
 import {helpText, arg, param, usage, helpEntries, spawn} from "./decorators.js";
 
-import {testFunction} from "./unitTestRally.js";
-
 import baseCode from "./baseCode.js";
 
 import * as configHelpers from "./config-create.js";
@@ -676,36 +674,6 @@ let cli = {
             }
             return val.endTime
          }, "00:00:00:00");
-    },
-
-    async replaceItem(args){
-    },
-
-    async unitTest(args){
-        await testFunction(args);
-    },
-
-    async findLeslie(args){
-        let allLesieLike = [
-            ...(await this.listAssets(args, "HGTV")),
-
-            ...(await this.listAssets(args, "GAC")),
-            ...(await this.listAssets(args, "Great American Country")),
-
-            ...(await this.listAssets(args, "COOK")),
-            ...(await this.listAssets(args, "Cooking Channel")),
-
-            ...(await this.listAssets(args, "TRAV")),
-            ...(await this.listAssets(args, "Travel Channel")),
-
-            ...(await this.listAssets(args, "DIY")),
-            ...(await this.listAssets(args, "DIY Network")),
-
-            ...(await this.listAssets(args, "FOOD")),
-            ...(await this.listAssets(args, "Food Network")),
-        ];
-
-        return allLesieLike;
     },
 
     async listAssets(args, tag){

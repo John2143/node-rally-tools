@@ -13,14 +13,23 @@ export function addAutoCompletePrompt(){
 }
 
 export async function $api(propArray){
+    let q;
+    q = await inquirer.prompt([{
+        type: "input",
+        name: "company",
+        message: `What is your company?`,
+        default: `discovery`,
+    }]);
+
+    let company = q.company;
+
     const defaults = {
-        DEV:  "https://discovery-dev.sdvi.com/api/v2",
-        UAT:  "https://discovery-uat.sdvi.com/api/v2",
-        QA:  "https://discovery-qa.sdvi.com/api/v2",
-        PROD: "https://discovery.sdvi.com/api/v2",
+        DEV:  `https://${company}-dev.sdvi.com/api/v2`,
+        UAT:  `https://${company}-uat.sdvi.com/api/v2`,
+        QA:  `https://${company}-qa.sdvi.com/api/v2`,
+        PROD: `https://${company}.sdvi.com/api/v2`,
     };
 
-    let q;
     if(propArray && propArray[1]){
         q = {envs: [propArray[1]]};
     }else{
@@ -43,12 +52,12 @@ export async function $api(propArray){
         return [{
             type: "input",
             name: `api.${env}.url`,
-            message: `What is the url endpoint for ${env}`,
+            message: `What is the api endpoint for ${env}?`,
             default: defaults[env],
         }, {
             type: "input",
             name: `api.${env}.key`,
-            message: `What is your api key for ${env}`,
+            message: `What is your api key for ${env}?`,
             default: defaultKey,
         }];
     });

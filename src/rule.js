@@ -86,7 +86,7 @@ class Rule extends RallyBase{
         return false;
     }
     async createIfNotExist(env){
-        write(chalk`First pass rule {green ${this.name}} to {green ${env}}: `);
+        write(chalk`\nFirst pass rule {green ${this.name}} to {green ${env}}: `);
 
         if(this.immutable){
             log(chalk`{magenta IMMUTABLE}. Nothing to do.`);
@@ -146,7 +146,7 @@ class Rule extends RallyBase{
     }
 
     async uploadRemote(env){
-        write(chalk`Uploading rule {green ${this.name}} to {green ${env}}: `);
+        write(chalk`\nUploading rule {green ${this.name}} to {green ${env}}: `);
 
         if(this.immutable){
             log(chalk`{magenta IMMUTABLE}. Nothing to do.`);

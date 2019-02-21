@@ -40,7 +40,7 @@ export default class SupplyChain{
 
         //Now we have everything we need to find a whole supply chain
 
-        write("Calculating Supply chain... ");
+        write("\nCalculating Supply chain... ");
         log(this.startingRule.chalkPrint());
 
         let allRuleNames = this.allRules.arr.map(x => x.name).filter(x => x.length >= 4);
@@ -113,11 +113,11 @@ export default class SupplyChain{
         log("Required notifications: ");
         this.notifications.log();
 
-        write("Required rules: ");
+        write("\nRequired rules: ");
         log(this.rules.arr.length);
         this.rules.log();
 
-        write("Required presets: ");
+        write("\nRequired presets: ");
         log(this.presets.arr.length);
         this.presets.log();
     }

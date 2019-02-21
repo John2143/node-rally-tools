@@ -58,7 +58,7 @@ async function getFilesFromArgs(args){
     }
 
     if(lastArg == "-"){
-        log("Reading from stdin");
+        log("\nReading from stdin");
         let getStdin = require("get-stdin");
         let stdin = await getStdin();
         let files  = stdin.split("\n");
@@ -81,7 +81,7 @@ let presetsub = {
             throw new AbortError("No files provided to grab (use --file argument)");
         }
 
-        log(chalk`Grabbing {green ${this.files.length}} preset(s) metadata from {green ${this.env}}.`);
+        log(chalk`\nGrabbing {green ${this.files.length}} preset(s) metadata from {green ${this.env}}.`);
 
         let presets = this.files.map(path => new Preset({path, remote: false}));
         for(let preset of presets){
@@ -128,7 +128,7 @@ let presetsub = {
         preset.saveLocalFile();
     },
     async $list(args){
-        log("Loading...");
+        log("\nLoading...");
         let presets = await Preset.getAll(this.env);
         if(args.resolve){
             Provider.getAll(this.env);
@@ -144,7 +144,7 @@ let presetsub = {
             }
         }
         if(configObject.rawOutput) return presets;
-        log(chalk`{yellow ${presets.length}} presets on {green ${this.env}}.`);
+        log(chalk`\n{yellow ${presets.length}} presets on {green ${this.env}}.`);
         presets.arr.sort((a, b) => {
             return Number(a.attributes.updatedAt) - Number(b.attributes.updatedAt)
         });
@@ -157,7 +157,7 @@ let presetsub = {
             throw new AbortError("No files provided to upload (use --file argument)");
         }
 
-        log(chalk`Uploading {green ${this.files.length}} preset(s) to {green ${this.env}}.`);
+        log(chalk`\nUploading {green ${this.files.length}} preset(s) to {green ${this.env}}.`);
 
         let presets = this.files.map(path => new Preset({path, remote: false}));
         await funcs.uploadPresets(this.env, presets);
@@ -196,7 +196,7 @@ let presetsub = {
         await spawn(argv.command, [file, temp], {stdio: "inherit"});
     },
     async unknown(arg, args){
-        log(chalk`Unknown action {red ${arg}} try '{white rally help preset}'`);
+        log(chalk`\nUnknown action {red ${arg}} try '{white rally help preset}'`);
     },
 }
 
@@ -206,7 +206,7 @@ let rulesub = {
         if(!this.env) throw new AbortError("No env supplied");
     },
     async $list(args){
-        log("Loading...");
+        log("\nLoading...");
         let rules = await Rule.getAll(this.env);
         if(configObject.rawOutput) return rules;
 
@@ -325,7 +325,7 @@ let supplysub = {
             throw new AbortError(chalk`No starting rule found by name {blue ${name}}`);
         }
 
-        log(chalk`Analzying supply chain: ${start.chalkPrint(false)} - ${stop ? stop.chalkPrint(false) : "(open)"}`);
+        log(chalk`\nAnalzying supply chain: ${start.chalkPrint(false)} - ${stop ? stop.chalkPrint(false) : "(open)"}`);
 
         this.chain = new SupplyChain(start, stop);
         await this.chain.calculate();
@@ -340,7 +340,7 @@ let supplysub = {
                 for(let preset of this.chain.presets){
                     await preset.downloadCode();
                 }
-                log("Done");
+                log("\nDone\n");
             }
 
             if(Array.isArray(args["to"])){
@@ -924,7 +924,7 @@ async function $main(){
             //Call the cli function
             let ret = await cli[func](argv);
             if(ret){
-                write(chalk.white("CLI returned: "));
+                write(chalk.white("\nCLI returned: "));
                 if(ret instanceof Collection) ret = ret.arr;
 
                 //Directly use console.log so that --raw works as intended.

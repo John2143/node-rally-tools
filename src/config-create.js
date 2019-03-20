@@ -152,7 +152,7 @@ export async function selectLocal(path, typeName, Class){
 }
 
 export async function selectPreset(purpose = "preset"){
-    return selectLocal("silo-presets", "preset", Preset);
+    return selectLocal("silo-presets", purpose, Preset);
 }
 export async function selectRule(purpose = "rule"){
     return selectLocal("silo-rules", purpose, Rule);

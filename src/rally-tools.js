@@ -51,6 +51,9 @@ export class lib{
 
         let rally_api_key = config.key;
         let rally_api = config.url;
+        if(path.startsWith("/v1.0/")){
+            rally_api = rally_api.replace("/api/v2", "/api");
+        }
 
         path = path_full || rally_api + path;
         if(payload){

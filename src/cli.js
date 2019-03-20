@@ -4,8 +4,8 @@ import argparse from "minimist";
 import * as allIndexBundle from "./index.js"
 import {
     rallyFunctions as funcs,
-    Preset, Rule, SupplyChain, Provider, Asset,
-    AbortError, UnconfiguredEnvError, Collection, APIError
+    Preset, Rule, SupplyChain, Provider, Asset, User,
+    AbortError, UnconfiguredEnvError, Collection, APIError,
 } from "./index.js";
 
 import {version as packageVersion} from "../package.json";
@@ -16,6 +16,8 @@ import {helpText, arg, param, usage, helpEntries, spawn} from "./decorators.js";
 
 import baseCode from "./baseCode.js";
 import {sep as pathSeperator} from "path";
+
+import moment from "moment";
 
 import * as configHelpers from "./config-create.js";
 const False = false; const True = true; const None = null;
@@ -779,6 +781,64 @@ let cli = {
 
     sleep(time = 1000){
         return new Promise(resolve => setTimeout(resolve, time));
+    },
+
+    async audit(args){
+        let supportedAudits = ["presets", "rule", "other"];
+        await configHelpers.addAutoCompletePrompt();
+        let q = await configHelpers.inquirer.prompt([{
+            type: "autocomplete", name: "obj",
+            message: `What audit do you want?`,
+            source: async (sofar, input) => {
+                return supportedAudits.filter(x => input ? x.includes(input.toLowerCase()) : true);
+            },
+        }]);
+        let choice = q.obj;
+        let resourceId = undefined
+        let filterFunc = _=>_;
+        if(choice === "presets"){
+            let preset = await configHelpers.selectPreset();
+            let remote = await Preset.getByName(args.env, preset.name);
+            if(!remote) throw new AbortError("Could not find this item on remote env");
+            filterFunc = ev => ev.resource == "Preset";
+            resourceId = remote.id;
+        }else if(choice === "rule"){
+            let preset = await configHelpers.selectRule();
+            let remote = await Rule.getByName(args.env, preset.name);
+            if(!remote) throw new AbortError("Could not find this item on remote env");
+            filterFunc = ev => ev.resource == "Rule";
+            resourceId = remote.id;
+        }else{
+            resourceId = await configHelpers.askInput(null, "What resourceID?");
+        }
+
+        log(chalk`Resource ID on {blue ${args.env}} is {yellow ${resourceId}}`);
+        log(`Loading audits (this might take a while)`);
+        let r = await allIndexBundle.lib.makeAPIRequest({
+            env: args.env,
+            path: `/v1.0/audit?perPage=50&count=50&filter=%7B%22resourceId%22%3A%22${resourceId}%22%7D&autoload=false&pageNum=1&include=`,
+            timeout: 60000,
+        });
+        r.data = r.data.filter(filterFunc);
+
+        log("Data recieved, parsing users");
+
+        for(let event of r.data){
+            let uid = event?.correlation?.userId;
+            if(!uid) continue;
+            event.user = await User.getById(args.env, uid);
+        }
+
+        if(args.raw) return r.data;
+        let evCounter = 0;
+        for(let event of r.data){
+            let evtime = moment(event.createdAt);
+            let date = evtime.format("ddd YYYY/MM/DD hh:mm:ssa");
+            let timedist = evtime.fromNow();
+            log(chalk`${date} {yellow ${timedist}} {green ${event.user?.name}} ${event.event}`);
+
+            if(++evCounter >= 3) break;
+        }
     },
 
     async getAssets(env, name){

@@ -3,13 +3,6 @@ import {readFileSync} from "fs";
 
 export let configFile = homedir() + "/.rallyconfig";
 
-function nodeConfigPackageLoad(){
-    try{
-        return require("config").get("rallytools");
-    }catch(e){
-    }
-}
-
 let configObject;
 export function loadConfig(file){
     if(file) configFile = file;
@@ -18,16 +11,11 @@ export function loadConfig(file){
     try{
         let json = readFileSync(configFile);
         configObject = JSON.parse(json);
+        configObject.hasConfig = true;
     }catch(e){
         if(e.code == "ENOENT"){
-            let nodeConfig = nodeConfigPackageLoad();
-            if(nodeConfig){
-                configObject = nodeConfig;
-                nodeConfig.hasConfig = true;
-            }else{
-                configObject.hasConfig = false;
-                //ok, they should probably make a config
-            }
+            configObject.hasConfig = false;
+            //ok, they should probably make a config
         }else{
             throw e;
         }

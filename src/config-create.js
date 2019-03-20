@@ -85,6 +85,14 @@ export async function $repodir(propArray){
     }]);
 }
 
+export async function $project(propArray){
+    let project = await askInput("Subproject directory?");
+    if(project === "none" || project === "-" || project === "" || !project){
+        project = null
+    }
+    return {project};
+}
+
 export async function $defaultEnv(propArray){
     return await inquirer.prompt([{
         type: "input",

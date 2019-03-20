@@ -30,11 +30,13 @@ export class lib{
     // fullResponse should be true if you want to receive the request object,
     //  not just the returned data.
     static async makeAPIRequest({
-        env, path, path_full,
+        env, path, path_full, fullPath,
         payload, body, method = "GET",
         qs, headers = {},
         fullResponse = false, timeout = configObject.timeout || 20000
     }){
+        //backwards compatability from ruby script
+        if(fullPath) path_full = fullPath;
         //Keys are defined in enviornment variables
         let config = configObject?.api?.[env];
         if(!config) {
@@ -136,7 +138,7 @@ export class lib{
         all = [...json.data];
         while(json.links.next){
             json = await this.makeAPIRequest({...opts, path_full: json.links.next});
-            if(opts.observe) opts.observe(json.data);
+            if(opts.observe) await opts.observe(json.data);
             all = [...all, ...json.data];
         }
 
@@ -168,29 +170,62 @@ export class lib{
     }
 
     static clearProgress(size = 30){
-        process.stderr.write(`\r${" ".repeat(size + 8)}\r`);
+        process.stderr.write(`\r${" ".repeat(size + 15)}\r`);
     }
 
-    static async drawProgress(i, max, size = 30){
+    static async drawProgress(i, max, size = process.stdout.columns - 15 || 15){
+        if(size > 45) size = 45;
         let pct = Number(i) / Number(max);
         //clamp between 0 and 1
         pct = pct < 0 ? 0 : pct > 1 ? 1 : pct;
         let numFilled = Math.floor(pct * size);
         let numEmpty = size - numFilled;
 
-        this.clearProgress();
+        this.clearProgress(size);
         process.stderr.write(`[${"*".repeat(numFilled)}${" ".repeat(numEmpty)}] ${i} / ${max}`);
     }
 
-    //TODO implelement
-    //static async processPromises({
-        //promiseGenerator, chunksize, startingPromises = [],
-        //observe,
-    //}){
-        //let promises = startingPromises
-        //for(let promise of promiseGenerator()){
-        //}
-    //}
+    static async keepalive(func, inputData, {chunksize, observe = async _=>_} = {}){
+        let total = inputData ? inputData.length : func.length;
+        let i = 0;
+        let createPromise = () => {
+            let ret;
+            if(i >= total) return [];
+            if(inputData){
+                ret = [i, func(inputData[i])];
+            }else{
+                ret = [i, func[i]()];
+            }
+
+            i++;
+            return ret;
+        }
+
+        let values = [];
+        let finished = 0;
+        process.stderr.write("\n")
+        let threads = [...this.range(20)].map(async (whichThread) => {
+            while(true){
+                let [i, currentPromise] = createPromise();
+                if(i == undefined) break;
+                values[i] = await observe(await currentPromise);
+                this.drawProgress(++finished, total);
+            }
+        });
+        await Promise.all(threads);
+        process.stderr.write("\n")
+
+
+        return values;
+    }
+
+    static *range(start, end){
+        if(end === undefined){
+            end = start;
+            start = 0;
+        }
+        while(start < end) yield start++;
+    }
 
 
     //Index a json endpoint that returns a {links} field.
@@ -208,29 +243,26 @@ export class lib{
         let opts = typeof env === "string" ? {env, path} : env;
         let json = await this.makeAPIRequest(opts);
 
+        let start = opts.start || 1;
+
+        if(opts.observe && opts.start !== 1) json = await opts.observe(json);
+
         let baselink = json.links.first;
-        const linkToPage = page => baselink.replace("page=1p", `page=${page}p`);
+        const linkToPage = page => baselink.replace(`page=1p`, `page=${page}p`);
 
         let [numPages, pageSize] = this.numPages(json.links.last);
-        //log(`num pages: ${numPages} * ${pageSize}`);
 
         //Construct an array of all the requests that are done simultanously.
         //Assume that the content from the inital request is the first page.
-        let allResults = []
-        let promises = [Promise.resolve(json)];
-
-        opts.chunksize = opts.chunksize || 10
-        for(let i = 2; i <= (opts.limit ? opts.limit : numPages); i++){
-            this.drawProgress(i, opts.limit || numPages);
-            if(promises.length === opts.chunksize){
-                await this.doPromises(promises, allResults, opts.observe);
-                promises = []
-            }
-
-            let req = this.makeAPIRequest({...opts, path_full: linkToPage(i)});
-            promises.push(req);
+        let allResults = await this.keepalive(
+            this.makeAPIRequest,
+            [...this.range(start+1, Number(numPages) + 1 || opts.limit + 1)]
+                .map(i => ({...opts, path_full: linkToPage(i)})),
+            {chunksize: opts.chunksize, observe: opts.observe},
+        );
+        if(start == 1){
+            allResults.unshift(json);
         }
-        await this.doPromises(promises, allResults, opts.observe);
         this.clearProgress();
 
         let all = [];
@@ -321,53 +353,61 @@ export class Collection{
     get length(){return this.arr.length;}
 }
 
-
 export class RallyBase{
+    static handleCaching(){
+        if(!this.cache) this.cache = [];
+    }
     static isLoaded(env){
         if(!this.hasLoadedAll) return;
         return this.hasLoadedAll[env];
     }
     static async getById(env, id, qs){
-        if(this.isLoaded(env)){
-            return (await this.getAll(env)).findById(id);
-        }else{
-            let data = await lib.makeAPIRequest({
-                env, path: `/${this.endpoint}/${id}`,
-                qs
-            });
-            if(data.data) return new this({data: data.data, remote: env, included: data.included});
+        this.handleCaching();
+        for(let item of this.cache){
+            if(item.id == id && item.remote === env) return item;
+        }
+
+        let data = await lib.makeAPIRequest({
+            env, path: `/${this.endpoint}/${id}`,
+            qs
+        });
+        if(data.data){
+            let o = new this({data: data.data, remote: env, included: data.included});
+            this.cache.push(o);
+            return o;
         }
     }
 
     static async getByName(env, name, qs){
-        if(this.isLoaded(env)){
-            return (await this.getAll(env)).findByName(name);
-        }else{
-            let data = await lib.makeAPIRequest({
-                env, path: `/${this.endpoint}`,
-                qs: {...qs, filter: `name=${name}` + (qs ? qs.filter : "")},
-            });
-            //TODO included might not wokr correctly here
-            if(data.data[0]) return new this({data: data.data[0], remote: env, included: data.included});
+        this.handleCaching();
+        for(let item of this.cache){
+            if(item.name === name && item.remote === env) return item;
+        }
+
+        let data = await lib.makeAPIRequest({
+            env, path: `/${this.endpoint}`,
+            qs: {...qs, filter: `name=${name}` + (qs ? qs.filter : "")},
+        });
+        //TODO included might not wokr correctly here
+        if(data.data[0]){
+            let o = new this({data: data.data[0], remote: env, included: data.included});
+            this.cache.push(o);
+            return o;
         }
     }
 
     static async getAllPreCollect(d){return d;}
     static async getAll(env){
-        this.hasLoadedAll = this.hasLoadedAll || {};
-        if(this.isLoaded(env)) return this.hasLoadedAll[env];
-
-        let datas = await lib.indexPathFast(env, `/${this.endpoint}?page=1p10`);
+        this.handleCaching();
+        let datas = await lib.indexPathFast(env, `/${this.endpoint}?page=1p20&sort=id`);
         datas = await this.getAllPreCollect(datas);
         let all = new Collection(datas.map(data => new this({data, remote: env})));
-        this.hasLoadedAll[env] = all;
+        this.cache = [...this.cache, ...all.arr];
         return all;
     }
     static async removeCache(env){
-        this.hasLoadedAll = this.hasLoadedAll || {};
-        if(this.isLoaded(env)){
-            this.hasLoadedAll[env] = undefined;
-        }
+        this.handleCaching();
+        this.cache = this.cache.filter(x => x.remote !== env);
     }
 
     //Specific turns name into id based on env

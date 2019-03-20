@@ -11,7 +11,7 @@ import path from "path";
 let exists = {};
 
 class Preset extends RallyBase{
-    constructor({path, remote, data} = {}){
+    constructor({path, remote, data, subProject} = {}){
         // Get full path if possible
         if(path){
             path = pathResolve(path);
@@ -21,6 +21,8 @@ class Preset extends RallyBase{
         }
 
         super();
+
+
         // Cache by path
         if(path){
             if(exists[path]) return exists[path];
@@ -28,6 +30,7 @@ class Preset extends RallyBase{
         }
 
         this.meta = {};
+        this.subproject = subProject;
         this.remote = remote
         if(lib.isLocalEnv(this.remote)){
             if(path){
@@ -65,11 +68,11 @@ class Preset extends RallyBase{
             //this.id = data.id;
             this.isGeneric = false;
         }
-        this.data.rallyConfiguration = undefined;
-        this.data.systemManaged = undefined;
+        this.data.attributes.rallyConfiguration = undefined;
+        this.data.attributes.systemManaged = undefined;
     }
     //Given a metadata file, get its actualy file
-    static async fromMetadata(path){
+    static async fromMetadata(path, subproject){
         let data;
         try{
             data = JSON.parse(readFileSync(path));
@@ -92,8 +95,8 @@ class Preset extends RallyBase{
         let ext = await provider.getFileExtension();
         let name = data.attributes.name;
 
-        let realpath = Preset.getLocalPath(name, ext);
-        return new Preset({path: realpath});
+        let realpath = Preset.getLocalPath(name, ext, subproject);
+        return new Preset({path: realpath, subProject: subproject});
     }
 
     static newShell(){
@@ -216,13 +219,17 @@ class Preset extends RallyBase{
 
     chalkPrint(pad=true){
         let id = String("P-" + (this.remote && this.remote + "-" + this.id || "LOCAL"))
+        let sub = "";
+        if(this.subproject){
+            sub = chalk`{yellow ${this.subproject}}`;
+        }
         if(pad) id = id.padStart(10);
         if(this.name == undefined){
-            return chalk`{green ${id}}: {red ${this.path}}`;
+            return chalk`{green ${id}}: ${sub}{red ${this.path}}`;
         }else if(this.meta.proType){
-            return chalk`{green ${id}}: {red ${this.meta.proType.name}} {blue ${this.name}}`;
+            return chalk`{green ${id}}: ${sub}{red ${this.meta.proType.name}} {blue ${this.name}}`;
         }else{
-            return chalk`{green ${id}}: {blue ${this.name}}`;
+            return chalk`{green ${id}}: ${sub}{blue ${this.name}}`;
         }
     }
     parseFilenameForName(){
@@ -249,10 +256,10 @@ class Preset extends RallyBase{
             return !!this.code.match(regex);
         });
     }
-    static getLocalPath(name, ext){
-        return path.join(configObject.repodir, "silo-presets", name + "." + ext);
+    static getLocalPath(name, ext, subproject){
+        return path.join(configObject.repodir, subproject || "", "silo-presets", name + "." + ext);
     }
-    get localpath(){return Preset.getLocalPath(this.name, this.ext)}
+    get localpath(){return Preset.getLocalPath(this.name, this.ext, this.subproject)}
 
     get path(){
         if(this._path) return this._path;
@@ -281,7 +288,7 @@ class Preset extends RallyBase{
             let bname = basename(this.path);
             fname = bname.substring(0, bname.length - (this.ext.length + 1));
         }
-        return path.join(configObject.repodir, "silo-metadata", fname + ".json");
+        return path.join(configObject.repodir, this.subproject || "",  "silo-metadata", fname + ".json");
     }
     get immutable(){
         return this.name.includes("Constant");
@@ -373,6 +380,7 @@ defineAssoc(Preset, "_code", "meta.code");
 defineAssoc(Preset, "_path", "meta.path");
 defineAssoc(Preset, "isGeneric", "meta.isGeneric");
 defineAssoc(Preset, "ext", "meta.ext");
+defineAssoc(Preset, "project", "data.attributes.project");
 Preset.endpoint = "presets";
 
 export default Preset;

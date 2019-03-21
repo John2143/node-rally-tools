@@ -196,7 +196,7 @@ class Preset extends RallyBase{
 
         this.cleanup();
         if(lib.isLocalEnv(env)){
-            log(chalk`Saving {green ${this.name}} to {blue ${lib.envName(env)}}.`)
+            log(chalk`Saving preset {green ${this.name}} to {blue ${lib.envName(env)}}.`)
             await this.saveLocal();
         }else{
             await this.uploadRemote(env);
@@ -381,6 +381,7 @@ defineAssoc(Preset, "_path", "meta.path");
 defineAssoc(Preset, "isGeneric", "meta.isGeneric");
 defineAssoc(Preset, "ext", "meta.ext");
 defineAssoc(Preset, "project", "data.attributes.project");
+defineAssoc(Preset, "metastring", "meta.metastring");
 Preset.endpoint = "presets";
 
 export default Preset;

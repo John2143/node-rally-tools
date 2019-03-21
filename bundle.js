@@ -250,7 +250,7 @@ class lib {
     let rally_api_key = config.key;
     let rally_api = config.url;
 
-    if (path$$1.startsWith("/v1.0/")) {
+    if (path$$1 && path$$1.startsWith("/v1.0/")) {
       rally_api = rally_api.replace("/api/v2", "/api");
     }
 
@@ -599,7 +599,7 @@ class RallyBase {
     this.handleCaching();
 
     for (let item of this.cache) {
-      if (item.id == id && item.remote === env) return item;
+      if (item.id == id && item.remote === env || `${env}-${id}` === item.metastring) return item;
     }
 
     let data = await lib.makeAPIRequest({
@@ -720,7 +720,9 @@ class RallyBase {
 
 
     delete this.relationships.organization; // id is specific to envs
+    // but save source inside meta string in case we need it
 
+    this.metastring = this.remote + "-" + this.data.id;
     delete this.data.id; // links too
 
     delete this.data.links;
@@ -1228,7 +1230,7 @@ class Preset extends RallyBase {
     this.cleanup();
 
     if (lib.isLocalEnv(env)) {
-      log(chalk`Saving {green ${this.name}} to {blue ${lib.envName(env)}}.`);
+      log(chalk`Saving preset {green ${this.name}} to {blue ${lib.envName(env)}}.`);
       await this.saveLocal();
     } else {
       await this.uploadRemote(env);
@@ -1452,6 +1454,7 @@ defineAssoc(Preset, "_path", "meta.path");
 defineAssoc(Preset, "isGeneric", "meta.isGeneric");
 defineAssoc(Preset, "ext", "meta.ext");
 defineAssoc(Preset, "project", "data.attributes.project");
+defineAssoc(Preset, "metastring", "meta.metastring");
 Preset.endpoint = "presets";
 
 class Notification extends RallyBase {
@@ -1561,8 +1564,7 @@ class Rule extends RallyBase {
     this.cleanup();
 
     if (lib.isLocalEnv(env)) {
-      log("Writing to local path: ");
-      log(this.localpath);
+      log(chalk`Saving rule {green ${this.name}} to {blue ${lib.envName(env)}}.`);
       writeFileSync(this.localpath, JSON.stringify(this.data, null, 4));
     } else {
       await this.acclimatize(env);
@@ -1760,11 +1762,17 @@ class SupplyChain {
     log("Getting notifications... ");
     this.allNotifications = await Notification.getAll(this.remote);
     log(this.allNotifications.length);
-    this.rules = this.allRules;
-    this.presets = this.allPresets;
-    this.notifications = new Collection([]);
-    await this.downloadPresetCode();
-    return;
+
+    if (!this.startingRule) {
+      this.rules = this.allRules;
+      this.presets = this.allPresets;
+      this.notifications = new Collection([]);
+      await this.downloadPresetCode();
+      return;
+    } else {
+      await this.downloadPresetCode();
+    }
+
     log("Done!"); //Now we have everything we need to find a whole supply chain
 
     write("Calculating Supply chain... ");
@@ -1971,7 +1979,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   RallyBase: RallyBase
 });
 
-var version = "1.11.8";
+var version = "1.11.9";
 
 var baseCode = {
   SdviContentMover: `{
@@ -2578,20 +2586,27 @@ let supplysub = {
     let stopName = args._.shift();
 
     if (!name$$1) {
-      throw new AbortError("No starting rule supplied");
+      throw new AbortError("No starting rule or @ supplied");
     }
 
-    let rules = await Rule.getAll(this.env);
-    let start = rules.findByNameContains(name$$1);
-    let stop;
-    if (stopName) stop = rules.findByNameContains(stopName);
+    if (name$$1 === "@") {
+      log(chalk`Silo clone started`);
+      this.chain = new SupplyChain();
+      this.chain.remote = args.env;
+    } else {
+      let rules = await Rule.getAll(this.env);
+      let stop, start;
+      start = rules.findByNameContains(name$$1);
+      if (stopName) stop = rules.findByNameContains(stopName);
 
-    if (!start) {
-      throw new AbortError(chalk`No starting rule found by name {blue ${name$$1}}`);
+      if (!start) {
+        throw new AbortError(chalk`No starting rule found by name {blue ${name$$1}}`);
+      }
+
+      log(chalk`Analzying supply chain: ${start.chalkPrint(false)} - ${stop ? stop.chalkPrint(false) : "(open)"}`);
+      this.chain = new SupplyChain(start, stop);
     }
 
-    log(chalk`Analzying supply chain: ${start.chalkPrint(false)} - ${stop ? stop.chalkPrint(false) : "(open)"}`);
-    this.chain = new SupplyChain(start, stop);
     await this.chain.calculate();
     await this.postAction(args);
   },
@@ -3078,9 +3093,10 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
 
     log(chalk`Resource ID on {blue ${args.env}} is {yellow ${resourceId}}`);
     log(`Loading audits (this might take a while)`);
+    const numRows = 300;
     let r = await lib.makeAPIRequest({
       env: args.env,
-      path: `/v1.0/audit?perPage=50&count=50&filter=%7B%22resourceId%22%3A%22${resourceId}%22%7D&autoload=false&pageNum=1&include=`,
+      path: `/v1.0/audit?perPage=${numRows}&count=${numRows}&filter=%7B%22resourceId%22%3A%22${resourceId}%22%7D&autoload=false&pageNum=1&include=`,
       timeout: 60000
     });
     r.data = r.data.filter(filterFunc);
@@ -3104,7 +3120,31 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
       let date = evtime.format("ddd YYYY/MM/DD hh:mm:ssa");
       let timedist = evtime.fromNow();
       log(chalk`${date} {yellow ${timedist}} {green ${(_event$user = event.user) === null || _event$user === void 0 ? void 0 : _event$user.name}} ${event.event}`);
-      if (++evCounter >= 3) break;
+      if (++evCounter >= 30) break;
+    }
+  },
+
+  async audit2(args) {
+    const numRows = 1000;
+    let r = await lib.makeAPIRequest({
+      env: args.env,
+      //path: `/v1.0/audit?perPage=${numRows}&count=${numRows}&autoload=false&pageNum=1&include=`,
+      path: `/v1.0/audit?perPage=${numRows}&count=${numRows}&filter=%7B%22correlation.userId%22%3A%5B%22164%22%5D%7D&autoload=false&pageNum=1&include=`,
+      timeout: 60000
+    });
+
+    for (let event of r.data) {
+      log(event.event);
+    }
+  },
+
+  async findIDs(args) {
+    let files = await getFilesFromArgs(args);
+
+    for (let file of files) {
+      let preset = await Preset.getByName(args.env, file);
+      await preset.resolve();
+      log(`silo-presets/${file}.${preset.ext}`);
     }
   },
 

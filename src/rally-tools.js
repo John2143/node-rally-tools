@@ -51,7 +51,7 @@ export class lib{
 
         let rally_api_key = config.key;
         let rally_api = config.url;
-        if(path.startsWith("/v1.0/")){
+        if(path && path.startsWith("/v1.0/")){
             rally_api = rally_api.replace("/api/v2", "/api");
         }
 
@@ -367,7 +367,7 @@ export class RallyBase{
     static async getById(env, id, qs){
         this.handleCaching();
         for(let item of this.cache){
-            if(item.id == id && item.remote === env) return item;
+            if(item.id == id && item.remote === env || `${env}-${id}` === item.metastring) return item;
         }
 
         let data = await lib.makeAPIRequest({
@@ -462,6 +462,8 @@ export class RallyBase{
         // organization is unused (?)
         delete this.relationships.organization;
         // id is specific to envs
+        // but save source inside meta string in case we need it
+        this.metastring = this.remote + "-" + this.data.id;
         delete this.data.id;
         // links too
         delete this.data.links;

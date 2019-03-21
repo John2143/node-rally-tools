@@ -40,13 +40,16 @@ export default class SupplyChain{
         this.allNotifications = await Notification.getAll(this.remote);
         log(this.allNotifications.length);
 
-        this.rules = this.allRules;
-        this.presets = this.allPresets;
-        this.notifications = new Collection([]);
+        if(!this.startingRule){
+            this.rules = this.allRules;
+            this.presets = this.allPresets;
+            this.notifications = new Collection([]);
 
-        await this.downloadPresetCode();
-
-        return
+            await this.downloadPresetCode();
+            return
+        }else{
+            await this.downloadPresetCode();
+        }
 
         log("Done!");
 

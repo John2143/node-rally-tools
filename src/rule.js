@@ -74,8 +74,7 @@ class Rule extends RallyBase{
         }
         this.cleanup();
         if(lib.isLocalEnv(env)){
-            log("Writing to local path: ")
-            log(this.localpath)
+            log(chalk`Saving rule {green ${this.name}} to {blue ${lib.envName(env)}}.`)
             writeFileSync(this.localpath, JSON.stringify(this.data, null, 4));
         }else{
             await this.acclimatize(env);

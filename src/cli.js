@@ -321,21 +321,27 @@ let supplysub = {
         let name = args._.shift();
         let stopName = args._.shift();
         if(!name){
-            throw new AbortError("No starting rule supplied");
+            throw new AbortError("No starting rule or @ supplied");
         }
 
-        let rules = await Rule.getAll(this.env);
-        let start = rules.findByNameContains(name);
-        let stop;
-        if(stopName) stop = rules.findByNameContains(stopName);
 
-        if(!start){
-            throw new AbortError(chalk`No starting rule found by name {blue ${name}}`);
+        if(name === "@"){
+            log(chalk`Silo clone started`);
+            this.chain = new SupplyChain();
+            this.chain.remote = args.env;
+        }else{
+            let rules = await Rule.getAll(this.env);
+            let stop, start;
+            start = rules.findByNameContains(name);
+            if(stopName) stop = rules.findByNameContains(stopName);
+
+            if(!start){
+                throw new AbortError(chalk`No starting rule found by name {blue ${name}}`);
+            }
+            log(chalk`Analzying supply chain: ${start.chalkPrint(false)} - ${stop ? stop.chalkPrint(false) : "(open)"}`);
+            this.chain = new SupplyChain(start, stop);
         }
 
-        log(chalk`Analzying supply chain: ${start.chalkPrint(false)} - ${stop ? stop.chalkPrint(false) : "(open)"}`);
-
-        this.chain = new SupplyChain(start, stop);
         await this.chain.calculate();
         await this.postAction(args);
     },
@@ -814,9 +820,10 @@ let cli = {
 
         log(chalk`Resource ID on {blue ${args.env}} is {yellow ${resourceId}}`);
         log(`Loading audits (this might take a while)`);
+        const numRows = 300;
         let r = await allIndexBundle.lib.makeAPIRequest({
             env: args.env,
-            path: `/v1.0/audit?perPage=50&count=50&filter=%7B%22resourceId%22%3A%22${resourceId}%22%7D&autoload=false&pageNum=1&include=`,
+            path: `/v1.0/audit?perPage=${numRows}&count=${numRows}&filter=%7B%22resourceId%22%3A%22${resourceId}%22%7D&autoload=false&pageNum=1&include=`,
             timeout: 60000,
         });
         r.data = r.data.filter(filterFunc);
@@ -837,7 +844,29 @@ let cli = {
             let timedist = evtime.fromNow();
             log(chalk`${date} {yellow ${timedist}} {green ${event.user?.name}} ${event.event}`);
 
-            if(++evCounter >= 3) break;
+            if(++evCounter >= 30) break;
+        }
+    },
+
+    async audit2(args){
+        const numRows = 1000
+        let r = await allIndexBundle.lib.makeAPIRequest({
+            env: args.env,
+            //path: `/v1.0/audit?perPage=${numRows}&count=${numRows}&autoload=false&pageNum=1&include=`,
+            path: `/v1.0/audit?perPage=${numRows}&count=${numRows}&filter=%7B%22correlation.userId%22%3A%5B%22164%22%5D%7D&autoload=false&pageNum=1&include=`,
+            timeout: 60000,
+        });
+        for(let event of r.data){
+            log(event.event);
+        }
+    },
+
+    async findIDs(args){
+        let files = await getFilesFromArgs(args);
+        for(let file of files){
+            let preset = await Preset.getByName(args.env, file);
+            await preset.resolve();
+            log(`silo-presets/${file}.${preset.ext}`);
         }
     },
 

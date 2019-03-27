@@ -286,7 +286,7 @@ class Preset extends RallyBase{
         if(this.path){
             return this.path.replace("silo-presets", "silo-metadata").replace(this.ext, "json")
         }
-        return path.join(configObject.repodir, this.subproject || "",  "silo-metadata", fname + ".json");
+        return path.join(configObject.repodir, this.subproject || "",  "silo-metadata", this.name + ".json");
     }
     get immutable(){
         return this.name.includes("Constant");

@@ -1331,7 +1331,7 @@ class Preset extends RallyBase {
       return this.path.replace("silo-presets", "silo-metadata").replace(this.ext, "json");
     }
 
-    return path__default.join(configObject.repodir, this.subproject || "", "silo-metadata", fname + ".json");
+    return path__default.join(configObject.repodir, this.subproject || "", "silo-metadata", this.name + ".json");
   }
 
   get immutable() {
@@ -1976,7 +1976,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   RallyBase: RallyBase
 });
 
-var version = "1.11.10";
+var version = "1.11.11";
 
 var baseCode = {
   SdviContentMover: `{

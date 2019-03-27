@@ -1327,11 +1327,8 @@ class Preset extends RallyBase {
   }
 
   get localmetadatapath() {
-    let fname = this.name;
-
-    if (!fname && this.path) {
-      let bname = path.basename(this.path);
-      fname = bname.substring(0, bname.length - (this.ext.length + 1));
+    if (this.path) {
+      return this.path.replace("silo-presets", "silo-metadata").replace(this.ext, "json");
     }
 
     return path__default.join(configObject.repodir, this.subproject || "", "silo-metadata", fname + ".json");
@@ -1979,7 +1976,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   RallyBase: RallyBase
 });
 
-var version = "1.11.9";
+var version = "1.11.10";
 
 var baseCode = {
   SdviContentMover: `{
@@ -3093,11 +3090,11 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
 
     log(chalk`Resource ID on {blue ${args.env}} is {yellow ${resourceId}}`);
     log(`Loading audits (this might take a while)`);
-    const numRows = 300;
+    const numRows = 100;
     let r = await lib.makeAPIRequest({
       env: args.env,
       path: `/v1.0/audit?perPage=${numRows}&count=${numRows}&filter=%7B%22resourceId%22%3A%22${resourceId}%22%7D&autoload=false&pageNum=1&include=`,
-      timeout: 60000
+      timeout: 180000
     });
     r.data = r.data.filter(filterFunc);
     log("Data recieved, parsing users");
@@ -3107,7 +3104,14 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
 
       let uid = event === null || event === void 0 ? void 0 : (_event$correlation = event.correlation) === null || _event$correlation === void 0 ? void 0 : _event$correlation.userId;
       if (!uid) continue;
-      event.user = await User.getById(args.env, uid);
+
+      try {
+        event.user = await User.getById(args.env, uid);
+      } catch (e) {
+        event.user = {
+          name: "????"
+        };
+      }
     }
 
     if (args.raw) return r.data;

@@ -820,11 +820,11 @@ let cli = {
 
         log(chalk`Resource ID on {blue ${args.env}} is {yellow ${resourceId}}`);
         log(`Loading audits (this might take a while)`);
-        const numRows = 300;
+        const numRows = 100;
         let r = await allIndexBundle.lib.makeAPIRequest({
             env: args.env,
             path: `/v1.0/audit?perPage=${numRows}&count=${numRows}&filter=%7B%22resourceId%22%3A%22${resourceId}%22%7D&autoload=false&pageNum=1&include=`,
-            timeout: 60000,
+            timeout: 180000,
         });
         r.data = r.data.filter(filterFunc);
 
@@ -833,7 +833,11 @@ let cli = {
         for(let event of r.data){
             let uid = event?.correlation?.userId;
             if(!uid) continue;
-            event.user = await User.getById(args.env, uid);
+            try{
+                event.user = await User.getById(args.env, uid);
+            }catch(e){
+                event.user = {name: "????"};
+            }
         }
 
         if(args.raw) return r.data;

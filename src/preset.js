@@ -283,10 +283,8 @@ class Preset extends RallyBase{
         };
     }
     get localmetadatapath(){
-        let fname = this.name;
-        if(!fname && this.path){
-            let bname = basename(this.path);
-            fname = bname.substring(0, bname.length - (this.ext.length + 1));
+        if(this.path){
+            return this.path.replace("silo-presets", "silo-metadata").replace(this.ext, "json")
         }
         return path.join(configObject.repodir, this.subproject || "",  "silo-metadata", fname + ".json");
     }

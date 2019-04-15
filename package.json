@@ -1,6 +1,6 @@
 {
   "name": "rally-tools",
-  "version": "1.11.6",
+  "version": "1.11.12",
   "description": "The rally tools cli interface",
   "main": "bundle.js",
   "dependencies": {
@@ -11,6 +11,7 @@
     "inquirer": "^6.0.0",
     "inquirer-autocomplete-prompt": "^1.0.1",
     "minimist": "^1.2.0",
+    "moment": "^2.24.0",
     "recursive-readdir": "^2.2.2",
     "request": "^2.87.0",
     "request-promise": "^4.2.2",

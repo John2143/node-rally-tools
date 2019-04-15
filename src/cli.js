@@ -4,8 +4,8 @@ import argparse from "minimist";
 import * as allIndexBundle from "./index.js"
 import {
     rallyFunctions as funcs,
-    Preset, Rule, SupplyChain, Provider, Asset,
-    AbortError, UnconfiguredEnvError, Collection, APIError
+    Preset, Rule, SupplyChain, Provider, Asset, User,
+    AbortError, UnconfiguredEnvError, Collection, APIError,
 } from "./index.js";
 
 import {version as packageVersion} from "../package.json";
@@ -15,6 +15,9 @@ import {readFileSync, writeFileSync} from "fs";
 import {helpText, arg, param, usage, helpEntries, spawn} from "./decorators.js";
 
 import baseCode from "./baseCode.js";
+import {sep as pathSeperator} from "path";
+
+import moment from "moment";
 
 import * as configHelpers from "./config-create.js";
 const False = false; const True = true; const None = null;
@@ -112,7 +115,7 @@ let presetsub = {
             name = await configHelpers.askInput("Preset Name", "What is the preset name?");
         }
 
-        let preset = new Preset();
+        let preset = new Preset({subProject: configObject.project});
 
         preset.providerType = {name: provider.name};
         preset.isGeneric = true;
@@ -275,23 +278,28 @@ let jupytersub = {
     },
 }
 
-async function categorizeString(str){
+async function categorizeString(str, defaultSubproject=undefined){
     str = str.trim();
+    if(str.startsWith('"')){
+        str = str.slice(1, -1);
+    }
     let match
     if(match = /^(\w)-(\w{1,10})-(\d{1,10}):/.exec(str)){
         if(match[1] === "P"){
-            return await Preset.getById(match[2], match[3]);
+            let ret = await Preset.getById(match[2], match[3]);
+            //TODO modify for subproject a bit
+            return ret;
         }else if(match[1] === "R"){
             return await Rule.getById(match[2], match[3]);
         }else{
             return null;
         }
-    }else if(match = /silo\-(\w+)\//.exec(str)){
+    }else if(match = /([\w\/\\]*)[\/\\]?silo\-(\w+)[\/\\]/.exec(str)){
         try{
-            switch(match[1]){
-                case "presets": return new Preset({path: str});
-                case "rules": return new Rule({path: str});
-                case "metadata": return await Preset.fromMetadata(str);
+            switch(match[2]){
+                case "presets": return new Preset({path: str, subProject: match[1]});
+                case "rules": return new Rule({path: str, subProject: match[1]});
+                case "metadata": return await Preset.fromMetadata(str, match[1]);
             }
         }catch(e){
             log(e);
@@ -313,21 +321,27 @@ let supplysub = {
         let name = args._.shift();
         let stopName = args._.shift();
         if(!name){
-            throw new AbortError("No starting rule supplied");
+            throw new AbortError("No starting rule or @ supplied");
         }
 
-        let rules = await Rule.getAll(this.env);
-        let start = rules.findByNameContains(name);
-        let stop;
-        if(stopName) stop = rules.findByNameContains(stopName);
 
-        if(!start){
-            throw new AbortError(chalk`No starting rule found by name {blue ${name}}`);
+        if(name === "@"){
+            log(chalk`Silo clone started`);
+            this.chain = new SupplyChain();
+            this.chain.remote = args.env;
+        }else{
+            let rules = await Rule.getAll(this.env);
+            let stop, start;
+            start = rules.findByNameContains(name);
+            if(stopName) stop = rules.findByNameContains(stopName);
+
+            if(!start){
+                throw new AbortError(chalk`No starting rule found by name {blue ${name}}`);
+            }
+            log(chalk`Analzying supply chain: ${start.chalkPrint(false)} - ${stop ? stop.chalkPrint(false) : "(open)"}`);
+            this.chain = new SupplyChain(start, stop);
         }
 
-        log(chalk`\nAnalzying supply chain: ${start.chalkPrint(false)} - ${stop ? stop.chalkPrint(false) : "(open)"}`);
-
-        this.chain = new SupplyChain(start, stop);
         await this.chain.calculate();
         await this.postAction(args);
     },
@@ -336,11 +350,8 @@ let supplysub = {
         if(args["to"]){
             this.chain.log();
             if(this.chain.presets.arr[0]){
-                log("Loading code");
-                for(let preset of this.chain.presets){
-                    await preset.downloadCode();
-                }
-                log("\nDone\n");
+                await this.chain.downloadPresetCode(this.chain.presets);
+                log("Done");
             }
 
             if(Array.isArray(args["to"])){
@@ -395,6 +406,15 @@ let supplysub = {
     },
     async $make(args){
         let set = new Set();
+        let hints = args.hint ? (Array.isArray(args.hint) ? args.hint : [args.hint]) : []
+        //TODO modify for better hinting, and add this elsewhere
+        for(let hint of hints){
+            if(hint === "presets-uat"){
+                log("got hint");
+                await Preset.getAll("UAT");
+            }
+        }
+
         for(let file of this.files){
             set.add(await categorizeString(file));
         }
@@ -630,16 +650,20 @@ let cli = {
         if(!asset){
             throw new AbortError("No asset found/created");
         }
+        let launchArg = 0;
+        let fileArg = 0;
+
+        let arrayify = (obj, i) => Array.isArray(obj) ? obj[i] : (i == 0 ? obj : undefined);
 
         while(arg = args._.shift()){
             if(arg === "launch"){
-                let initData = args["init-data"];
+                let initData = arrayify(args["init-data"], launchArg);
                 if(initData && initData.startsWith("@")){
                     log(chalk`Reading init data from {white ${initData.slice(1)}}`);
                     initData = readFileSync(initData.slice(1), "utf-8");
                 }
 
-                let jobName = args["job-name"];
+                let jobName = arrayify(args["job-name"], launchArg);
                 let p = await Rule.getByName(env, jobName);
                 if(!p){
                     throw new AbortError(`Cannot launch job ${jobName}, does not exist (?)`);
@@ -648,8 +672,16 @@ let cli = {
                 }
 
                 asset.startWorkflow(jobName, initData)
+                launchArg++;
             }else if(arg === "addfile"){
-                await asset.addFile(args["file-label"], args["file-uri"]);
+                let label = arrayify(args["file-label"], fileArg)
+                let uri   = arrayify(args["file-uri"], fileArg)
+                if(label === undefined || !uri){
+                    throw new AbortError("Number of file-label and file-uri does not match");
+                }
+                await asset.addFile(label, uri);
+                log(chalk`Added file ${label}`);
+                fileArg++;
             }else if(arg === "delete"){
                 await asset.delete();
             }else if(arg === "create"){
@@ -755,6 +787,91 @@ let cli = {
 
     sleep(time = 1000){
         return new Promise(resolve => setTimeout(resolve, time));
+    },
+
+    async audit(args){
+        let supportedAudits = ["presets", "rule", "other"];
+        await configHelpers.addAutoCompletePrompt();
+        let q = await configHelpers.inquirer.prompt([{
+            type: "autocomplete", name: "obj",
+            message: `What audit do you want?`,
+            source: async (sofar, input) => {
+                return supportedAudits.filter(x => input ? x.includes(input.toLowerCase()) : true);
+            },
+        }]);
+        let choice = q.obj;
+        let resourceId = undefined
+        let filterFunc = _=>_;
+        if(choice === "presets"){
+            let preset = await configHelpers.selectPreset();
+            let remote = await Preset.getByName(args.env, preset.name);
+            if(!remote) throw new AbortError("Could not find this item on remote env");
+            filterFunc = ev => ev.resource == "Preset";
+            resourceId = remote.id;
+        }else if(choice === "rule"){
+            let preset = await configHelpers.selectRule();
+            let remote = await Rule.getByName(args.env, preset.name);
+            if(!remote) throw new AbortError("Could not find this item on remote env");
+            filterFunc = ev => ev.resource == "Rule";
+            resourceId = remote.id;
+        }else{
+            resourceId = await configHelpers.askInput(null, "What resourceID?");
+        }
+
+        log(chalk`Resource ID on {blue ${args.env}} is {yellow ${resourceId}}`);
+        log(`Loading audits (this might take a while)`);
+        const numRows = 100;
+        let r = await allIndexBundle.lib.makeAPIRequest({
+            env: args.env,
+            path: `/v1.0/audit?perPage=${numRows}&count=${numRows}&filter=%7B%22resourceId%22%3A%22${resourceId}%22%7D&autoload=false&pageNum=1&include=`,
+            timeout: 180000,
+        });
+        r.data = r.data.filter(filterFunc);
+
+        log("Data recieved, parsing users");
+
+        for(let event of r.data){
+            let uid = event?.correlation?.userId;
+            if(!uid) continue;
+            try{
+                event.user = await User.getById(args.env, uid);
+            }catch(e){
+                event.user = {name: "????"};
+            }
+        }
+
+        if(args.raw) return r.data;
+        let evCounter = 0;
+        for(let event of r.data){
+            let evtime = moment(event.createdAt);
+            let date = evtime.format("ddd YYYY/MM/DD hh:mm:ssa");
+            let timedist = evtime.fromNow();
+            log(chalk`${date} {yellow ${timedist}} {green ${event.user?.name}} ${event.event}`);
+
+            if(++evCounter >= 30) break;
+        }
+    },
+
+    async audit2(args){
+        const numRows = 1000
+        let r = await allIndexBundle.lib.makeAPIRequest({
+            env: args.env,
+            //path: `/v1.0/audit?perPage=${numRows}&count=${numRows}&autoload=false&pageNum=1&include=`,
+            path: `/v1.0/audit?perPage=${numRows}&count=${numRows}&filter=%7B%22correlation.userId%22%3A%5B%22164%22%5D%7D&autoload=false&pageNum=1&include=`,
+            timeout: 60000,
+        });
+        for(let event of r.data){
+            log(event.event);
+        }
+    },
+
+    async findIDs(args){
+        let files = await getFilesFromArgs(args);
+        for(let file of files){
+            let preset = await Preset.getByName(args.env, file);
+            await preset.resolve();
+            log(`silo-presets/${file}.${preset.ext}`);
+        }
     },
 
     async getAssets(env, name){

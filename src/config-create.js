@@ -85,6 +85,14 @@ export async function $repodir(propArray){
     }]);
 }
 
+export async function $project(propArray){
+    let project = await askInput("Subproject directory?");
+    if(project === "none" || project === "-" || project === "" || !project){
+        project = null
+    }
+    return {project};
+}
+
 export async function $defaultEnv(propArray){
     return await inquirer.prompt([{
         type: "input",
@@ -144,7 +152,7 @@ export async function selectLocal(path, typeName, Class){
 }
 
 export async function selectPreset(purpose = "preset"){
-    return selectLocal("silo-presets", "preset", Preset);
+    return selectLocal("silo-presets", purpose, Preset);
 }
 export async function selectRule(purpose = "rule"){
     return selectLocal("silo-rules", purpose, Rule);

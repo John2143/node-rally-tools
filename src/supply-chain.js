@@ -2,8 +2,14 @@ import Rule from "./rule.js";
 import Preset from "./preset.js";
 import Provider from "./providers.js";
 import Notification from "./notification.js";
-import {Collection} from "./rally-tools.js";
+import {Collection, lib} from "./rally-tools.js";
 import {configObject} from "./config.js";
+
+
+//TODO
+//Move project into silo metadata
+//move autotest into silo metadata
+//
 
 export default class SupplyChain{
     constructor(startingRule, stopRule){
@@ -12,6 +18,10 @@ export default class SupplyChain{
             this.stopRule = stopRule
             this.remote = startingRule.remote;
         }
+    }
+    async downloadPresetCode(objs = this.allPresets){
+        log("Downloading code... ");
+        await lib.keepalive(objs.arr.map(x => () => x.downloadCode()));
     }
     async calculate(){
         log("Getting rules... ");
@@ -30,12 +40,17 @@ export default class SupplyChain{
         this.allNotifications = await Notification.getAll(this.remote);
         log(this.allNotifications.length);
 
-        log("Downloading code... ");
-        let i = 0;
-        for(let preset of this.allPresets){
-            write(`\r${" ".repeat(process.env.COLUMNS || 30)}\r${i++} / ${this.allPresets.arr.length} ${preset.name}`);
-            await preset.downloadCode();
+        if(!this.startingRule){
+            this.rules = this.allRules;
+            this.presets = this.allPresets;
+            this.notifications = new Collection([]);
+
+            await this.downloadPresetCode();
+            return
+        }else{
+            await this.downloadPresetCode();
         }
+
         log("Done!");
 
         //Now we have everything we need to find a whole supply chain
@@ -110,16 +125,22 @@ export default class SupplyChain{
         this.notifications = new Collection([...requiredNotifications]);
     }
     async log(){
-        log("Required notifications: ");
-        this.notifications.log();
+        if(this.notifications.arr.length > 0){
+            log("Required notifications: ");
+            this.notifications.log();
+        }
 
-        write("\nRequired rules: ");
-        log(this.rules.arr.length);
-        this.rules.log();
+        if(this.rules.arr.length > 0){
+            write("Required rules: ");
+            log(this.rules.arr.length);
+            this.rules.log();
+        }
 
-        write("\nRequired presets: ");
-        log(this.presets.arr.length);
-        this.presets.log();
+        if(this.presets.arr.length > 0){
+            write("Required presets: ");
+            log(this.presets.arr.length);
+            this.presets.log();
+        }
     }
     async syncTo(env){
         for(let preset of this.presets){

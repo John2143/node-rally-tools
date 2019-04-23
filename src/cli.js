@@ -294,7 +294,7 @@ async function categorizeString(str, defaultSubproject=undefined){
         }else{
             return null;
         }
-    }else if(match = /([\w\/\\]*)[\/\\]?silo\-(\w+)[\/\\]/.exec(str)){
+    }else if(match = /^([\w\/\\\-_]*)[\/\\]?silo\-(\w+)[\/\\]/.exec(str)){
         try{
             switch(match[2]){
                 case "presets": return new Preset({path: str, subProject: match[1]});

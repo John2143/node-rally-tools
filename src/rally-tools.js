@@ -59,13 +59,6 @@ export class lib{
         if(payload){
             body = JSON.stringify(payload, null, 4);
         }
-
-        if(configObject.vverbose || configObject.vvverbose){
-            log(chalk`${method} @ ${path}`);
-            if(qs){
-                log(qs)
-            }
-        }
         if(configObject.vvverbose){
             if(payload || body){
                 log(payload || body);
@@ -91,6 +84,9 @@ export class lib{
         let response;
         try{
             response = await rp(requestOptions);
+            if(configObject.vverbose || configObject.vvverbose){
+                log(chalk`${method} @ ${response.request.uri.href}`);
+            }
         }catch(e){
             if(e?.cause.code === "ESOCKETTIMEDOUT"){
                 throw new APIError(response || {}, requestOptions, body);
@@ -244,9 +240,15 @@ export class lib{
     // - chunksize[10]: How often to break apart concurrent requests
     static async indexPathFast(env, path){
         let opts = typeof env === "string" ? {env, path} : env;
-        let json = await this.makeAPIRequest(opts);
-
+        //Create a copy of the options in case we need to have a special first request
         let start = opts.start || 1;
+        let initOpts = {...opts};
+        if(opts.pageSize){
+            initOpts.qs = {...opts.qs};
+            initOpts.qs.page = `${start}p${opts.pageSize}`;
+        }
+
+        let json = await this.makeAPIRequest(initOpts);
 
         if(opts.observe && opts.start !== 1) json = await opts.observe(json);
 
@@ -402,7 +404,11 @@ export class RallyBase{
     static async getAllPreCollect(d){return d;}
     static async getAll(env){
         this.handleCaching();
-        let datas = await lib.indexPathFast(env, `/${this.endpoint}?page=1p20&sort=id`);
+        let datas = await lib.indexPathFast({
+            env, path: `/${this.endpoint}`,
+            pageSize: "50",
+            qs: {sort: "id"},
+        });
         datas = await this.getAllPreCollect(datas);
         let all = new Collection(datas.map(data => new this({data, remote: env})));
         this.cache = [...this.cache, ...all.arr];

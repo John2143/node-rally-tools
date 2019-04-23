@@ -284,7 +284,7 @@ class Preset extends RallyBase{
     }
     get localmetadatapath(){
         if(this.path){
-            return this.path.replace("silo-presets", "silo-metadata").replace(this.ext, "json")
+            return this.path.replace("silo-presets", "silo-metadata").replace(new RegExp(this.ext + "$"), "json")
         }
         return path.join(configObject.repodir, this.subproject || "",  "silo-metadata", this.name + ".json");
     }
@@ -378,7 +378,7 @@ defineAssoc(Preset, "_code", "meta.code");
 defineAssoc(Preset, "_path", "meta.path");
 defineAssoc(Preset, "isGeneric", "meta.isGeneric");
 defineAssoc(Preset, "ext", "meta.ext");
-defineAssoc(Preset, "project", "data.attributes.project");
+defineAssoc(Preset, "subproject", "meta.project");
 defineAssoc(Preset, "metastring", "meta.metastring");
 Preset.endpoint = "presets";
 

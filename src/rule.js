@@ -9,7 +9,7 @@ import {writeFileSync, readFileSync} from "./fswrap.js";
 import {join, resolve as pathResolve} from "path";
 
 class Rule extends RallyBase{
-    constructor({path, data, remote} = {}){
+    constructor({path, data, remote, subProject} = {}){
         super();
         if(path){
             path = pathResolve(path);
@@ -29,11 +29,12 @@ class Rule extends RallyBase{
                 }
             }
         }
+        this.meta = {};
+        this.subproject = subProject;
         if(!data){
             data = Rule.newShell();
         }
         this.data = data;
-        this.meta = {};
         this.remote = remote;
         this.isGeneric = !this.remote;
     }
@@ -209,9 +210,13 @@ class Rule extends RallyBase{
 
     chalkPrint(pad=true){
         let id = String("R-" + (this.remote && this.remote + "-" + this.id || "LOCAL"))
+        let sub = "";
+        if(this.subproject){
+            sub = chalk`{yellow ${this.subproject}}`;
+        }
         if(pad) id = id.padStart(10);
         try{
-            return chalk`{green ${id}}: {blue ${this.name}}`;
+            return chalk`{green ${id}}: ${sub}{blue ${this.name}}`;
         }catch(e){
             return this.data;
         }
@@ -224,6 +229,7 @@ defineAssoc(Rule, "id", "data.id");
 defineAssoc(Rule, "relationships", "data.relationships");
 defineAssoc(Rule, "isGeneric", "meta.isGeneric");
 defineAssoc(Rule, "remote", "meta.remote");
+defineAssoc(Rule, "subproject", "meta.project");
 defineAssoc(Rule, "idMap", "meta.idMap");
 Rule.endpoint = "workflowRules";
 

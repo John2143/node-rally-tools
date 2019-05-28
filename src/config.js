@@ -26,6 +26,13 @@ export function setConfig(obj){
     configObject = obj;
 }
 
+export function getPrefix(){
+    if(configObject.prefix){
+        return configObject.prefix + " - ";
+    }
+    return "";
+}
+
 loadConfig();
 
 export {configObject};

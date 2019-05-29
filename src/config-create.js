@@ -85,6 +85,13 @@ export async function $repodir(propArray){
     }]);
 }
 
+export async function $prefix(propArray){
+    let project = await askInput("prefix", "prefix?");
+    if(project === "none" || project === "-" || project === "" || !project){
+        project = null
+    }
+    return {prefix: project};
+}
 export async function $project(propArray){
     let project = await askInput("Subproject directory?");
     if(project === "none" || project === "-" || project === "" || !project){

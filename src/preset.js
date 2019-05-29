@@ -1,7 +1,7 @@
 import {RallyBase, lib, AbortError, Collection} from  "./rally-tools.js";
 import {basename, resolve as pathResolve, dirname} from "path";
 import {cached, defineAssoc} from "./decorators.js";
-import {configObject} from "./config.js";
+import {configObject, getPrefix} from "./config.js";
 import Provider from "./providers.js";
 import Asset from "./asset.js";
 
@@ -321,7 +321,7 @@ class Preset extends RallyBase{
         }
 
         //First query the api to see if this already exists.
-        let remote = await Preset.getByName(env, this.name);
+        let remote = await Preset.getByName(env, getPrefix() + this.name);
 
         if(remote){
             //If it exists we can replace it
@@ -341,6 +341,10 @@ class Preset extends RallyBase{
             let metadata = {data: this.data};
             if(!this.relationships["providerType"]){
                 throw new AbortError("Cannot acclimatize shelled presets. (try creating it on the env first)");
+            }
+
+            if(configObject.prefix){
+                metadata.data.attributes.name = getPrefix() + this.name;
             }
 
             await this.acclimatize(env);

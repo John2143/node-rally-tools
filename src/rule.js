@@ -1,6 +1,6 @@
 import {cached, defineAssoc} from "./decorators.js";
 import {RallyBase, lib, Collection, AbortError} from  "./rally-tools.js";
-import {configObject} from "./config.js";
+import {configObject, getPrefix} from "./config.js";
 import Preset from "./preset.js";
 import Provider from "./providers.js";
 import Notification from "./notification.js";
@@ -94,7 +94,7 @@ class Rule extends RallyBase{
         }
 
         //First query the api to see if this already exists.
-        let remote = await Rule.getByName(env, this.name);
+        let remote = await Rule.getByName(env, getPrefix() + this.name);
 
         this.idMap = this.idMap || {};
 
@@ -110,6 +110,11 @@ class Rule extends RallyBase{
             env, path: `/workflowRules`, method: "POST",
             payload: {data: {attributes: {name: this.name}, type: "workflowRules"}},
         });
+
+        //If there is a prefix
+        if(configObject.prefix){
+            metadata.data.attributes.name = getPrefix() + this.name;
+        };
         this.idMap = this.idMap || {};
         this.idMap[env] = res.data.id;
         write("id ");

@@ -59,25 +59,34 @@ export class lib{
         if(payload){
             body = JSON.stringify(payload, null, 4);
         }
-        if(configObject.vvverbose){
-            if(payload || body){
-                log(payload || body);
-            }
-        }
 
         if(payload){
             headers["Content-Type"] = "application/vnd.api+json";
+        }
+
+        let fullHeaders = {
+            //SDVI ignores this header sometimes.
+            Accept: "application/vnd.api+json",
+            "X-SDVI-Client-Application": "Discovery-rtlib-" + (configObject.appName || "commandline"),
+            ...headers,
+        }
+
+        if(configObject.vvverbose){
+            log(`${method} @ ${path}`)
+            log(JSON.stringify(fullHeaders, null, 4))
+
+            if(body){
+                log(body);
+            }else{
+                log("(No body")
+            }
         }
 
         let requestOptions = {
             method, body, qs, uri: path,
             timeout,
             auth: {bearer: rally_api_key},
-            headers: {
-                //SDVI ignores this header sometimes.
-                Accept: "application/vnd.api+json",
-                ...headers,
-            },
+            headers: fullHeaders,
             simple: false, resolveWithFullResponse: true,
         };
 

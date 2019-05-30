@@ -85,6 +85,15 @@ export async function $repodir(propArray){
     }]);
 }
 
+export async function $appName(propArray){
+    let defaultAppName = "cmdline-" + (process.env.USERNAME || process.env.LOGNAME);
+    let project = await askInput("Application name?", defaultAppName);
+    if(project === "none" || project === "-" || project === "" || !project){
+        project = null
+    }
+    return {appName: project};
+}
+
 export async function $project(propArray){
     let project = await askInput("Subproject directory?");
     if(project === "none" || project === "-" || project === "" || !project){
@@ -158,7 +167,7 @@ export async function selectRule(purpose = "rule"){
     return selectLocal("silo-rules", purpose, Rule);
 }
 
-export async function askInput(name, question, def){
+export async function askInput(question, def){
     return (await inquirer.prompt([{
         type: "input",
         name: "ok",

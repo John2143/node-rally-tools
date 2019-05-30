@@ -1,6 +1,6 @@
 {
   "name": "rally-tools",
-  "version": "1.11.13",
+  "version": "1.12.0",
   "description": "The rally tools cli interface",
   "main": "bundle.js",
   "dependencies": {

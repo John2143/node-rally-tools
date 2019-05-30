@@ -4,7 +4,7 @@ import argparse from "minimist";
 import * as allIndexBundle from "./index.js"
 import {
     rallyFunctions as funcs,
-    Preset, Rule, SupplyChain, Provider, Asset, User,
+    Preset, Rule, SupplyChain, Provider, Asset, User, Tag,
     AbortError, UnconfiguredEnvError, Collection, APIError,
 } from "./index.js";
 
@@ -25,6 +25,7 @@ const False = false; const True = true; const None = null;
 let argv = argparse(process.argv.slice(2), {
     string: ["file", "env"],
     //boolean: ["no-protect"],
+    boolean: ["anon"],
     default: {protect: true},
     alias: {
         f: "file", e: "env",
@@ -224,6 +225,7 @@ let rulesub = {
         let passNext = await configHelpers.selectRule("'On Exit OK'");
         let errorNext = await configHelpers.selectRule("'On Exit Error'");
         let name = await configHelpers.askInput("Rule Name", "What is the rule name?");
+        name = name.replace("@", preset.name);
         let desc = await configHelpers.askInput("Description", "Enter a description.");
 
         let dynamicNexts = [];
@@ -239,7 +241,7 @@ let rulesub = {
             });
         }
 
-        let rule = new Rule();
+        let rule = new Rule({subProject: configObject.project});
         rule.name = name;
         rule.description = desc;
         rule.relationships.preset = {data: {name: preset.name, type: "presets"}}
@@ -294,7 +296,7 @@ async function categorizeString(str, defaultSubproject=undefined){
         }else{
             return null;
         }
-    }else if(match = /^([\w\/\\\-_]*)[\/\\]?silo\-(\w+)[\/\\]/.exec(str)){
+    }else if(match = /^([\w \/\\\-_]*)[\/\\]?silo\-(\w+)[\/\\]/.exec(str)){
         try{
             switch(match[2]){
                 case "presets": return new Preset({path: str, subProject: match[1]});
@@ -308,6 +310,27 @@ async function categorizeString(str, defaultSubproject=undefined){
         return null;
     }
 }
+
+let tagsub = {
+    async before(args){
+        this.env = args.env;
+        if(!this.env) throw new AbortError("No env supplied");
+    },
+    async $list(args){
+        log("Loading...");
+        let tags = await Tag.getAll(this.env);
+        if(configObject.rawOutput) return tags;
+
+        log(chalk`{yellow ${tags.length}} tags on {green ${this.env}}.`);
+        tags.arr.sort((a, b) => {
+            return Number(a.data.attributes.updatedAt) - Number(b.data.attributes.updatedAt)
+        });
+        for(let tag of tags) log(tag.chalkPrint());
+    },
+    async $create(args){
+        return Tag.create(this.env, "testTag");
+    }
+};
 
 let supplysub = {
     async before(args){
@@ -323,7 +346,6 @@ let supplysub = {
         if(!name){
             throw new AbortError("No starting rule or @ supplied");
         }
-
 
         if(name === "@"){
             log(chalk`Silo clone started`);
@@ -343,7 +365,7 @@ let supplysub = {
         }
 
         await this.chain.calculate();
-        await this.postAction(args);
+        return await this.postAction(args);
     },
     async postAction(args){
         //Now that we ahve a supply chain object, do something with it
@@ -400,7 +422,7 @@ let supplysub = {
             }
 
         }else{
-            await this.chain.log();
+            return await this.chain.log();
         }
 
     },
@@ -426,7 +448,7 @@ let supplysub = {
         this.chain.presets = new Collection(files.filter(f => f instanceof Preset));
         this.chain.notifications = new Collection([]);
 
-        await this.postAction(args);
+        return await this.postAction(args);
     },
     async unknown(arg, args){
         log(chalk`Unknown action {red ${arg}} try '{white rally help supply}'`);
@@ -512,6 +534,14 @@ let cli = {
     @arg("-e", "--env", "The enviornment you wish to perform the action on")
     async supply(args){
         return subCommand(supplysub)(args);
+    },
+
+    @helpText(`tags stuff`)
+    @usage(`rally tags [action]`)
+    @param("action", "The action to perform. Can be list or create.")
+    @arg("-e", "--env", "The enviornment you wish to perform the action on")
+    async tag(args){
+        return subCommand(tagsub)(args);
     },
 
     @helpText(`List all available providers, or find one by name/id`)
@@ -635,7 +665,9 @@ let cli = {
             throw new AbortError(chalk`Missing arguments: see {white 'rally help asset'}`);
         }
 
-        if(arg == "create"){
+        if(args.anon){
+            args._.unshift(arg);
+        }else if(arg == "create"){
             name = name.replace("#", uuid());
             asset = await Asset.createNew(name, env);
         }else{
@@ -647,7 +679,7 @@ let cli = {
             }
         }
 
-        if(!asset){
+        if(!asset && !args.anon){
             throw new AbortError("No asset found/created");
         }
         let launchArg = 0;
@@ -668,10 +700,14 @@ let cli = {
                 if(!p){
                     throw new AbortError(`Cannot launch job ${jobName}, does not exist (?)`);
                 }else{
-                    log(chalk`Launching ${p.chalkPrint(false)} on ${asset.chalkPrint(false)}`);
+                    log(chalk`Launching ${p.chalkPrint(false)} on ${asset ? asset.chalkPrint(false) : "(None)"}`);
                 }
 
-                asset.startWorkflow(jobName, initData)
+                if(asset){
+                    await asset.startWorkflow(jobName, initData)
+                }else{
+                    await Asset.startAnonWorkflow(env, jobName, initData)
+                }
                 launchArg++;
             }else if(arg === "addfile"){
                 let label = arrayify(args["file-label"], fileArg)
@@ -690,6 +726,7 @@ let cli = {
                 log(asset);
             }
         }
+        if(configObject.rawOutput) return asset;
     },
 
     async checkSegments(args){

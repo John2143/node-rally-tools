@@ -127,9 +127,9 @@ export async function selectProvider(providers, autoDefault = false){
 
 export async function selectLocal(path, typeName, Class){
     addAutoCompletePrompt();
-    let basePath = join(configObject.repodir, path)
+    let basePath = configObject.repodir;
     let f = await readdir(basePath);
-    let objs = f.map(name => new Class({path: name}));
+    let objs = f.filter(name => name.includes(path)).map(name => new Class({path: name}));
     let objsMap = objs.map(x => ({
         name: x.chalkPrint(true),
         value: x,

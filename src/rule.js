@@ -176,7 +176,7 @@ class Rule extends RallyBase{
     }
 
     get localpath(){
-        return join(configObject.repodir, "silo-rules", this.name + ".json");
+        return join(configObject.repodir, this.subproject || "", "silo-rules", this.name + ".json");
     }
 
     async resolve(){

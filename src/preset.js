@@ -5,7 +5,8 @@ import {configObject} from "./config.js";
 import Provider from "./providers.js";
 import Asset from "./asset.js";
 
-import {writeFileSync, readFileSync} from "./fswrap.js";
+// pathtransform for hotfix
+import {writeFileSync, readFileSync, pathTransform} from "./fswrap.js";
 import path from "path";
 
 let exists = {};
@@ -25,8 +26,8 @@ class Preset extends RallyBase{
 
         // Cache by path
         if(path){
-            if(exists[path]) return exists[path];
-            exists[path] = this;
+            if(exists[pathTransform(path)]) return exists[pathTransform(path)];
+            exists[pathTransform(path)] = this;
         }
 
         this.meta = {};
@@ -124,7 +125,7 @@ class Preset extends RallyBase{
         ptype.id = provider.id;
     }
     get test(){
-        if(!this.code) return;
+        if(!this.code) return [];
 
         const regex = /[^-]autotest:\s?([\w\d_\-. \/]+)[\r\s\n]*?/gm;
         let match
@@ -271,7 +272,7 @@ class Preset extends RallyBase{
         return this._nameOuter;
     }
     set name(val){
-        this._nameInner = val;
+        if(!this._nameInner) this._nameInner = val;
         this._nameOuter = val;
     }
     set providerType(value){

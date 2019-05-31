@@ -1,7 +1,7 @@
 # Rally Tools
 
 This repository provides multiple helpful tools for working within the SDVI
-Rally enviornment. Some features are:
+Rally environment. Some features are:
 
  - Preset uploader
  - Rule uploader
@@ -51,7 +51,7 @@ Options:
  - api: Your api keys and urls
  - repodir: The directory of your repository. Should have 3 folders:
    `silo-presets`, `silo-rules`, `silo-metadata`.
- - defaultEnv: Your development enviornment, usually DEV.
+ - defaultEnv: Your development environment, usually DEV.
 
 ## Usage
 
@@ -134,7 +134,7 @@ options.
 
 `rally config [key]` gives the config interactor for a single key. `rally
 config chalk` would bring up y/n menu for color. `rally config api` would bring
-up the configuration for all all the enviornments, but `rally config api.DEV`
+up the configuration for all all the environments, but `rally config api.DEV`
 would let you modify just the DEV credentials.
 
 `rally config --raw` prints out the current config *including configs changed
@@ -324,7 +324,7 @@ inline live test results
 
 #### Cannot acclimatize shelled preset
 
-Solution: Create the preset on the remote enviornment manually, or run `rally
+Solution: Create the preset on the remote environment manually, or run `rally
 preset create`
 
 Under normal usage, presets will have an associated metadata file saved. This
@@ -333,7 +333,7 @@ timestamps. `Preset#acclimatize` attempts to take this data from a generic
 format into an environment specific format so that it can be accuractly created
 when uploading. A file without any metadata is marked as "Shelled" and given
 some dummy data while limiting functionality. This functionality includes
-updating the code of a preset, or viewing the metadata of an enviornment.
+updating the code of a preset, or viewing the metadata of an environment.
 
 #### CLI Aborted: Protected enviorment
 

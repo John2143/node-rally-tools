@@ -33,11 +33,11 @@ export async function $api(propArray){
     if(propArray && propArray[1]){
         q = {envs: [propArray[1]]};
     }else{
-        //Create a checkbox prompt to choose enviornments
+        //Create a checkbox prompt to choose environments
         q = await inquirer.prompt([{
             type: "checkbox",
             name: "envs",
-            message: `What enviornments would you like to configure?`,
+            message: `What environments would you like to configure?`,
             choices: Object.keys(defaults).map(name => ({name, checked:true})),
         }]);
     }
@@ -86,7 +86,7 @@ export async function $repodir(propArray){
 }
 
 export async function $prefix(propArray){
-    let project = await askInput("prefix", "prefix?");
+    let project = await askInput("prefix", "What development prefix do you want to use?");
     if(project === "none" || project === "-" || project === "" || !project){
         project = null
     }
@@ -104,7 +104,7 @@ export async function $defaultEnv(propArray){
     return await inquirer.prompt([{
         type: "input",
         name: `defaultEnv`,
-        message: `Default enviornment?`,
+        message: `Default environment?`,
         default: "DEV",
     }]);
 }

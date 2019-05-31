@@ -98,7 +98,7 @@ export function cached(target, key, desc){
 }
 
 //Access a deep property of an object: if path is ["a", "b", "c"], then this
-//function retuns obj.a.b.c
+//function returns obj.a.b.c
 function deepAccess(obj, path){
     let o = obj;
     for(let key of path){

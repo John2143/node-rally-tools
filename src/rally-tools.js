@@ -11,8 +11,8 @@ global.ewrite   = (...text) => process.stderr.write(...text);
 global.errorLog = (...text) => log(...text.map(chalk.red));
 
 export class lib{
-    //This function takes 2 required arguemnts:
-    // env: the enviornment you wish to use
+    //This function takes 2 required arguments:
+    // env: the environment you wish to use
     // and either:
     //  'path', the short path to the resource. ex '/presets/'
     //  'path_full', the full path to the resource like 'https://discovery-dev.sdvi.com/presets'
@@ -37,7 +37,7 @@ export class lib{
     }){
         //backwards compatability from ruby script
         if(fullPath) path_full = fullPath;
-        //Keys are defined in enviornment variables
+        //Keys are defined in environment variables
         let config = configObject?.api?.[env];
         if(!config) {
             throw new UnconfiguredEnvError(env);
@@ -123,7 +123,7 @@ export class lib{
     //Index a json endpoint that returns a {links} field.
     //This function returns the merged data objects as an array
     //
-    //Additonal options (besides makeAPIRequest options):
+    //Additional options (besides makeAPIRequest options):
     // - Observe: function to be called for each set of data from the api
     static async indexPath(env, path){
         let all = [];
@@ -230,9 +230,9 @@ export class lib{
     //Index a json endpoint that returns a {links} field.
     //
     //This function is faster than indexPath because it can guess the pages it
-    //needs to retreive so that it can request all assets at once.
+    //needs to retrieve so that it can request all assets at once.
     //
-    //This function assumes that the content from the inital request is the
+    //This function assumes that the content from the initial request is the
     //first page, so starting on another page may cause issues. Consider
     //indexPath for that.
     //
@@ -318,14 +318,14 @@ export class APIError extends Error{
 
 export class UnconfiguredEnvError extends AbortError{
     constructor(env){
-        super("Unconfigured enviornment: " + env);
+        super("Unconfigured environment: " + env);
         this.name = "Unconfigured Env Error";
     }
 }
 
 export class ProtectedEnvError extends AbortError{
     constructor(env){
-        super("Protected enviornment: " + env);
+        super("Protected environment: " + env);
         this.name = "Protected Env Error";
     }
 }
@@ -393,7 +393,7 @@ export class RallyBase{
             env, path: `/${this.endpoint}`,
             qs: {...qs, filter: `name=${name}` + (qs ? qs.filter : "")},
         });
-        //TODO included might not wokr correctly here
+        //TODO included might not work correctly here
         if(data.data[0]){
             let o = new this({data: data.data[0], remote: env, included: data.included});
             this.cache.push(o);

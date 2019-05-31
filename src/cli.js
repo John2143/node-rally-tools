@@ -346,7 +346,7 @@ let supplysub = {
         await this.postAction(args);
     },
     async postAction(args){
-        //Now that we ahve a supply chain object, do something with it
+        //Now that we have a supply chain object, do something with it
         if(args["to"]){
             this.chain.log();
             if(this.chain.presets.arr[0]){
@@ -477,7 +477,7 @@ let cli = {
 
     @helpText("Rally tools jupyter interface. Requires jupyter to be installed.")
     @usage("rally jupyter build [in] [out]")
-    @param("in/out", "input and output file for jupyter. By default main.ipyrb and main.py")
+    @param("in/out", "input and output file for jupyter. By default main.ipynb and main.py")
     async jupyter(args){
         return subCommand(jupytersub)(args);
     },
@@ -488,9 +488,9 @@ let cli = {
     },
 
     @helpText(`Preset related actions`)
-    @usage(`rally preset [action] --env <enviornment> --file [file1] --file [file2] ...`)
+    @usage(`rally preset [action] --env <environment> --file [file1] --file [file2] ...`)
     @param("action", "The action to perform. Can be upload, diff, list")
-    @arg("-e", "--env", "The enviornment you wish to perform the action on")
+    @arg("-e", "--env", "The environment you wish to perform the action on")
     @arg("-f", "--file", "A file to act on")
     @arg("~", "--command", "If the action is diff, this is the command to run instead of diff")
     async preset(args){
@@ -498,18 +498,18 @@ let cli = {
     },
 
     @helpText(`Rule related actions`)
-    @usage(`rally rule [action] --env [enviornment]`)
+    @usage(`rally rule [action] --env [environment]`)
     @param("action", "The action to perform. Only list is supported right now")
-    @arg("-e", "--env", "The enviornment you wish to perform the action on")
+    @arg("-e", "--env", "The environment you wish to perform the action on")
     async rule(args){
         return subCommand(rulesub)(args);
     },
 
     @helpText(`supply chain related actions`)
-    @usage(`rally supply [action] [identifier] --env [enviornment]`)
+    @usage(`rally supply [action] [identifier] --env [environment]`)
     @param("action", "The action to perform. Can be calc.")
     @param("identifier", "If the action is calc, then this identifier should be the first rule in the chain.")
-    @arg("-e", "--env", "The enviornment you wish to perform the action on")
+    @arg("-e", "--env", "The environment you wish to perform the action on")
     async supply(args){
         return subCommand(supplysub)(args);
     },
@@ -517,7 +517,7 @@ let cli = {
     @helpText(`List all available providers, or find one by name/id`)
     @usage(`rally providers [identifier] --env [env] --raw`)
     @param("identifier", "Either the name or id of the provider")
-    @arg("-e", "--env", "The enviornment you wish to perform the action on")
+    @arg("-e", "--env", "The environment you wish to perform the action on")
     @arg("~", "--raw", "Raw output of command. If [identifier] is given, then print editorConfig too")
     async providers(args){
         let env = args.env;
@@ -828,7 +828,7 @@ let cli = {
         });
         r.data = r.data.filter(filterFunc);
 
-        log("Data recieved, parsing users");
+        log("Data received, parsing users");
 
         for(let event of r.data){
             let uid = event?.correlation?.userId;
@@ -1011,7 +1011,7 @@ async function $main(){
         configObject.ignoreMissing = true;
     }
 
-    //Default enviornment should normally be from config, but it can be
+    //Default environment should normally be from config, but it can be
     //overridden by the -e/--env flag
     if(configObject.defaultEnv){
         argv.env = argv.env || configObject.defaultEnv;
@@ -1073,7 +1073,7 @@ async function main(...args){
 }
 
 // If this is an imported module, then we should exec the cli interface.
-// Oterwise just export everything.
+// Otherwise just export everything.
 if(require.main === module){
     main();
 }else{

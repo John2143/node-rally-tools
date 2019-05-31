@@ -115,6 +115,7 @@ class Rule extends RallyBase{
         if(configObject.prefix){
             metadata.data.attributes.name = getPrefix() + this.name;
         };
+
         this.idMap = this.idMap || {};
         this.idMap[env] = res.data.id;
         write("id ");

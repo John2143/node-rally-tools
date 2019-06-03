@@ -1007,6 +1007,10 @@ async function $main(){
         global.write = ()=>{};
     }
 
+    if(argv["prefix-override"] !== undefined){
+        configObject.prefix = argv["prefix-override"];
+    }
+
     if(argv["ignore-missing"]){
         configObject.ignoreMissing = true;
     }

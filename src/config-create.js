@@ -92,6 +92,7 @@ export async function $prefix(propArray){
     }
     return {prefix: project};
 }
+
 export async function $project(propArray){
     let project = await askInput("Subproject directory?");
     if(project === "none" || project === "-" || project === "" || !project){

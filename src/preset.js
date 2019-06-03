@@ -327,9 +327,11 @@ class Preset extends RallyBase{
             //If it exists we can replace it
             write("replace, ");
             if(includeMetadata){
+                let metadata = {data: {attributes: this.data.attributes, type: "presets"}};
+                metadata.data.attributes.name = getPrefix() + this.name;
                 let res = await lib.makeAPIRequest({
                     env, path: `/presets/${remote.id}`, method: "PATCH",
-                    payload: {data: {attributes: this.data.attributes, type: "presets"}},
+                    payload: metadata,
                     fullResponse: true,
                 });
                 write(chalk`metadata {yellow ${res.statusCode}}, `);

@@ -108,13 +108,8 @@ class Rule extends RallyBase{
         write("create, ");
         let res = await lib.makeAPIRequest({
             env, path: `/workflowRules`, method: "POST",
-            payload: {data: {attributes: {name: this.name}, type: "workflowRules"}},
+            payload: {data: {attributes: {name: getPrefix() + this.name}, type: "workflowRules"}},
         });
-
-        //If there is a prefix
-        if(configObject.prefix){
-            metadata.data.attributes.name = getPrefix() + this.name;
-        };
 
         this.idMap = this.idMap || {};
         this.idMap[env] = res.data.id;
@@ -166,6 +161,8 @@ class Rule extends RallyBase{
             this.data.id = this.idMap[env];
             //If it exists we can replace it
             write("replace, ");
+            let metadata = {data: this.data};
+            metadata.data.attributes.name = getPrefix() + this.name;
             let res = await lib.makeAPIRequest({
                 env, path: `/workflowRules/${this.idMap[env]}`, method: "PATCH",
                 payload: {data: this.data}, fullResponse: true,

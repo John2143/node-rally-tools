@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import {configObject} from "./config.js";
+import {configObject, getPrefix} from "./config.js";
 import {cached} from "./decorators.js";
 const rp = importLazy("request-promise")
 
@@ -429,7 +429,7 @@ export class RallyBase{
                 dataObj.name = obj.name
             }
         }else if(direction == "specific"){
-            obj = await type.getByName(this.remote, dataObj.name);
+            obj = await type.getByName(this.remote, getPrefix() + dataObj.name);
             if(obj){
                 dataObj.id = obj.id
             }

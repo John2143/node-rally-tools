@@ -193,6 +193,7 @@ export class lib{
         process.stderr.write(`[${"*".repeat(numFilled)}${" ".repeat(numEmpty)}] ${i} / ${max}`);
     }
 
+
     static async keepalive(func, inputData, {chunksize, observe = async _=>_} = {}){
         let total = inputData ? inputData.length : func.length;
         let i = 0;

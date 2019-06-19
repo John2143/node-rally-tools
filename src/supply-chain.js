@@ -141,6 +141,10 @@ export default class SupplyChain{
             log(this.presets.arr.length);
             this.presets.log();
         }
+
+        if(configObject.rawOutput){
+            return {presets: this.presets.arr, rules: this.rules.arr, notifications: this.notifications.arr};
+        }
     }
     async syncTo(env){
         for(let preset of this.presets){

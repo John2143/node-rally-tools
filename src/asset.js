@@ -117,6 +117,37 @@ class Asset extends RallyBase{
         });
         return req;
     }
+    static async startAnonWorkflow(env, jobName, initData){
+        let attributes;
+        if(initData){
+            //Convert init data to string
+            initData = typeof initData === "string" ? initData : JSON.stringify(initData);
+            attributes = {initData};
+        }
+
+        let req = await lib.makeAPIRequest({
+            env, path: "/workflows",
+            method: "POST",
+            payload: {
+                "data": {
+                    "type": "workflows",
+                    attributes,
+                    "relationships": {
+                        "rule": {
+                            "data": {
+                                "attributes": {
+                                    "name": jobName,
+                                },
+                                "type": "rules"
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        return req;
+
+    }
     async startEvaluate(presetid){
         // Fire and forget.
         let data = await lib.makeAPIRequest({

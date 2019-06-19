@@ -3,20 +3,11 @@ async function main(){
     let j = JSON.parse(await read());
     let settings = j.attributes.providerSettings;
 
-    settings.outputSpec = {
-        ".*\\.mov$": {
-            "label": settings.OutputFileLabel,
-            "location": settings.OutputStorageName,
-            "name": settings.outputRename
-        }, ".*\\.log$": {
-            "label": settings.OutputFileLabel,
-            "location": settings.OutputStorageName,
-            "name": settings.outputRename
-        }
-    }
-    settings.outputRename = "--";
-    settings.OutputStorageName = "--";
-    settings.OutputFileLabel = "--";
+    Object.assign(settings, {
+        "enableMio": "{{ DYNAMIC_PRESET_DATA[\"enableMio\"] | default(false) }}",
+        "inputSpec": "{{ DYNAMIC_PRESET_DATA[\"inputSpec\"] | default(null) }}",
+        "outputSpec": "{{ DYNAMIC_PRESET_DATA[\"outputSpec\"] | default(null) }}"
+    })
 
     console.log(JSON.stringify(j, null, 4));
 }

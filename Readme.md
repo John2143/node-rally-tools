@@ -68,7 +68,7 @@ arguments, a command line UI will be given. If you wish to script this, the flag
 `--provider`, `--ext`, and `--name` can be given. 
 
 The basic download usage is `rally preset list`, which lists all presets.
-Giving the `--resolve` flag will internall resolve the dynamic references in an
+Giving the `--resolve` flag will internally resolve the dynamic references in an
 object.  You can then add these to the output using `--attach`. Ex. `rally
 preset list -e PROD --resolve --attach`
 
@@ -86,15 +86,15 @@ vimdiff. (make sure that zbc.xyz has a proper rally header/metadata or this
 will fail).
 
 `rally preset grab -f [preset]` will attempt to download the metadata file for
-this asset. The `--full` argument can be given to also download the `code`, too.
+this preset. The `--full` argument can be given to also download the `code`, too.
 
 #### `rally rule`
 
 See all rules. `rally rule list`. `--raw` available.
 
-#### `rally provider`
+#### `rally providers`
 
-See all providers. `rally provider list`. `--raw` available.
+See all providers. `rally providers`. `--raw` available.
 
 #### `rally asset`
 
@@ -188,7 +188,7 @@ This internally creates a supply chain object, which we can then apply an action
 
 An example action is `sync`, which is given by the `--to` arg. `rally supply
 calc R1000 -e DEV --to LOCAL` would sync this supply chain (based on DEV) to
-LOCAL. In order to move it to a protected envornment, add --no-protect.
+LOCAL. In order to move it to a protected environment, add --no-protect.
 
 However, calc is limited by the fact that it is very rigid. Its best use is the
 inital setup of an environment, or to mass move supply chains. To fix this,
@@ -196,7 +196,7 @@ lets move to `rally supply make`
 
 `make` takes a list of identifiers and constructs a supply chain. Identifiers
 are passed in by the `this.files` array. From the command line this can be
-given by suppling -f arguments or reading from stdin.
+given by supplying -f arguments or reading from stdin.
 
 Lets say you edited these 3 objects in DEV.
 
@@ -220,7 +220,7 @@ Now you can treat this like any other supply chain, and deploy it. Remote to
 remote, or remote to local. However, this tool is built to integrate directly
 with git on your local filesystem.
 
-If you edited those 3 files locally, then commited to git, you should be able
+If you edited those 3 files locally, then committed to git, you should be able
 to see the diff with the git command `git diff HEAD HEAD^`. We are only
 interested in the names, so lets get those.
 
@@ -266,7 +266,7 @@ directory, otherwise the config should be given by the --config flag to the
 rally command.
 
 #### Examples
-Heres some other examples of common usage:
+Here's some other examples of common usage:
 
 Upload a preset
 `rally preset upload -e DEV -f "~/ORP/silo-presets/Audio Metadata Conditioner.py"`
@@ -309,8 +309,8 @@ temporarily.
 #### Atom integration
 
 Rally tools now supports a basic amount of atom integration including testing,
-uploading, downloading, and rule managment. Two plugins are used for this:
-process-pallete, and optionally, file-watcher. Please see the file
+uploading, downloading, and rule management. Two plugins are used for this:
+process-palette, and optionally, file-watcher. Please see the file
 `process-pallete.json` in `jderby/ONRAMP_WORKFLOW_PYTHON`.
 
 This should be copied into your base directory (same level as the silo-\*
@@ -330,17 +330,17 @@ preset create`
 Under normal usage, presets will have an associated metadata file saved. This
 contains information like its provider type, input and output settings, or
 timestamps. `Preset#acclimatize` attempts to take this data from a generic
-format into an environment specific format so that it can be accuractly created
+format into an environment specific format so that it can be accurately created
 when uploading. A file without any metadata is marked as "Shelled" and given
 some dummy data while limiting functionality. This functionality includes
 updating the code of a preset, or viewing the metadata of an environment.
 
-#### CLI Aborted: Protected enviorment
+#### CLI Aborted: Protected environment
 
 Solution: Add the --no-protect flag, or run `rally config restrictUAT` to
 unprotect UAT (if the error is on UAT).
 
-Protected enviorments cannot recieve anything but get requests, so any kind of
+Protected environments cannot receive anything but get requests, so any kind of
 POST/PUT/PATCH will fail with this error. Internally, --no-protect is sets the
 --protect flag to false instead of true, which in turn sets the
 configObject.dangerModify flag to true. So if you really wish, you could add

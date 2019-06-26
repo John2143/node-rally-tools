@@ -2337,9 +2337,10 @@ async function getFilesFromArgs(args) {
     let files = args.file;
     if (typeof files === "string") files = [files];
     return files;
-  }
+  } // checking for last argument for @ and for make for supply make
 
-  if (lastArg == "-") {
+
+  if (lastArg == "-" | args._old[1] == 'make') {
     log("Reading from stdin");
 
     let getStdin = require("get-stdin");
@@ -3580,7 +3581,7 @@ async function $main() {
 
 
   if (argv["prefixmode"]) {
-    configObject.prefixmode = JSON.parse(argv["prefixmode"]); //console.log( configObject)
+    configObject.prefixmode = JSON.parse(argv["prefixmode"]);
   }
 
   if (argv["ignore-missing"]) {

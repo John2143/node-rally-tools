@@ -250,6 +250,40 @@ deployed, who deployed it or when. All this should be tracked through git.
 Therefore, tagging releases or using a release branch would allow for basic
 version control.
 
+#### Prefixing
+In order to prevent code changes between developers to interact on sdvi, 
+rally tools has a prefix appended to all presets/rules uploaded to sdvi's
+remote environments (i.e. DEV, UAT, QA, PROD). 
+
+If changes are meant to be shared across
+each test bed then one can opt-out with the option and given argument```-p false ```
+(```--prefixmode false```). When first using ```rally config``` you will be asked 
+to provide a short prefix as a way to identify your version of the preset/rule.The 
+```regwritetoEnv``` function that allows this to happen reads the code body of a 
+preset(```.py```) with regex and replaces any hardcoded preset/rules names with a 
+prefixed version. From their it uploads a preset/rule name prefixed.
+
+**Preset:** The example below will prevent the prefix from appending to the local version(code body ```.py```, metadata 
+```.json```) of the NL P1000 - MP - Non Linear Media Preparation Workflow to the DEV environment before uploading.
+
+```rally preset upload -e DEV -f NL P1000 - MP - Non Linear Media Preparation Workflow.py```
+**Note** In order for this option to work you must have the environment(```-e```) and file(```f```)
+specified in addition to the prefixmode option(```-p```)
+
+**Rule:** The example below will prevent the prefix appending to the local version(```.json```) of
+the NL R1000 - MP - Non Linear Media Preparation Workflow to the DEV environment before uploading.
+
+**ubuntu version**
+```
+git ls-files | grep <rulename> | rally @ --to DEV
+```
+**windows version**
+```
+git ls-files | findstr <rulename> | rally supply make --to DEV
+git ls-files | findstr <rulename> | rally @ --to DEV
+```
+ 
+
 #### Automated deployments
 
 Automated deployments should be constructed telling rally tools the list of

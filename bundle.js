@@ -1345,7 +1345,8 @@ class Preset extends RallyBase {
         type: "providerTypes"
       }
     };
-  }
+  } //TODO allow preset upload to be in root rather than in silo-presets i.e. join("silo-presets",filename)
+
 
   get localmetadatapath() {
     if (this.path) {
@@ -3025,11 +3026,13 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
       }]).then(answers => {
         //writing time
         if (answers.writetofile == true) {
-          //TODO allow preset upload to be in root rather than in silo-presets i.e. join("silo-presets",filename)
           fs.writeFileSync(filename, replacementtext, {
             encoding: "utf8"
           });
           log(chalk.yellow`Writing is done!`);
+        } else {
+          log(chalk.red(`You have indicated that you do not want to write `) + chalk.blue(filename) + chalk.red(` to disk.`));
+          process.exit(22);
         }
       });
     }

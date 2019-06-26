@@ -306,6 +306,7 @@ class Preset extends RallyBase {
       }
     };
   }
+  //TODO allow preset upload to be in root rather than in silo-presets i.e. join("silo-presets",filename)
   get localmetadatapath() {
     if (this.path) {
       return this.path

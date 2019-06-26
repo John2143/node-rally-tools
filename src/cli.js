@@ -745,85 +745,92 @@ let cli = {
   @param("action", "The action to perform. Only list is supported right now")
   @arg("-f", "--file", "A file to act on")
   async regwrite(args) {
-    log(
-      chalk.green`Searching in specified file for hardcoded Preset and Rule names...`
-    );
+  log(
+    chalk.green`Searching in specified file for hardcoded Preset and Rule names...`
+  );
 
-    if (configObject.prefixmode == false) {
-      var elements = process.argv.slice(9);
+  if (configObject.prefixmode == false) {
+    var elements = process.argv.slice(9);
+  } else {
+    var elements = process.argv.slice(7);
+  }
+
+  //inquire is this is the right file name.
+  let filename = elements.join(" ");
+  async function filenameQ(filename) {
+    return await inquirer
+      .prompt([
+        {
+          type: "confirm",
+          name: "filename",
+          message: "Is " + filename + " the correct filename?"
+        }
+      ])
+      .then(answers => {
+        //writing time
+        if (answers.filename != true) {
+          log(
+            chalk.red`You indicated this was not the correct filename so the program exited`
+          );
+          process.exit(22);
+        }
+      });
+  }
+  await filenameQ(filename);
+
+  //reading time
+  let filetext = readFileSync(filename, "utf-8");
+
+  // Regex and Replace time
+  var regex = /(@include |: |=)["'][N][L]/g;
+  var strmatch = filetext.match(regex);
+  // Replaces the strings found with regex with a prefixed version conditionally.
+  var replacementtext = filetext.replace(regex, function(strmatch) {
+    var prefixedmatch = "";
+    var equalpattern = "=";
+    var includepattern = "@include ";
+    if (strmatch.match(equalpattern)) {
+      prefixedmatch = ("='" + getPrefix() + "NL").toString();
+    } else if (strmatch.match(includepattern)) {
+      prefixedmatch = ("@include " + '"' + getPrefix() + "NL").toString();
     } else {
-      var elements = process.argv.slice(7);
+      prefixedmatch = (": '" + getPrefix() + "NL").toString();
     }
+    return prefixedmatch;
+  });
+  //inquire before writing to disk??
+  async function writetofileQ(filename) {
+    return await inquirer
+      .prompt([
+        {
+          type: "confirm",
+          name: "writetofile",
+          message:
+            "Do you want to add your prefix to preset/rule names in " +
+            filename +
+            " to disk?"
+        }
+      ])
+      .then(answers => {
+        //writing time
+        if (answers.writetofile == true) {
+          writeFileSync(filename, replacementtext, { encoding: "utf8" });
+          log(chalk.yellow`Writing is done!`);
+        } else {
+          log(
+            chalk.red(`You have indicated that you do not want to write `) +
+              chalk.blue(filename) +
+              chalk.red(` to disk.`)
+          );
+          process.exit(22);
+        }
+      });
+  }
+  await writetofileQ(filename);
 
-    //inquire is this is the right file name.
-    let filename = elements.join(" ");
-    async function filenameQ(filename) {
-      return await inquirer
-        .prompt([
-          {
-            type: "confirm",
-            name: "filename",
-            message: "Is " + filename + " the correct filename?"
-          }
-        ])
-        .then(answers => {
-          //writing time
-          if (answers.filename != true) {
-            log(
-              chalk.red`You indicated this was not the correct filename so the program exited`
-            );
-            process.exit(22);
-          }
-        });
-    }
-    await filenameQ(filename);
+  return subCommand(regsub)(args);
+},
 
-    //reading time
-    let filetext = readFileSync(filename, "utf-8");
-
-    // Regex and Replace time
-    var regex = /(@include |: |=)["'][N][L]/g;
-    var strmatch = filetext.match(regex);
-    // Replaces the strings found with regex with a prefixed version conditionally.
-    var replacementtext = filetext.replace(regex, function(strmatch) {
-      var prefixedmatch = "";
-      var equalpattern = "=";
-      var includepattern = "@include ";
-      if (strmatch.match(equalpattern)) {
-        prefixedmatch = ("='" + getPrefix() + "NL").toString();
-      } else if (strmatch.match(includepattern)) {
-        prefixedmatch = ("@include " + '"' + getPrefix() + "NL").toString();
-      } else {
-        prefixedmatch = (": '" + getPrefix() + "NL").toString();
-      }
-      return prefixedmatch;
-    });
-    //inquire before writing to disk??
-    async function writetofileQ(filename) {
-      return await inquirer
-        .prompt([
-          {
-            type: "confirm",
-            name: "writetofile",
-            message:
-              "Do you want to add your prefix to preset/rule names in " +
-              filename +
-              " to disk?"
-          }
-        ])
-        .then(answers => {
-          //writing time
-          if (answers.writetofile == true) {
-            //TODO allow preset upload to be in root rather than in silo-presets i.e. join("silo-presets",filename)
-            writeFileSync(filename, replacementtext, { encoding: "utf8" });
-            log(chalk.yellow`Writing is done!`);
-          }
-        });
-    }
-    await writetofileQ(filename);
-
-    return subCommand(regsub)(args);
-  },
 
   //@helpText(`Print input args, for debugging`)
   async printArgs(args) {

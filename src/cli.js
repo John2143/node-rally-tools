@@ -814,6 +814,7 @@ let cli = {
         .then(answers => {
           //writing time
           if (answers.writetofile == true) {
+            //TODO allow preset upload to be in root rather than in silo-presets i.e. join("silo-presets",filename)
             writeFileSync(filename, replacementtext, { encoding: "utf8" });
             log(chalk.yellow`Writing is done!`);
           }

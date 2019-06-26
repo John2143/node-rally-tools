@@ -246,7 +246,8 @@ class lib {
 
     if (!config) {
       throw new UnconfiguredEnvError(env);
-    }
+    } //Protect PROD and UAT(?) if the --no-protect flag was not set.
+
 
     if (method !== "GET" && !configObject.dangerModify) {
       if (env === "UAT" && configObject.restrictUAT || env === "PROD") {
@@ -894,20 +895,20 @@ class Asset extends RallyBase {
       path: "/files",
       method: "POST",
       payload: {
-        "data": {
-          "attributes": {
+        data: {
+          attributes: {
             label,
             instances
           },
-          "relationships": {
-            "asset": {
-              "data": {
+          relationships: {
+            asset: {
+              data: {
                 id: this.id,
-                "type": "assets"
+                type: "assets"
               }
             }
           },
-          "type": "files"
+          type: "files"
         }
       }
     });
@@ -930,22 +931,22 @@ class Asset extends RallyBase {
       path: "/workflows",
       method: "POST",
       payload: {
-        "data": {
-          "type": "workflows",
+        data: {
+          type: "workflows",
           attributes,
-          "relationships": {
-            "movie": {
-              "data": {
+          relationships: {
+            movie: {
+              data: {
                 id: this.id,
-                "type": "movies"
+                type: "movies"
               }
             },
-            "rule": {
-              "data": {
-                "attributes": {
-                  "name": jobName
+            rule: {
+              data: {
+                attributes: {
+                  name: jobName
                 },
-                "type": "rules"
+                type: "rules"
               }
             }
           }
@@ -1142,11 +1143,11 @@ class Preset extends RallyBase {
 
   static newShell() {
     return {
-      "attributes": {
-        "providerSettings": {}
+      attributes: {
+        providerSettings: {}
       },
-      "relationships": {},
-      "type": "presets"
+      relationships: {},
+      type: "presets"
     };
   }
 
@@ -1413,7 +1414,7 @@ class Preset extends RallyBase {
         metadata.data.attributes.name = getPrefix() + this.name;
         metadata.data.attributes.providerSettings.PresetName = this.name;
         metadata.data.attributes.rallyConfiguration = this.name;
-        console.log('metadata');
+        console.log("metadata");
         console.log(metadata);
         let res = await lib.makeAPIRequest({
           env,
@@ -1436,9 +1437,9 @@ class Preset extends RallyBase {
         metadata.data.attributes.name = getPrefix() + this.name;
         metadata.data.attributes.providerSettings.PresetName = this.name;
         metadata.data.attributes.rallyConfiguration = {
-          "OutputStorageName": null,
-          "PresetName": this.name,
-          "ProxyTypeName": null
+          OutputStorageName: null,
+          PresetName: this.name,
+          ProxyTypeName: null
         };
         await this.acclimatize(env);
         write("Posting to create preset... ");
@@ -1565,13 +1566,13 @@ class Rule extends RallyBase {
 
   static newShell() {
     return {
-      "attributes": {
-        "description": "-",
-        "priority": "PriorityNorm",
-        "starred": false
+      attributes: {
+        description: "-",
+        priority: "PriorityNorm",
+        starred: false
       },
-      "relationships": {},
-      "type": "workflowRules"
+      relationships: {},
+      type: "workflowRules"
     };
   }
 
@@ -1723,8 +1724,10 @@ class Rule extends RallyBase {
 
       if (configObject.prefixmode == true) {
         metadata.data.relationships.name = getPrefix() + this.name;
+        log(chalk.yellow`PREFIX MODE IS ON`);
       } else {
         metadata.data.relationships.name = this.name;
+        log(chalk.yellow`PREFIX MODE IS OFF`);
       }
 
       let res = await lib.makeAPIRequest({
@@ -2360,7 +2363,7 @@ async function regwritetoEnv(args) {
   } //inquire is this is the right file name.
 
 
-  let filename = elements.join(' ');
+  let filename = elements.join(" ");
 
   async function filenameQ(filename) {
     return await inquirer.prompt([{
@@ -2378,22 +2381,22 @@ async function regwritetoEnv(args) {
 
   await filenameQ(filename); //reading time
 
-  let filetext = fs.readFileSync(filename, 'utf-8'); // Regex and Replace time
+  let filetext = fs.readFileSync(filename, "utf-8"); // Regex and Replace time
 
   var regex = /(@include |: |=)["'][N][L]/g;
   var strmatch = filetext.match(regex); // Replaces the strings found with regex with a prefixed version conditionally.
 
   var replacementtext = filetext.replace(regex, function (strmatch) {
-    var prefixedmatch = '';
-    var equalpattern = '=';
-    var includepattern = '@include ';
+    var prefixedmatch = "";
+    var equalpattern = "=";
+    var includepattern = "@include ";
 
     if (strmatch.match(equalpattern)) {
-      prefixedmatch = ("=\'" + getPrefix() + 'NL').toString();
+      prefixedmatch = ("='" + getPrefix() + "NL").toString();
     } else if (strmatch.match(includepattern)) {
-      prefixedmatch = ("@include " + '"' + getPrefix() + 'NL').toString();
+      prefixedmatch = ("@include " + '"' + getPrefix() + "NL").toString();
     } else {
-      prefixedmatch = (": '" + getPrefix() + 'NL').toString();
+      prefixedmatch = (": '" + getPrefix() + "NL").toString();
     }
 
     return prefixedmatch;
@@ -2408,7 +2411,7 @@ async function regwritetoEnv(args) {
       //writing time
       if (answers.writetofile == true) {
         fs.writeFileSync(filename, replacementtext, {
-          encoding: 'utf8'
+          encoding: "utf8"
         });
         log(chalk.yellow`Writing is done!`);
       } else {
@@ -2421,6 +2424,7 @@ async function regwritetoEnv(args) {
   await writetofileQ(filename);
   return subCommand(regsub)(args);
 }
+
 let presetsub = {
   async before(args) {
     this.env = args.env;
@@ -2567,9 +2571,9 @@ let presetsub = {
 
 
     if (configObject.prefixmode == false) {
-      this.files = [process.argv.slice(9).join(' ').toString()];
+      this.files = [process.argv.slice(9).join(" ").toString()];
     } else {
-      this.files = [process.argv.slice(7).join(' ').toString()];
+      this.files = [process.argv.slice(7).join(" ").toString()];
     }
 
     log(chalk`Uploading {green ${this.files.length}} preset(s) to {green ${this.env}}.`);
@@ -2973,7 +2977,7 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
     } //inquire is this is the right file name.
 
 
-    let filename = elements.join(' ');
+    let filename = elements.join(" ");
 
     async function filenameQ(filename) {
       return await inquirer.prompt([{
@@ -2991,22 +2995,22 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
 
     await filenameQ(filename); //reading time
 
-    let filetext = fs.readFileSync(filename, 'utf-8'); // Regex and Replace time
+    let filetext = fs.readFileSync(filename, "utf-8"); // Regex and Replace time
 
     var regex = /(@include |: |=)["'][N][L]/g;
     var strmatch = filetext.match(regex); // Replaces the strings found with regex with a prefixed version conditionally.
 
     var replacementtext = filetext.replace(regex, function (strmatch) {
-      var prefixedmatch = '';
-      var equalpattern = '=';
-      var includepattern = '@include ';
+      var prefixedmatch = "";
+      var equalpattern = "=";
+      var includepattern = "@include ";
 
       if (strmatch.match(equalpattern)) {
-        prefixedmatch = ("=\'" + getPrefix() + 'NL').toString();
+        prefixedmatch = ("='" + getPrefix() + "NL").toString();
       } else if (strmatch.match(includepattern)) {
-        prefixedmatch = ("@include " + '"' + getPrefix() + 'NL').toString();
+        prefixedmatch = ("@include " + '"' + getPrefix() + "NL").toString();
       } else {
-        prefixedmatch = (": '" + getPrefix() + 'NL').toString();
+        prefixedmatch = (": '" + getPrefix() + "NL").toString();
       }
 
       return prefixedmatch;
@@ -3020,8 +3024,9 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
       }]).then(answers => {
         //writing time
         if (answers.writetofile == true) {
+          //TODO allow preset upload to be in root rather than in silo-presets i.e. join("silo-presets",filename)
           fs.writeFileSync(filename, replacementtext, {
-            encoding: 'utf8'
+            encoding: "utf8"
           });
           log(chalk.yellow`Writing is done!`);
         }

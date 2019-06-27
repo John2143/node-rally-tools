@@ -265,6 +265,7 @@ prefixed version. From their it uploads a preset/rule name prefixed.
 
 **Preset:** The example below will prevent the prefix from appending to the local version(code body ```.py```, metadata 
 ```.json```) of the NL P1000 - MP - Non Linear Media Preparation Workflow to the DEV environment before uploading.
+**Note** make sure you are in the silo-presets directory.
 
 ```rally preset upload -e DEV -f NL P1000 - MP - Non Linear Media Preparation Workflow.py```
 **Note** In order for this option to work you must have the environment(```-e```) and file(```f```)
@@ -272,6 +273,7 @@ specified in addition to the prefixmode option(```-p```)
 
 **Rule:** The example below will prevent the prefix appending to the local version(```.json```) of
 the NL R1000 - MP - Non Linear Media Preparation Workflow to the DEV environment before uploading.
+**Note** make sure you are in the root directory.
 
 **ubuntu version**
 ```

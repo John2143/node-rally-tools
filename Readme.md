@@ -279,8 +279,8 @@ git ls-files | grep <rulename> | rally @ --to DEV
 ```
 **windows version**
 ```
-git ls-files | findstr <rulename> | rally supply make --to DEV
-git ls-files | findstr <rulename> | rally @ --to DEV
+git ls-files | findstr silo-rules/<rulename> | rally supply make --to DEV
+git ls-files | findstr silo-rules/<rulename> | rally @ --to DEV
 ```
  
 

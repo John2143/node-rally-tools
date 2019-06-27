@@ -97,19 +97,19 @@ async function getFilesFromArgs(args) {
   }
 }
 
-async function regwritetoEnv(args) {
+export async function regwritetoEnv(args) {
   log(
     chalk.green`Searching in specified file for hardcoded Preset and Rule names...`
   );
-
   if (configObject.prefixmode == false) {
-    var elements = process.argv.slice(9);
+    var elements =  args._old.slice(-9);
+    var filename = args.f + " "+ elements.join(" ");
   } else {
     var elements = process.argv.slice(7);
-  }
+    var filename = elements.join(" ");
 
+  }
   //inquire is this is the right file name.
-  let filename = elements.join(" ");
   async function filenameQ(filename) {
     return await inquirer
       .prompt([
@@ -133,7 +133,6 @@ async function regwritetoEnv(args) {
 
   //reading time
   let filetext = readFileSync(filename, "utf-8");
-
   // Regex and Replace time
   var regex = /(@include |: |=)["'][N][L]/g;
   var strmatch = filetext.match(regex);
@@ -194,6 +193,7 @@ let presetsub = {
   async $grab(args) {
     if (!this.files) {
       throw new AbortError("No files provided to grab (use --file argument)");
+      process.exit(22);
     }
 
     log(
@@ -280,6 +280,7 @@ let presetsub = {
   async $upload(args) {
     if (!this.files) {
       throw new AbortError("No files provided to upload (use --file argument)");
+      process.exit(22);
     }
     //rewriting files
     if (configObject.prefixmode == false) {
@@ -316,6 +317,7 @@ let presetsub = {
             );
             process.exit(22);
           } else {
+            log(chalk.green`Uploading to `+ chalk.blue(env) + chalk.blue("...."));
             regwritetoEnv(args);
           }
         });
@@ -337,12 +339,11 @@ let presetsub = {
     //changing the this.files object to be an array of the full file name.
 
     if (configObject.prefixmode == false) {
-      this.files = [
-        process.argv
-          .slice(9)
-          .join(" ")
-          .toString()
+      var elements =  args._old.slice(-9);
+      var filename = args.f + " "+ elements.join(" ");
+      this.files = [filename
       ];
+
     } else {
       this.files = [
         process.argv
@@ -858,7 +859,6 @@ let cli = {
   @usage(`rally rule [action] --env [environment]`)
   @param("action", "The action to perform. Only list is supported right now")
   @arg("-e", "--env", "The environment you wish to perform the action on")
-  @arg("-p", "--prefixmode", "A boolean for using prefixes or not")
   async rule(args) {
     return subCommand(rulesub)(args);
   },
@@ -866,11 +866,9 @@ let cli = {
   @helpText(`supply chain related actions`)
   @usage(`rally supply [action] [identifier] --env [environment]`)
   @param("action", "The action to perform. Can be calc.")
-  @param(
-    "identifier",
-    "If the action is calc, then this identifier should be the first rule in the chain."
-  )
+  @param("identifier", "If the action is calc, then this identifier should be the first rule in the chain.")
   @arg("-e", "--env", "The environment you wish to perform the action on")
+  @arg("-p", "--prefixmode", "A boolean for using prefixes or not")
   async supply(args) {
     return subCommand(supplysub)(args);
   },
@@ -1495,6 +1493,8 @@ async function $main() {
     } catch (e) {
       if (e instanceof AbortError) {
         log(chalk`{red CLI Aborted}: ${e.message}`);
+        process.exit(22);
+
       } else {
         throw e;
       }

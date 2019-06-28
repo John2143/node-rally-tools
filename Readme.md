@@ -268,21 +268,24 @@ prefixed version. From their it uploads a preset/rule name prefixed.
 **Note** make sure you are in the silo-presets directory.
 
 ```rally preset upload -e DEV -f NL P1000 - MP - Non Linear Media Preparation Workflow.py```
-**Note** In order for this option to work you must have the environment(```-e```) and file(```f```)
+**Note** In order for this option to work you must have the environment(```-e```) and file(```-f```)
 specified in addition to the prefixmode option(```-p```)
 
 **Rule:** The example below will prevent the prefix appending to the local version(```.json```) of
 the NL R1000 - MP - Non Linear Media Preparation Workflow to the DEV environment before uploading.
-**Note** make sure you are in the root directory.
+**Note** make sure you are in the root directory. Also that if you haven't already uploaded
+the preset that you need to upload both the preset and rule at the same time with supply make.
+One way I have found this to work is to give findstr/grep the characters that the
+preset & rule share.(i.e. rally_demo for rally_demo_rule)
 
 **ubuntu version**
 ```
-git ls-files | grep <rulename> | rally @ --to DEV
+git ls-files | grep <shared root for preset/rule> | rally @ --to DEV
 ```
 **windows version**
 ```
-git ls-files | findstr silo-rules/<rulename> | rally supply make --to DEV
-git ls-files | findstr silo-rules/<rulename> | rally @ --to DEV
+git ls-files | findstr <shared root for preset/rule> | rally supply make --to DEV
+git ls-files | findstr <shared root for preset/rule> | rally @ --to DEV
 ```
  
 

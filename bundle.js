@@ -2299,8 +2299,9 @@ var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _dec10, _dec11
 
 require("source-map-support").install();
 let argv = argparse(process.argv.slice(2), {
-  string: ["file", "env", "prefixmode"],
+  string: ["file", "env"],
   //boolean: ["no-protect"],
+  boolean: ["prefixmode"],
   default: {
     protect: true,
     prefixmode: true
@@ -3555,7 +3556,8 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
 
 async function $main() {
   //Supply --config to load a different config file
-  if (argv.config) loadConfig(argv.config); // First we need to decide if the user wants color or not. If they do want
+  if (argv.config) loadConfig(argv.config);
+  console.log(argv); // First we need to decide if the user wants color or not. If they do want
   // color, we need to ensure we use the right mode
 
   chalk.enabled = configObject.hasConfig ? configObject.chalk : true;

@@ -44,8 +44,9 @@ const True = true;
 const None = null;
 
 let argv = argparse(process.argv.slice(2), {
-  string: ["file", "env", "prefixmode"],
+  string: ["file", "env"],
   //boolean: ["no-protect"],
+  boolean: ["prefixmode"],
   default: { protect: true, prefixmode: true },
   alias: {
     f: "file",
@@ -84,6 +85,7 @@ async function getFilesFromArgs(args) {
     if (typeof files === "string") files = [files];
     return files;
   }
+
   // checking for last argument for @ and for make for supply make
   if (lastArg == "-"| args._old[1] == 'make') {
     log("Reading from stdin");
@@ -1413,7 +1415,7 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
 async function $main() {
   //Supply --config to load a different config file
   if (argv.config) loadConfig(argv.config);
-
+  console.log(argv)
   // First we need to decide if the user wants color or not. If they do want
   // color, we need to ensure we use the right mode
   chalk.enabled = configObject.hasConfig ? configObject.chalk : true;

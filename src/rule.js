@@ -7,6 +7,20 @@ import Notification from "./notification.js";
 
 import { writeFileSync, readFileSync } from "./fswrap.js";
 import { join, resolve as pathResolve } from "path";
+import argparse from "minimist";
+
+let argv = argparse(process.argv.slice(2), {
+  string: ["file", "env"],
+  //boolean: ["no-protect"],
+  boolean: ["prefixmode"],
+  default: { protect: true, prefixmode: true },
+  alias: {
+    f: "file",
+    e: "env",
+    p: "prefixmode"
+  }
+});
+
 
 class Rule extends RallyBase {
   constructor({ path, data, remote, subProject } = {}) {
@@ -38,6 +52,7 @@ class Rule extends RallyBase {
     this.remote = remote;
     this.isGeneric = !this.remote;
   }
+
 
   static newShell() {
     return {
@@ -214,24 +229,26 @@ class Rule extends RallyBase {
       this.data.id = this.idMap[env];
       //If it exists we can replace it
       write("replace, ");
-      let metadata = { data: this.data };
-
-      metadata.data.attributes.name = this.name;
-      //checking for prefix mode for attribute name and then relationships name
-      if (configObject.prefixmode == true) {
-        metadata.data.relationships.name = getPrefix() + this.name;
-        log(chalk.yellow`PREFIX MODE IS ON`);
-      } else {
-        metadata.data.relationships.name = this.name;
-        log(chalk.yellow`PREFIX MODE IS OFF`);
-
-      }
+      // let metadata = { data: this.data };
+      //
+      // //checking for prefix mode for attribute name and then relationships name
+      // if (argv.prefixmode == true) {
+      //   // metadata.data.attributes.name = getPrefix() + this.name;
+      //   // metadata.data.relationships.preset.data.name = this.name;
+      //
+      //   log(chalk.yellow`PREFIX MODE IS ON`);
+      // } else {
+      //   // metadata.data.attributes.name = this.name;
+      //   // metadata.data.relationships.preset.data.name = this.name;
+      //   log(chalk.yellow`PREFIX MODE IS OFF`);
+      //
+      // }
 
       let res = await lib.makeAPIRequest({
         env,
         path: `/workflowRules/${this.idMap[env]}`,
         method: "PATCH",
-        payload: { data: this.data },
+        payload: { data: this.name },
         fullResponse: true
       });
 

@@ -1526,6 +1526,21 @@ defineAssoc(Notification, "type", "data.attributes.type");
 defineAssoc(Notification, "remote", "meta.remote");
 Notification.endpoint = "notificationPresets";
 
+let argv = argparse(process.argv.slice(2), {
+  string: ["file", "env"],
+  //boolean: ["no-protect"],
+  boolean: ["prefixmode"],
+  default: {
+    protect: true,
+    prefixmode: true
+  },
+  alias: {
+    f: "file",
+    e: "env",
+    p: "prefixmode"
+  }
+});
+
 class Rule extends RallyBase {
   constructor({
     path: path$$1,
@@ -1719,26 +1734,27 @@ class Rule extends RallyBase {
       await this.patchStrip();
       this.data.id = this.idMap[env]; //If it exists we can replace it
 
-      write("replace, ");
-      let metadata = {
-        data: this.data
-      };
-      metadata.data.attributes.name = this.name; //checking for prefix mode for attribute name and then relationships name
-
-      if (configObject.prefixmode == true) {
-        metadata.data.relationships.name = getPrefix() + this.name;
-        log(chalk.yellow`PREFIX MODE IS ON`);
-      } else {
-        metadata.data.relationships.name = this.name;
-        log(chalk.yellow`PREFIX MODE IS OFF`);
-      }
+      write("replace, "); // let metadata = { data: this.data };
+      //
+      // //checking for prefix mode for attribute name and then relationships name
+      // if (argv.prefixmode == true) {
+      //   // metadata.data.attributes.name = getPrefix() + this.name;
+      //   // metadata.data.relationships.preset.data.name = this.name;
+      //
+      //   log(chalk.yellow`PREFIX MODE IS ON`);
+      // } else {
+      //   // metadata.data.attributes.name = this.name;
+      //   // metadata.data.relationships.preset.data.name = this.name;
+      //   log(chalk.yellow`PREFIX MODE IS OFF`);
+      //
+      // }
 
       let res = await lib.makeAPIRequest({
         env,
         path: `/workflowRules/${this.idMap[env]}`,
         method: "PATCH",
         payload: {
-          data: this.data
+          data: this.name
         },
         fullResponse: true
       });
@@ -2298,7 +2314,7 @@ var configHelpers = /*#__PURE__*/Object.freeze({
 var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _dec10, _dec11, _dec12, _dec13, _dec14, _dec15, _dec16, _dec17, _dec18, _dec19, _dec20, _dec21, _dec22, _dec23, _dec24, _dec25, _dec26, _dec27, _dec28, _dec29, _dec30, _dec31, _dec32, _dec33, _dec34, _dec35, _dec36, _dec37, _dec38, _dec39, _dec40, _dec41, _dec42, _dec43, _dec44, _dec45, _dec46, _obj;
 
 require("source-map-support").install();
-let argv = argparse(process.argv.slice(2), {
+let argv$1 = argparse(process.argv.slice(2), {
   string: ["file", "env"],
   //boolean: ["no-protect"],
   boolean: ["prefixmode"],
@@ -2358,10 +2374,10 @@ async function getFilesFromArgs(args) {
   }
 }
 
-async function regwritetoEnv(args) {
+async function regtoenv(args) {
   log(chalk.green`Searching in specified file for hardcoded Preset and Rule names...`);
 
-  if (configObject.prefixmode == false) {
+  if (argv$1.prefixmode == false) {
     var elements = args._old.slice(-9);
 
     var filename = args.f + " " + elements.join(" ");
@@ -2369,23 +2385,28 @@ async function regwritetoEnv(args) {
     var elements = process.argv.slice(7);
     var filename = elements.join(" ");
   } //inquire is this is the right file name.
+  // async function filenameQ(filename) {
+  //   return await inquirer
+  //     .prompt([
+  //       {
+  //         type: "confirm",
+  //         name: "filename",
+  //         message: "Is " + filename + " the correct filename?"
+  //       }
+  //     ])
+  //     .then(answers => {
+  //       //writing time
+  //       if (answers.filename != true) {
+  //         log(
+  //           chalk.red`You indicated this was not the correct filename so the program exited`
+  //         );
+  //         process.exit(22);
+  //       }
+  //     });
+  // }
+  // await filenameQ(filename);
+  //reading time
 
-
-  async function filenameQ(filename) {
-    return await inquirer.prompt([{
-      type: "confirm",
-      name: "filename",
-      message: "Is " + filename + " the correct filename?"
-    }]).then(answers => {
-      //writing time
-      if (answers.filename != true) {
-        log(chalk.red`You indicated this was not the correct filename so the program exited`);
-        process.exit(22);
-      }
-    });
-  }
-
-  await filenameQ(filename); //reading time
 
   let filetext = fs.readFileSync(filename, "utf-8"); // Regex and Replace time
 
@@ -2407,27 +2428,35 @@ async function regwritetoEnv(args) {
 
     return prefixedmatch;
   }); //inquire before writing to disk??
+  // async function writetofileQ(filename) {
+  //   return await inquirer
+  //     .prompt([
+  //       {
+  //         type: "confirm",
+  //         name: "writetofile",
+  //         message:
+  //           "Do you want to add your prefix to preset/rule names in " +
+  //           filename +
+  //           " to disk?"
+  //       }
+  //     ])
+  //     .then(answers => {
+  //       //writing time
+  //       if (answers.writetofile == true) {
+  //         writeFileSync(filename, replacementtext, { encoding: "utf8" });
+  //         log(chalk.yellow`Writing is done!`);
+  //       } else {
+  //         log(
+  //           chalk.red(`You have indicated that you do not want to write `) +
+  //             chalk.blue(filename) +
+  //             chalk.red(` to disk.`)
+  //         );
+  //         process.exit(22);
+  //       }
+  //     });
+  // }
+  // await writetofileQ(filename);
 
-  async function writetofileQ(filename) {
-    return await inquirer.prompt([{
-      type: "confirm",
-      name: "writetofile",
-      message: "Do you want to add your prefix to preset/rule names in " + filename + " to disk?"
-    }]).then(answers => {
-      //writing time
-      if (answers.writetofile == true) {
-        fs.writeFileSync(filename, replacementtext, {
-          encoding: "utf8"
-        });
-        log(chalk.yellow`Writing is done!`);
-      } else {
-        log(chalk.red(`You have indicated that you do not want to write `) + chalk.blue(filename) + chalk.red(` to disk.`));
-        process.exit(22);
-      }
-    });
-  }
-
-  await writetofileQ(filename);
   return subCommand(regsub)(args);
 }
 let presetsub = {
@@ -2539,46 +2568,53 @@ let presetsub = {
     if (!this.files) {
       throw new AbortError("No files provided to upload (use --file argument)");
       process.exit(22);
-    } //rewriting files
+    }
 
+    console.log("BLAHHHH");
+    console.log(argv$1.prefixmode); //rewriting files
 
-    if (configObject.prefixmode == false) {
+    if (argv$1.prefixmode == false) {
       log(chalk.yellow`PREFIX MODE IS OFF`);
     } else {
       log(chalk.yellow`PREFIX MODE IS ON`);
     }
 
     log(chalk.green`Rewriting file inplace with regex...`);
-    log(chalk.green`The preset will be uploaded to the ` + chalk.blue(this.env) + chalk.green(` environment...`));
+    log(chalk.green`The preset will be uploaded to the ` + chalk.blue(this.env) + chalk.green(` environment...`)); // async function noprefixQ(env) {
+    //   return await inquirer
+    //     .prompt([
+    //       {
+    //         type: "confirm",
+    //         name: "noprefixenv",
+    //         message: "Do you want to push this prefixless code to " + env + "?"
+    //       }
+    //     ])
+    //     .then(answers => {
+    //       //writing time
+    //       if (answers.noprefixenv != true) {
+    //         log(
+    //           chalk.red(
+    //             `You have indicated that you need prefixes before pushing to `
+    //           ) +
+    //             chalk.blue(env) +
+    //             chalk.red(` so the program exited`)
+    //         );
+    //         process.exit(22);
+    //       } else {
+    //         log(chalk.green`Uploading to `+ chalk.blue(env) + chalk.blue("...."));
+    //         regtoenv(args);
+    //       }
+    //     });
+    // }
+    // if (this.env == "DEV"| "UAT" | "QA" | "PROD") {
+    //   log(chalk`The environment specified is ` + this.env);
+    // }
+    // else {
+    //   log(chalk`there is no environment specified`);
+    // }
+    //changing the this.files object to be an array of the full file name.
 
-    async function noprefixQ(env) {
-      return await inquirer.prompt([{
-        type: "confirm",
-        name: "noprefixenv",
-        message: "Do you want to push this prefixless code to " + env + "?"
-      }]).then(answers => {
-        //writing time
-        if (answers.noprefixenv != true) {
-          log(chalk.red(`You have indicated that you need prefixes before pushing to `) + chalk.blue(env) + chalk.red(` so the program exited`));
-          process.exit(22);
-        } else {
-          log(chalk.green`Uploading to ` + chalk.blue(env) + chalk.blue("...."));
-          regwritetoEnv(args);
-        }
-      });
-    }
-
-    if (this.env == "DEV") {
-      await regwritetoEnv(args);
-    } //If prefixmode is false there will be no prefix added to the code body or upload.
-    else if (configObject.prefixmode == false && this.env == "UAT" | "QA" | "PROD") {
-        await noprefixQ(this.env);
-      } else {
-        log(chalk`there is no environment specified`);
-      } //changing the this.files object to be an array of the full file name.
-
-
-    if (configObject.prefixmode == false) {
+    if (argv$1.prefixmode == false) {
       var elements = args._old.slice(-9);
 
       var filename = args.f + " " + elements.join(" ");
@@ -2632,8 +2668,8 @@ let presetsub = {
     } //standard diff
 
 
-    argv.command = argv.command || "diff";
-    await spawn(argv.command, [file, temp], {
+    argv$1.command = argv$1.command || "diff";
+    await spawn(argv$1.command, [file, temp], {
       stdio: "inherit"
     });
   },
@@ -3556,14 +3592,14 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
 
 async function $main() {
   //Supply --config to load a different config file
-  if (argv.config) loadConfig(argv.config);
-  console.log(argv); // First we need to decide if the user wants color or not. If they do want
+  if (argv$1.config) loadConfig(argv$1.config);
+  console.log(argv$1); // First we need to decide if the user wants color or not. If they do want
   // color, we need to ensure we use the right mode
 
   chalk.enabled = configObject.hasConfig ? configObject.chalk : true;
 
   if (chalk.level === 0 || !chalk.enabled) {
-    let force = argv["force-color"];
+    let force = argv$1["force-color"];
 
     if (force) {
       chalk.enabled = true;
@@ -3577,12 +3613,12 @@ async function $main() {
   } //This flag being true allows you to modify UAT and PROD
 
 
-  if (!argv["protect"]) {
+  if (!argv$1["protect"]) {
     configObject.dangerModify = true;
   } //This enables raw output for some functions
 
 
-  if (argv["raw"]) {
+  if (argv$1["raw"]) {
     configObject.rawOutput = true;
 
     global.log = () => {};
@@ -3593,44 +3629,44 @@ async function $main() {
   } //This prevents the prefix from being used
 
 
-  if (argv["prefixmode"]) {
-    configObject.prefixmode = JSON.parse(argv["prefixmode"]);
+  if (argv$1["prefixmode"]) {
+    configObject.prefixmode = JSON.parse(argv$1["prefixmode"]);
   }
 
-  if (argv["ignore-missing"]) {
+  if (argv$1["ignore-missing"]) {
     configObject.ignoreMissing = true;
   } //Default environment should normally be from config, but it can be
   //overridden by the -e/--env flag
 
 
   if (configObject.defaultEnv) {
-    argv.env = argv.env || configObject.defaultEnv;
+    argv$1.env = argv$1.env || configObject.defaultEnv;
   } //Enable verbose logging in some places.
 
 
-  if (argv["vverbose"]) {
-    configObject.verbose = argv["vverbose"];
+  if (argv$1["vverbose"]) {
+    configObject.verbose = argv$1["vverbose"];
     configObject.vverbose = true;
-  } else if (argv["verbose"]) {
-    configObject.verbose = argv["verbose"];
-  } else if (argv["vvverbose"]) {
+  } else if (argv$1["verbose"]) {
+    configObject.verbose = argv$1["verbose"];
+  } else if (argv$1["vvverbose"]) {
     configObject.verbose = true;
     configObject.vverbose = true;
     configObject.vvverbose = true;
   } //copy argument array to new object to allow modification
 
 
-  argv._old = argv._.slice(); //Take first argument after `node bundle.js`
+  argv$1._old = argv$1._.slice(); //Take first argument after `node bundle.js`
   //If there is no argument, display the default version info and API access.
 
-  let func = argv._.shift();
+  let func = argv$1._.shift();
 
   if (func) {
     if (!cli[func]) return await unknownCommand(func);
 
     try {
       //Call the cli function
-      let ret = await cli[func](argv);
+      let ret = await cli[func](argv$1);
 
       if (ret) {
         write(chalk.white("CLI returned: "));
@@ -3672,5 +3708,5 @@ if (require.main === module) {
   module.exports = allIndexBundle;
 }
 
-exports.regwritetoEnv = regwritetoEnv;
+exports.regtoenv = regtoenv;
 //# sourceMappingURL=bundle.js.map

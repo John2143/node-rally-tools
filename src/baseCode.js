@@ -1,5 +1,5 @@
 export default {
-  SdviContentMover: `{
+    SdviContentMover: `{
     "tasks": [
         {
             "operation": "move",
@@ -17,7 +17,7 @@ export default {
         }
     ]
 }`,
-  SdviEvaluate: `'''
+    SdviEvaluate: `'''
 name: {name}
 '''
 

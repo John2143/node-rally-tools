@@ -14,5 +14,7 @@ module.exports = {
     },
     "rules": {
         indent: 2,
+        "object-curly-spacing": 2,
+        "array-bracket-spacing": 2,
     }
 };

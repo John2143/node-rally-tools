@@ -1,7 +1,7 @@
 //these are the help entries for each command
 export let helpEntries = {};
 let helpEntry = name =>
-    helpEntries[name] ? helpEntries[name] : (helpEntries[name] = { name });
+    helpEntries[name] ? helpEntries[name] : (helpEntries[name] = {name});
 
 //short description
 export function helpText(text) {
@@ -15,7 +15,7 @@ export function helpText(text) {
 export function arg(long, short, desc) {
     return function(func, name) {
         let args = (helpEntry(name).args = helpEntry(name).args || []);
-        args.unshift({ long, short, desc });
+        args.unshift({long, short, desc});
         return func;
     };
 }
@@ -24,7 +24,7 @@ export function arg(long, short, desc) {
 export function param(param, desc) {
     return function(func, name) {
         let params = (helpEntry(name).params = helpEntry(name).params || []);
-        params.unshift({ param, desc });
+        params.unshift({param, desc});
         return func;
     };
 }
@@ -59,9 +59,9 @@ function findValueInCache(args, cache) {
                 continue;
             }
         }
-        return { found: true, value };
+        return {found: true, value};
     }
-    return { found: false };
+    return {found: false};
 }
 
 //This decorator takes a function and returns a function that remembers the
@@ -70,7 +70,7 @@ export function cached(target, key, desc) {
     let oldFunc = desc.value;
     let cachedValues = [];
     function newFunc(...args) {
-        let { found, value } = findValueInCache(args, cachedValues);
+        let {found, value} = findValueInCache(args, cachedValues);
         if (!found) {
             //Call the old function to find the value, then store it in the cache
             value = oldFun(...args);
@@ -85,7 +85,7 @@ export function cached(target, key, desc) {
         cachedValues.push([args, value]);
     };
     newFunc.remove = function(...args) {
-        let { found, value } = findValueInCache(args, cachedValues);
+        let {found, value} = findValueInCache(args, cachedValues);
         if (found) {
             cachedValues = cachedValues.filter(([arg, item]) => item !== value);
         }
@@ -124,8 +124,8 @@ export function defineAssoc(classname, shortname, path) {
     });
 }
 
-import { spawn as cp_spawn } from "child_process";
-import { performance } from "perf_hooks";
+import {spawn as cp_spawn} from "child_process";
+import {performance} from "perf_hooks";
 
 //Spawn promise decorator, based on https://gist.github.com/Stuk/6226938
 export function spawn(options, ...args) {
@@ -158,7 +158,7 @@ export function spawn(options, ...args) {
             let time = end - start;
             let timestr =
         time > 1000 ? ((time / 100) | 0) / 10 + "s" : (time | 0) + "ms";
-            resolve({ stdout, stderr, exitCode: code, time, timestr });
+            resolve({stdout, stderr, exitCode: code, time, timestr});
         });
     });
 }

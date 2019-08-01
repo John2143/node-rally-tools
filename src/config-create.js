@@ -1,5 +1,5 @@
-import { configObject } from "./config.js";
-import { join } from "path";
+import {configObject} from "./config.js";
+import {join} from "path";
 import Preset from "./preset.js";
 import Rule from "./rule.js";
 export const inquirer = importLazy("inquirer");
@@ -36,7 +36,7 @@ export async function $api(propArray) {
     };
 
     if (propArray && propArray[1]) {
-        q = { envs: [propArray[1]] };
+        q = {envs: [propArray[1]]};
     } else {
     //Create a checkbox prompt to choose environments
         q = await inquirer.prompt([
@@ -44,7 +44,7 @@ export async function $api(propArray) {
                 type: "checkbox",
                 name: "envs",
                 message: `What environments would you like to configure?`,
-                choices: Object.keys(defaults).map(name => ({ name, checked: true }))
+                choices: Object.keys(defaults).map(name => ({name, checked: true}))
             }
         ]);
     }
@@ -76,7 +76,7 @@ export async function $api(propArray) {
     questions = [].concat(...questions);
     q = await inquirer.prompt(questions);
     if (propArray) {
-        q.api = { ...configObject.api, ...q.api };
+        q.api = {...configObject.api, ...q.api};
     }
     return q;
 }
@@ -86,7 +86,7 @@ export async function $chalk(propArray) {
     };
 }
 export async function $restrictUAT(propArray) {
-    return { restrictUAT: await askQuestion("Would you like to protect UAT?") };
+    return {restrictUAT: await askQuestion("Would you like to protect UAT?")};
 }
 export async function $repodir(propArray) {
     return await inquirer.prompt([
@@ -100,7 +100,7 @@ export async function $repodir(propArray) {
 }
 
 export async function $prefixmode(propArray) {
-    return { prefixmode: await askQuestion("Would you like to use a prefix?") };
+    return {prefixmode: await askQuestion("Would you like to use a prefix?")};
 }
 
 export async function $project(propArray) {
@@ -108,7 +108,7 @@ export async function $project(propArray) {
     if (project === "none" || project === "-" || project === "" || !project) {
         project = null;
     }
-    return { project };
+    return {project};
 }
 
 export async function $defaultEnv(propArray) {
@@ -155,7 +155,7 @@ export async function selectLocal(path, typeName, Class) {
     addAutoCompletePrompt();
     let basePath = join(configObject.repodir, path);
     let f = await readdir(basePath);
-    let objs = f.map(name => new Class({ path: name }));
+    let objs = f.map(name => new Class({path: name}));
     let objsMap = objs.map(x => ({
         name: x.chalkPrint(true),
         value: x

@@ -1,8 +1,8 @@
 import fs from "fs";
-import { dirname } from "path";
+import {dirname} from "path";
 
-import { configObject } from "./config.js";
-import { homedir } from "os";
+import {configObject} from "./config.js";
+import {homedir} from "os";
 
 const home = homedir();
 const colon = /:/g;

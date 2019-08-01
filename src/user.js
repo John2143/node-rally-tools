@@ -1,8 +1,8 @@
-import { cached, defineAssoc } from "./decorators.js";
-import { lib, Collection, RallyBase } from "./rally-tools.js";
+import {cached, defineAssoc} from "./decorators.js";
+import {lib, Collection, RallyBase} from "./rally-tools.js";
 
 class User extends RallyBase {
-    constructor({ data, remote }) {
+    constructor({data, remote}) {
         super();
         this.data = data;
         this.meta = {};

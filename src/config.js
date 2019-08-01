@@ -1,5 +1,5 @@
-import { homedir } from "os";
-import { readFileSync } from "fs";
+import {homedir} from "os";
+import {readFileSync} from "fs";
 
 export let configFile = homedir() + "/.rallyconfig";
 
@@ -7,7 +7,7 @@ let configObject;
 export function loadConfig(file) {
     if (file) configFile = file;
 
-    configObject = { hasConfig: true };
+    configObject = {hasConfig: true};
     try {
         let json = readFileSync(configFile);
         configObject = JSON.parse(json);
@@ -35,4 +35,4 @@ export function getPrefix() {
 
 loadConfig();
 
-export { configObject };
+export {configObject};

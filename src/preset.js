@@ -1,17 +1,17 @@
-import { RallyBase, lib, AbortError, Collection } from "./rally-tools.js";
-import { basename, resolve as pathResolve, dirname } from "path";
-import { cached, defineAssoc } from "./decorators.js";
-import { configObject, getPrefix } from "./config.js";
+import {RallyBase, lib, AbortError, Collection} from "./rally-tools.js";
+import {basename, resolve as pathResolve, dirname} from "path";
+import {cached, defineAssoc} from "./decorators.js";
+import {configObject, getPrefix} from "./config.js";
 import Provider from "./providers.js";
 import Asset from "./asset.js";
 
-import { writeFileSync, readFileSync } from "./fswrap.js";
+import {writeFileSync, readFileSync} from "./fswrap.js";
 import path from "path";
 
 let exists = {};
 
 class Preset extends RallyBase {
-    constructor({ path, remote, data, subProject } = {}) {
+    constructor({path, remote, data, subProject} = {}) {
     // Get full path if possible
         if (path) {
             path = pathResolve(path);
@@ -101,7 +101,7 @@ class Preset extends RallyBase {
         let name = data.attributes.name;
 
         let realpath = Preset.getLocalPath(name, ext, subproject);
-        return new Preset({ path: realpath, subProject: subproject });
+        return new Preset({path: realpath, subProject: subproject});
     }
 
     static newShell() {
@@ -178,7 +178,7 @@ class Preset extends RallyBase {
 
         this.isGeneric = true;
 
-        return { proType };
+        return {proType};
     }
     async saveLocal() {
         await this.saveLocalMetadata();
@@ -367,7 +367,7 @@ class Preset extends RallyBase {
             //check for env
             if (includeMetadata) {
                 let metadata = {
-                    data: { attributes: this.data.attributes, type: "presets" }
+                    data: {attributes: this.data.attributes, type: "presets"}
                 };
                 //changing metadata for replacement to include prefix
                 metadata.data.attributes.name = getPrefix() + this.name;
@@ -390,7 +390,7 @@ class Preset extends RallyBase {
         } else {
             write("create, ");
 
-            let metadata = { data: this.data };
+            let metadata = {data: this.data};
             if (configObject.prefix) {
                 metadata.data.attributes.name = getPrefix() + this.name;
                 metadata.data.attributes.providerSettings.PresetName = this.name;

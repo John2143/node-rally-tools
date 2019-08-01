@@ -1,8 +1,8 @@
-import { cached, defineAssoc } from "./decorators.js";
-import { lib, Collection, RallyBase } from "./rally-tools.js";
+import {cached, defineAssoc} from "./decorators.js";
+import {lib, Collection, RallyBase} from "./rally-tools.js";
 
 class Asset extends RallyBase {
-    constructor({ data, remote, included }) {
+    constructor({data, remote, included}) {
         super();
         this.data = data;
         this.meta = {};
@@ -21,7 +21,7 @@ class Asset extends RallyBase {
     }
 
     static lite(id, remote) {
-        return new this({ data: { id }, remote });
+        return new this({data: {id}, remote});
     }
 
     chalkPrint(pad = false) {
@@ -41,12 +41,12 @@ class Asset extends RallyBase {
             method: "POST",
             payload: {
                 data: {
-                    attributes: { name },
+                    attributes: {name},
                     type: "assets"
                 }
             }
         });
-        return new this({ data: req.data, remote: env });
+        return new this({data: req.data, remote: env});
     }
 
     async delete() {
@@ -62,7 +62,7 @@ class Asset extends RallyBase {
 
         let instances = {};
         for (let i = 0; i < fileuris.length; i++) {
-            instances[String(i + 1)] = { uri: fileuris[i] };
+            instances[String(i + 1)] = {uri: fileuris[i]};
         }
 
         let req = await lib.makeAPIRequest({
@@ -95,7 +95,7 @@ class Asset extends RallyBase {
             //Convert init data to string
             initData =
         typeof initData === "string" ? initData : JSON.stringify(initData);
-            attributes = { initData };
+            attributes = {initData};
         }
 
         let req = await lib.makeAPIRequest({

@@ -1,19 +1,19 @@
-import { cached, defineAssoc } from "./decorators.js";
-import { RallyBase, lib, Collection, AbortError } from "./rally-tools.js";
-import { configObject, getPrefix } from "./config.js";
+import {cached, defineAssoc} from "./decorators.js";
+import {RallyBase, lib, Collection, AbortError} from "./rally-tools.js";
+import {configObject, getPrefix} from "./config.js";
 import Preset from "./preset.js";
 import Provider from "./providers.js";
 import Notification from "./notification.js";
 
-import { writeFileSync, readFileSync } from "./fswrap.js";
-import { join, resolve as pathResolve } from "path";
+import {writeFileSync, readFileSync} from "./fswrap.js";
+import {join, resolve as pathResolve} from "path";
 import argparse from "minimist";
 
 let argv = argparse(process.argv.slice(2), {
     string: ["file", "env"],
     //boolean: ["no-protect"],
     boolean: ["prefixmode"],
-    default: { protect: true, prefixmode: true },
+    default: {protect: true, prefixmode: true},
     alias: {
         f: "file",
         e: "env",
@@ -23,7 +23,7 @@ let argv = argparse(process.argv.slice(2), {
 
 
 class Rule extends RallyBase {
-    constructor({ path, data, remote, subProject } = {}) {
+    constructor({path, data, remote, subProject} = {}) {
         super();
         if (path) {
             path = pathResolve(path);
@@ -160,7 +160,7 @@ class Rule extends RallyBase {
                 method: "POST",
                 payload: {
                     data: {
-                        attributes: { name: getPrefix() + this.name },
+                        attributes: {name: getPrefix() + this.name},
                         type: "workflowRules"
                     }
                 }
@@ -171,7 +171,7 @@ class Rule extends RallyBase {
                 path: `/workflowRules`,
                 method: "POST",
                 payload: {
-                    data: { attributes: { name: this.name }, type: "workflowRules" }
+                    data: {attributes: {name: this.name}, type: "workflowRules"}
                 }
             });
         }
@@ -248,7 +248,7 @@ class Rule extends RallyBase {
                 env,
                 path: `/workflowRules/${this.idMap[env]}`,
                 method: "PATCH",
-                payload: { data: this.name },
+                payload: {data: this.name},
                 fullResponse: true
             });
 

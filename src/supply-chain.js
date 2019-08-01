@@ -2,8 +2,8 @@ import Rule from "./rule.js";
 import Preset from "./preset.js";
 import Provider from "./providers.js";
 import Notification from "./notification.js";
-import { Collection, lib } from "./rally-tools.js";
-import { configObject } from "./config.js";
+import {Collection, lib} from "./rally-tools.js";
+import {configObject} from "./config.js";
 
 //TODO
 //Move project into silo metadata

@@ -2114,7 +2114,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   RallyBase: RallyBase
 });
 
-var version = "1.11.17";
+var version = "1.13.0";
 
 var baseCode = {
   SdviContentMover: `{

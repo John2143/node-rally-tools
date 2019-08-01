@@ -1,7 +1,7 @@
 # Rally Tools
 
 This repository provides multiple helpful tools for working within the SDVI
-Rally environment. Some features are:
+Rally enviornment. Some features are:
 
  - Preset uploader
  - Rule uploader
@@ -51,7 +51,7 @@ Options:
  - api: Your api keys and urls
  - repodir: The directory of your repository. Should have 3 folders:
    `silo-presets`, `silo-rules`, `silo-metadata`.
- - defaultEnv: Your development environment, usually DEV.
+ - defaultEnv: Your development enviornment, usually DEV.
 
 ## Usage
 
@@ -68,7 +68,7 @@ arguments, a command line UI will be given. If you wish to script this, the flag
 `--provider`, `--ext`, and `--name` can be given. 
 
 The basic download usage is `rally preset list`, which lists all presets.
-Giving the `--resolve` flag will internally resolve the dynamic references in an
+Giving the `--resolve` flag will internall resolve the dynamic references in an
 object.  You can then add these to the output using `--attach`. Ex. `rally
 preset list -e PROD --resolve --attach`
 
@@ -86,15 +86,15 @@ vimdiff. (make sure that zbc.xyz has a proper rally header/metadata or this
 will fail).
 
 `rally preset grab -f [preset]` will attempt to download the metadata file for
-this preset. The `--full` argument can be given to also download the `code`, too.
+this asset. The `--full` argument can be given to also download the `code`, too.
 
 #### `rally rule`
 
 See all rules. `rally rule list`. `--raw` available.
 
-#### `rally providers`
+#### `rally provider`
 
-See all providers. `rally providers`. `--raw` available.
+See all providers. `rally provider list`. `--raw` available.
 
 #### `rally asset`
 
@@ -134,7 +134,7 @@ options.
 
 `rally config [key]` gives the config interactor for a single key. `rally
 config chalk` would bring up y/n menu for color. `rally config api` would bring
-up the configuration for all all the environments, but `rally config api.DEV`
+up the configuration for all all the enviornments, but `rally config api.DEV`
 would let you modify just the DEV credentials.
 
 `rally config --raw` prints out the current config *including configs changed
@@ -188,7 +188,7 @@ This internally creates a supply chain object, which we can then apply an action
 
 An example action is `sync`, which is given by the `--to` arg. `rally supply
 calc R1000 -e DEV --to LOCAL` would sync this supply chain (based on DEV) to
-LOCAL. In order to move it to a protected environment, add --no-protect.
+LOCAL. In order to move it to a protected envornment, add --no-protect.
 
 However, calc is limited by the fact that it is very rigid. Its best use is the
 inital setup of an environment, or to mass move supply chains. To fix this,
@@ -196,7 +196,7 @@ lets move to `rally supply make`
 
 `make` takes a list of identifiers and constructs a supply chain. Identifiers
 are passed in by the `this.files` array. From the command line this can be
-given by supplying -f arguments or reading from stdin.
+given by suppling -f arguments or reading from stdin.
 
 Lets say you edited these 3 objects in DEV.
 
@@ -220,7 +220,7 @@ Now you can treat this like any other supply chain, and deploy it. Remote to
 remote, or remote to local. However, this tool is built to integrate directly
 with git on your local filesystem.
 
-If you edited those 3 files locally, then committed to git, you should be able
+If you edited those 3 files locally, then commited to git, you should be able
 to see the diff with the git command `git diff HEAD HEAD^`. We are only
 interested in the names, so lets get those.
 
@@ -250,45 +250,6 @@ deployed, who deployed it or when. All this should be tracked through git.
 Therefore, tagging releases or using a release branch would allow for basic
 version control.
 
-#### Prefixing
-In order to prevent code changes between developers to interact on sdvi, 
-rally tools has a prefix appended to all presets/rules uploaded to sdvi's
-remote environments (i.e. DEV, UAT, QA, PROD). 
-
-If changes are meant to be shared across
-each test bed then one can opt-out with the option and given argument```-p false ```
-(```--prefixmode false```). When first using ```rally config``` you will be asked 
-to provide a short prefix as a way to identify your version of the preset/rule.The 
-```regwritetoEnv``` function that allows this to happen reads the code body of a 
-preset(```.py```) with regex and replaces any hardcoded preset/rules names with a 
-prefixed version. From their it uploads a preset/rule name prefixed.
-
-**Preset:** The example below will prevent the prefix from appending to the local version(code body ```.py```, metadata 
-```.json```) of the NL P1000 - MP - Non Linear Media Preparation Workflow to the DEV environment before uploading.
-**Note** make sure you are in the silo-presets directory.
-
-```rally preset upload -e DEV -f NL P1000 - MP - Non Linear Media Preparation Workflow.py```
-**Note** In order for this option to work you must have the environment(```-e```) and file(```-f```)
-specified in addition to the prefixmode option(```-p```)
-
-**Rule:** The example below will prevent the prefix appending to the local version(```.json```) of
-the NL R1000 - MP - Non Linear Media Preparation Workflow to the DEV environment before uploading.
-**Note** make sure you are in the root directory. Also that if you haven't already uploaded
-the preset that you need to upload both the preset and rule at the same time with supply make.
-One way I have found this to work is to give findstr/grep the characters that the
-preset & rule share.(i.e. rally_demo for rally_demo_rule)
-
-**ubuntu version**
-```
-git ls-files | grep <shared root for preset/rule> | rally @ --to DEV
-```
-**windows version**
-```
-git ls-files | findstr <shared root for preset/rule> | rally supply make --to DEV
-git ls-files | findstr <shared root for preset/rule> | rally @ --to DEV
-```
- 
-
 #### Automated deployments
 
 Automated deployments should be constructed telling rally tools the list of
@@ -305,7 +266,7 @@ directory, otherwise the config should be given by the --config flag to the
 rally command.
 
 #### Examples
-Here's some other examples of common usage:
+Heres some other examples of common usage:
 
 Upload a preset
 `rally preset upload -e DEV -f "~/ORP/silo-presets/Audio Metadata Conditioner.py"`
@@ -348,8 +309,8 @@ temporarily.
 #### Atom integration
 
 Rally tools now supports a basic amount of atom integration including testing,
-uploading, downloading, and rule management. Two plugins are used for this:
-process-palette, and optionally, file-watcher. Please see the file
+uploading, downloading, and rule managment. Two plugins are used for this:
+process-pallete, and optionally, file-watcher. Please see the file
 `process-pallete.json` in `jderby/ONRAMP_WORKFLOW_PYTHON`.
 
 This should be copied into your base directory (same level as the silo-\*
@@ -363,23 +324,23 @@ inline live test results
 
 #### Cannot acclimatize shelled preset
 
-Solution: Create the preset on the remote environment manually, or run `rally
+Solution: Create the preset on the remote enviornment manually, or run `rally
 preset create`
 
 Under normal usage, presets will have an associated metadata file saved. This
 contains information like its provider type, input and output settings, or
 timestamps. `Preset#acclimatize` attempts to take this data from a generic
-format into an environment specific format so that it can be accurately created
+format into an environment specific format so that it can be accuractly created
 when uploading. A file without any metadata is marked as "Shelled" and given
 some dummy data while limiting functionality. This functionality includes
-updating the code of a preset, or viewing the metadata of an environment.
+updating the code of a preset, or viewing the metadata of an enviornment.
 
-#### CLI Aborted: Protected environment
+#### CLI Aborted: Protected enviorment
 
 Solution: Add the --no-protect flag, or run `rally config restrictUAT` to
 unprotect UAT (if the error is on UAT).
 
-Protected environments cannot receive anything but get requests, so any kind of
+Protected enviorments cannot recieve anything but get requests, so any kind of
 POST/PUT/PATCH will fail with this error. Internally, --no-protect is sets the
 --protect flag to false instead of true, which in turn sets the
 configObject.dangerModify flag to true. So if you really wish, you could add

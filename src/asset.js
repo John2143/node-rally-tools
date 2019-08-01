@@ -1,43 +1,38 @@
 import {cached, defineAssoc} from "./decorators.js";
 import {lib, Collection, RallyBase} from "./rally-tools.js";
 
-class Asset extends RallyBase {
-    constructor({data, remote, included}) {
+class Asset extends RallyBase{
+    constructor({data, remote, included}){
         super();
         this.data = data;
         this.meta = {};
         this.remote = remote;
-        if (included) {
+        if(included){
             this.meta.metadata = Asset.normalizeMetadata(included);
         }
     }
-    static normalizeMetadata(payload) {
-        let newMetadata = {};
-        for (let md of payload) {
-            if (md.type !== "metadata") continue;
+    static normalizeMetadata(payload){
+        let newMetadata = {}
+        for(let md of payload){
+            if(md.type !== "metadata") continue;
             newMetadata[md.attributes.usage] = md.attributes.metadata;
         }
         return newMetadata;
     }
 
-    static lite(id, remote) {
-        return new this({data: {id}, remote});
+    static lite(id, remote){
+        return new this({data: {id}, remote})
     }
 
-    chalkPrint(pad = false) {
-        let id = String(
-            "A-" + ((this.remote && this.remote + "-" + this.id) || "LOCAL")
-        );
-        if (pad) id = id.padStart(15);
-        return chalk`{green ${id}}: {blue ${
-            this.data.attributes ? this.name : "(lite asset)"
-        }}`;
+    chalkPrint(pad=false){
+        let id = String("A-" + (this.remote && this.remote + "-" + this.id || "LOCAL"))
+        if(pad) id = id.padStart(15);
+        return chalk`{green ${id}}: {blue ${this.data.attributes ? this.name : "(lite asset)"}}`;
     }
 
-    static async createNew(name, env) {
+    static async createNew(name, env){
         let req = await lib.makeAPIRequest({
-            env,
-            path: "/assets",
+            env, path: "/assets",
             method: "POST",
             payload: {
                 data: {
@@ -49,76 +44,71 @@ class Asset extends RallyBase {
         return new this({data: req.data, remote: env});
     }
 
-    async delete() {
+    async delete(){
         let req = await lib.makeAPIRequest({
-            env: this.remote,
-            path: "/assets/" + this.id,
-            method: "DELETE"
+            env: this.remote, path: "/assets/" + this.id,
+            method: "DELETE",
         });
     }
 
-    async addFile(label, fileuris) {
-        if (!Array.isArray(fileuris)) fileuris = [fileuris];
+    async addFile(label, fileuris){
+        if(!Array.isArray(fileuris)) fileuris = [fileuris];
 
-        let instances = {};
-        for (let i = 0; i < fileuris.length; i++) {
+        let instances = {}
+        for(let i = 0; i < fileuris.length; i++){
             instances[String(i + 1)] = {uri: fileuris[i]};
         }
 
         let req = await lib.makeAPIRequest({
-            env: this.remote,
-            path: "/files",
+            env: this.remote, path: "/files",
             method: "POST",
             payload: {
-                data: {
-                    attributes: {
-                        label,
-                        instances
+                "data": {
+                    "attributes": {
+                        label, instances,
                     },
-                    relationships: {
-                        asset: {
-                            data: {
+                    "relationships": {
+                        "asset": {
+                            "data": {
                                 id: this.id,
-                                type: "assets"
+                                "type": "assets"
                             }
                         }
                     },
-                    type: "files"
+                    "type": "files"
                 }
+
             }
         });
         return req;
     }
-    async startWorkflow(jobName, initData) {
+    async startWorkflow(jobName, initData){
         let attributes;
-        if (initData) {
+        if(initData){
             //Convert init data to string
-            initData =
-        typeof initData === "string" ? initData : JSON.stringify(initData);
+            initData = typeof initData === "string" ? initData : JSON.stringify(initData);
             attributes = {initData};
         }
 
         let req = await lib.makeAPIRequest({
-            env: this.remote,
-            path: "/workflows",
+            env: this.remote, path: "/workflows",
             method: "POST",
             payload: {
-                data: {
-                    type: "workflows",
+                "data": {
+                    "type": "workflows",
                     attributes,
-                    relationships: {
-                        movie: {
-                            data: {
+                    "relationships": {
+                        "movie": {
+                            "data": {
                                 id: this.id,
-                                type: "movies"
+                                "type": "movies"
                             }
-                        },
-                        rule: {
-                            data: {
-                                attributes: {
-                                    name: jobName
+                        }, "rule": {
+                            "data": {
+                                "attributes": {
+                                    "name": jobName,
                                 },
-                                type: "rules"
+                                "type": "rules"
                             }
                         }
                     }
@@ -127,12 +117,41 @@ class Asset extends RallyBase {
         });
         return req;
     }
-    async startEvaluate(presetid) {
-    // Fire and forget.
-        let data = await lib.makeAPIRequest({
-            env: this.remote,
-            path: "/jobs",
+    static async startAnonWorkflow(env, jobName, initData){
+        let attributes;
+        if(initData){
+            //Convert init data to string
+            initData = typeof initData === "string" ? initData : JSON.stringify(initData);
+            attributes = {initData};
+        }
+
+        let req = await lib.makeAPIRequest({
+            env, path: "/workflows",
             method: "POST",
+            payload: {
+                "data": {
+                    "type": "workflows",
+                    attributes,
+                    "relationships": {
+                        "rule": {
+                            "data": {
+                                "attributes": {
+                                    "name": jobName,
+                                },
+                                "type": "rules"
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        return req;
+
+    }
+    async startEvaluate(presetid){
+        // Fire and forget.
+        let data = await lib.makeAPIRequest({
+            env: this.remote, path: "/jobs", method: "POST",
             payload: {
                 data: {
                     type: "jobs",
@@ -140,13 +159,12 @@ class Asset extends RallyBase {
                         movie: {
                             data: {
                                 id: this.id,
-                                type: "movies"
+                                type: "movies",
                             }
-                        },
-                        preset: {
+                        }, preset: {
                             data: {
                                 id: presetid,
-                                type: "presets"
+                                type: "presets",
                             }
                         }
                     }
@@ -161,6 +179,6 @@ defineAssoc(Asset, "id", "data.id");
 defineAssoc(Asset, "name", "data.attributes.name");
 defineAssoc(Asset, "remote", "meta.remote");
 defineAssoc(Asset, "md", "meta.metadata");
-Asset.endpoint = "movies";
+Asset.endpoint = "movies"
 
 export default Asset;

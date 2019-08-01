@@ -897,20 +897,20 @@ class Asset extends RallyBase {
       path: "/files",
       method: "POST",
       payload: {
-        data: {
-          attributes: {
+        "data": {
+          "attributes": {
             label,
             instances
           },
-          relationships: {
-            asset: {
-              data: {
+          "relationships": {
+            "asset": {
+              "data": {
                 id: this.id,
-                type: "assets"
+                "type": "assets"
               }
             }
           },
-          type: "files"
+          "type": "files"
         }
       }
     });
@@ -933,22 +933,57 @@ class Asset extends RallyBase {
       path: "/workflows",
       method: "POST",
       payload: {
-        data: {
-          type: "workflows",
+        "data": {
+          "type": "workflows",
           attributes,
-          relationships: {
-            movie: {
-              data: {
+          "relationships": {
+            "movie": {
+              "data": {
                 id: this.id,
-                type: "movies"
+                "type": "movies"
               }
             },
-            rule: {
-              data: {
-                attributes: {
-                  name: jobName
+            "rule": {
+              "data": {
+                "attributes": {
+                  "name": jobName
                 },
-                type: "rules"
+                "type": "rules"
+              }
+            }
+          }
+        }
+      }
+    });
+    return req;
+  }
+
+  static async startAnonWorkflow(env, jobName, initData) {
+    let attributes;
+
+    if (initData) {
+      //Convert init data to string
+      initData = typeof initData === "string" ? initData : JSON.stringify(initData);
+      attributes = {
+        initData
+      };
+    }
+
+    let req = await lib.makeAPIRequest({
+      env,
+      path: "/workflows",
+      method: "POST",
+      payload: {
+        "data": {
+          "type": "workflows",
+          attributes,
+          "relationships": {
+            "rule": {
+              "data": {
+                "attributes": {
+                  "name": jobName
+                },
+                "type": "rules"
               }
             }
           }

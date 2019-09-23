@@ -2179,7 +2179,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   RallyBase: RallyBase
 });
 
-var version = "1.14.0";
+var version = "1.14.1";
 
 async function findLineInFile(renderedPreset, lineNumber) {
   let trueFileLine = lineNumber;
@@ -2236,10 +2236,15 @@ async function findLineInFile(renderedPreset, lineNumber) {
     includeFilename = null;
   }
 
+  if (includeLocation.length !== 0) {
+    trueFileLine -= 1;
+    lineNumber -= 1;
+  }
+
   return {
-    lineNumber: trueFileLine - 1,
+    lineNumber: trueFileLine,
     includeFilename,
-    line: linedRenderedPreset[lineNumber - 1],
+    line: linedRenderedPreset[lineNumber],
     funcLine
   };
 }
@@ -2285,10 +2290,10 @@ async function parseTrace(env, jobid) {
   let errorList = [];
 
   for (let errLine of errorLines) {
-    lineNumber = /\d+/g.exec(errLine);
+    lineNumber = /^[\w ]+:(\d+):/g.exec(errLine);
 
-    if (lineNumber && lineNumber[0]) {
-      errorList.push((await findLineInFile(renderedPreset, lineNumber)));
+    if (lineNumber && lineNumber[1]) {
+      errorList.push((await findLineInFile(renderedPreset, lineNumber[1])));
     } else {
       errorList.push(errLine);
     }

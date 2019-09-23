@@ -18,6 +18,7 @@ async function findLineInFile(renderedPreset, lineNumber){
     }
 
 
+
     for (let index = includeLocation.length - 1; index >= 0; index--){
         let currIncludeIndex = linedRenderedPreset.indexOf(includeLocation[index]);
         let tabDepth = includeLocation[index].split("  ").length;
@@ -55,10 +56,15 @@ async function findLineInFile(renderedPreset, lineNumber){
         includeFilename = null;
     }
 
+    if(includeLocation.length !== 0){
+        trueFileLine -= 1;
+        lineNumber -= 1;
+    }
+
     return {
-        lineNumber: trueFileLine - 1,
+        lineNumber: trueFileLine,
         includeFilename,
-        line: linedRenderedPreset[lineNumber - 1],
+        line: linedRenderedPreset[lineNumber],
         funcLine,
     };
 
@@ -112,9 +118,9 @@ export async function parseTrace(env, jobid){
     let errorList = [];
     for(let errLine of errorLines){
 
-        lineNumber = /\d+/g.exec(errLine);
-        if(lineNumber && lineNumber[0]){
-            errorList.push(await findLineInFile(renderedPreset, lineNumber));
+        lineNumber = /^[\w ]+:(\d+):/g.exec(errLine);
+        if(lineNumber && lineNumber[1]){
+            errorList.push(await findLineInFile(renderedPreset, lineNumber[1]));
         }else{
             errorList.push(errLine);
         }

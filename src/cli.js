@@ -12,6 +12,8 @@ import {version as packageVersion} from "../package.json";
 import {configFile, configObject, loadConfig} from "./config.js";
 import {readFileSync, writeFileSync} from "fs";
 
+import {printOutLine, parseTrace} from "./trace.js";
+
 import {helpText, arg, param, usage, helpEntries, spawn} from "./decorators.js";
 
 import baseCode from "./baseCode.js";
@@ -542,6 +544,28 @@ let cli = {
     @arg("-e", "--env", "The enviornment you wish to perform the action on")
     async tag(args){
         return subCommand(tagsub)(args);
+    },
+
+    @helpText(`print out some trace info`)
+    @usage(`rally trace -e [env] [jobid]`)
+    @param("jobid", "a job id like b86d7d90-f0a5-4622-8754-486ca8e9ecbd")
+    @arg("-e", "--env", "The enviornment you wish to perform the action on")
+    async trace(args){
+        let jobId = args._.shift();
+        if(!jobId) throw new AbortError("No job id");
+        if(!args.env) throw new AbortError("no env");
+
+        let traceInfo = await parseTrace(args.env, jobId);
+
+        for(let line of traceInfo){
+            if(typeof(line) == "string"){
+                log(chalk.red(line));
+            }else{
+                printOutLine(line);
+            }
+        }
+
+        return true;
     },
 
     @helpText(`List all available providers, or find one by name/id`)

@@ -2181,6 +2181,122 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
 
 var version = "1.13.0";
 
+async function findLineInFile(renderedPreset, lineNumber) {
+  let trueFileLine = lineNumber;
+  let linedRenderedPreset = renderedPreset.split("\n").slice(2, -2);
+  renderedPreset = renderedPreset.split("\n").slice(2, -2).join("\n");
+  let includeLocation = renderedPreset.split("\n").filter(x => x.includes("@include"));
+  let endIncludeNumber = -1,
+      addTabDepth = 2;
+  let lineBeforeIncludeStatement = '';
+  let withinInclude = true;
+
+  if (lineNumber > linedRenderedPreset.indexOf(includeLocation[includeLocation.length - 1])) {
+    addTabDepth = 0;
+    withinInclude = false;
+  }
+
+  for (let index = includeLocation.length - 1; index >= 0; index--) {
+    let currIncludeIndex = linedRenderedPreset.indexOf(includeLocation[index]);
+    let tabDepth = includeLocation[index].split("  ").length;
+
+    if (lineNumber > currIncludeIndex) {
+      if (includeLocation[index].split(" ").filter(Boolean)[1] != "ERROR:") {
+        if (lineBeforeIncludeStatement.split("  ").length == tabDepth && withinInclude) {
+          trueFileLine = trueFileLine - currIncludeIndex;
+          break;
+        } else if (lineBeforeIncludeStatement.split("  ").length + addTabDepth == tabDepth && endIncludeNumber == -1) {
+          endIncludeNumber = currIncludeIndex;
+        } else if (lineBeforeIncludeStatement.split("  ").length + addTabDepth == tabDepth) {
+          trueFileLine = trueFileLine - (endIncludeNumber - currIncludeIndex);
+          endIncludeNumber = -1;
+        }
+      }
+    } else {
+      lineBeforeIncludeStatement = includeLocation[index];
+    }
+  }
+
+  let funcLine = "";
+
+  for (let line of linedRenderedPreset.slice(0, lineNumber).reverse()) {
+    let match = /def (\w+)/.exec(line);
+
+    if (match) {
+      funcLine = match[1];
+      break;
+    }
+  }
+
+  let includeFilename;
+
+  if (lineBeforeIncludeStatement != "") {
+    includeFilename = lineBeforeIncludeStatement.slice(1).trim().slice(14, -1);
+  } else {
+    includeFilename = null;
+  }
+
+  return {
+    lineNumber: trueFileLine - 1,
+    includeFilename,
+    line: linedRenderedPreset[lineNumber - 1],
+    funcLine
+  };
+}
+
+function printOutLine(eLine) {
+  return log(chalk`{blue ${eLine.includeFilename || "Main"}}:{green ${eLine.lineNumber}} in ${eLine.funcLine}
+${eLine.line}`);
+}
+async function parseTrace(env, jobid) {
+  let trace = lib.makeAPIRequest({
+    env,
+    path: `/jobs/${jobid}/artifacts/trace`
+  }).catch(x => null);
+  let renderedPreset = lib.makeAPIRequest({
+    env,
+    path: `/jobs/${jobid}/artifacts/preset`
+  }).catch(x => null);
+  let result = lib.makeAPIRequest({
+    env,
+    path: `/jobs/${jobid}/artifacts/result`
+  }).catch(x => null);
+  let error = lib.makeAPIRequest({
+    env,
+    path: `/jobs/${jobid}/artifacts/error`
+  }).catch(x => null);
+  let output = lib.makeAPIRequest({
+    env,
+    path: `/jobs/${jobid}/artifacts/output`
+  }).catch(x => null);
+  [trace, renderedPreset, result, output, error] = await Promise.all([trace, renderedPreset, result, output, error]);
+  let lineNumber = -1;
+  let errorLines = [];
+  let shouldBreak = 0;
+
+  for (let tr of trace.split("\n\n").reverse()) {
+    errorLines.push(tr);
+    shouldBreak--;
+    if (tr.includes("Execption")) shouldBreak = 1;
+    if (tr.includes("raised on")) shouldBreak = 1;
+    if (!shouldBreak) break;
+  }
+
+  let errorList = [];
+
+  for (let errLine of errorLines) {
+    lineNumber = /\d+/g.exec(errLine);
+
+    if (lineNumber && lineNumber[0]) {
+      errorList.push((await findLineInFile(renderedPreset, lineNumber)));
+    } else {
+      errorList.push(errLine);
+    }
+  }
+
+  return errorList;
+}
+
 var baseCode = {
   SdviContentMover: `{
     "tasks": [
@@ -2418,7 +2534,7 @@ var configHelpers = /*#__PURE__*/Object.freeze({
   askQuestion: askQuestion
 });
 
-var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _dec10, _dec11, _dec12, _dec13, _dec14, _dec15, _dec16, _dec17, _dec18, _dec19, _dec20, _dec21, _dec22, _dec23, _dec24, _dec25, _dec26, _dec27, _dec28, _dec29, _dec30, _dec31, _dec32, _dec33, _dec34, _dec35, _dec36, _dec37, _dec38, _dec39, _dec40, _dec41, _dec42, _dec43, _dec44, _obj;
+var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _dec10, _dec11, _dec12, _dec13, _dec14, _dec15, _dec16, _dec17, _dec18, _dec19, _dec20, _dec21, _dec22, _dec23, _dec24, _dec25, _dec26, _dec27, _dec28, _dec29, _dec30, _dec31, _dec32, _dec33, _dec34, _dec35, _dec36, _dec37, _dec38, _dec39, _dec40, _dec41, _dec42, _dec43, _dec44, _dec45, _dec46, _dec47, _dec48, _obj;
 
 require("source-map-support").install();
 let argv = argparse(process.argv.slice(2), {
@@ -2971,7 +3087,7 @@ function subCommand(object) {
   };
 }
 
-let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [subhelp]`), _dec3 = param("subhelp", "The name of the command to see help for"), _dec4 = helpText("Rally tools jupyter interface. Requires jupyter to be installed."), _dec5 = usage("rally jupyter build [in] [out]"), _dec6 = param("in/out", "input and output file for jupyter. By default main.ipyrb and main.py"), _dec7 = helpText(`Preset related actions`), _dec8 = usage(`rally preset [action] --env <enviornment> --file [file1] --file [file2] ...`), _dec9 = param("action", "The action to perform. Can be upload, diff, list"), _dec10 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec11 = arg("-f", "--file", "A file to act on"), _dec12 = arg("~", "--command", "If the action is diff, this is the command to run instead of diff"), _dec13 = helpText(`Rule related actions`), _dec14 = usage(`rally rule [action] --env [enviornment]`), _dec15 = param("action", "The action to perform. Only list is supported right now"), _dec16 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec17 = helpText(`supply chain related actions`), _dec18 = usage(`rally supply [action] [identifier] --env [enviornment]`), _dec19 = param("action", "The action to perform. Can be calc."), _dec20 = param("identifier", "If the action is calc, then this identifier should be the first rule in the chain."), _dec21 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec22 = helpText(`tags stuff`), _dec23 = usage(`rally tags [action]`), _dec24 = param("action", "The action to perform. Can be list or create."), _dec25 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec26 = helpText(`List all available providers, or find one by name/id`), _dec27 = usage(`rally providers [identifier] --env [env] --raw`), _dec28 = param("identifier", "Either the name or id of the provider"), _dec29 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec30 = arg("~", "--raw", "Raw output of command. If [identifier] is given, then print editorConfig too"), _dec31 = helpText(`Change config for rally tools`), _dec32 = usage("rally config [key] --set [value] --raw"), _dec33 = param("key", chalk`Key you want to edit. For example, {green chalk} or {green api.DEV}`), _dec34 = arg("~", "--set", "If this value is given, no interactive prompt will launch and the config option will change."), _dec35 = arg("~", "--raw", "Raw output of json config"), _dec36 = helpText(`create/modify asset`), _dec37 = usage("rally asset [action] [action...]"), _dec38 = param("action", chalk`Options are create, delete, launch, addfile. You can supply multiple actions to chain them`), _dec39 = arg(`-i`, `--id`, chalk`MOVIE_ID of asset to select`), _dec40 = arg(`-n`, `--name`, chalk`MOVIE_NAME of asset. with {white create}, '{white #}' will be replaced with a uuid. Default is '{white TEST_#}'`), _dec41 = arg(`-j`, `--job-name`, chalk`Job name to start (used with launch)`), _dec42 = arg(`~`, `--init-data`, chalk`Init data to use when launching job. can be string, or {white @path/to/file} for a file`), _dec43 = arg(`~`, `--file-label`, chalk`File label (used with addfile)`), _dec44 = arg(`~`, `--file-uri`, chalk`File s3 uri. Can use multiple uri's for the same label (used with addfile)`), (_obj = {
+let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [subhelp]`), _dec3 = param("subhelp", "The name of the command to see help for"), _dec4 = helpText("Rally tools jupyter interface. Requires jupyter to be installed."), _dec5 = usage("rally jupyter build [in] [out]"), _dec6 = param("in/out", "input and output file for jupyter. By default main.ipyrb and main.py"), _dec7 = helpText(`Preset related actions`), _dec8 = usage(`rally preset [action] --env <enviornment> --file [file1] --file [file2] ...`), _dec9 = param("action", "The action to perform. Can be upload, diff, list"), _dec10 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec11 = arg("-f", "--file", "A file to act on"), _dec12 = arg("~", "--command", "If the action is diff, this is the command to run instead of diff"), _dec13 = helpText(`Rule related actions`), _dec14 = usage(`rally rule [action] --env [enviornment]`), _dec15 = param("action", "The action to perform. Only list is supported right now"), _dec16 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec17 = helpText(`supply chain related actions`), _dec18 = usage(`rally supply [action] [identifier] --env [enviornment]`), _dec19 = param("action", "The action to perform. Can be calc."), _dec20 = param("identifier", "If the action is calc, then this identifier should be the first rule in the chain."), _dec21 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec22 = helpText(`tags stuff`), _dec23 = usage(`rally tags [action]`), _dec24 = param("action", "The action to perform. Can be list or create."), _dec25 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec26 = helpText(`print out some trace info`), _dec27 = usage(`rally trace -e [env] [jobid]`), _dec28 = param("jobid", "a job id like b86d7d90-f0a5-4622-8754-486ca8e9ecbd"), _dec29 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec30 = helpText(`List all available providers, or find one by name/id`), _dec31 = usage(`rally providers [identifier] --env [env] --raw`), _dec32 = param("identifier", "Either the name or id of the provider"), _dec33 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec34 = arg("~", "--raw", "Raw output of command. If [identifier] is given, then print editorConfig too"), _dec35 = helpText(`Change config for rally tools`), _dec36 = usage("rally config [key] --set [value] --raw"), _dec37 = param("key", chalk`Key you want to edit. For example, {green chalk} or {green api.DEV}`), _dec38 = arg("~", "--set", "If this value is given, no interactive prompt will launch and the config option will change."), _dec39 = arg("~", "--raw", "Raw output of json config"), _dec40 = helpText(`create/modify asset`), _dec41 = usage("rally asset [action] [action...]"), _dec42 = param("action", chalk`Options are create, delete, launch, addfile. You can supply multiple actions to chain them`), _dec43 = arg(`-i`, `--id`, chalk`MOVIE_ID of asset to select`), _dec44 = arg(`-n`, `--name`, chalk`MOVIE_NAME of asset. with {white create}, '{white #}' will be replaced with a uuid. Default is '{white TEST_#}'`), _dec45 = arg(`-j`, `--job-name`, chalk`Job name to start (used with launch)`), _dec46 = arg(`~`, `--init-data`, chalk`Init data to use when launching job. can be string, or {white @path/to/file} for a file`), _dec47 = arg(`~`, `--file-label`, chalk`File label (used with addfile)`), _dec48 = arg(`~`, `--file-uri`, chalk`File s3 uri. Can use multiple uri's for the same label (used with addfile)`), (_obj = {
   async help(args) {
     let arg = args._.shift();
 
@@ -3013,6 +3129,24 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
 
   async tag(args) {
     return subCommand(tagsub)(args);
+  },
+
+  async trace(args) {
+    let jobId = args._.shift();
+
+    if (!jobId) throw new AbortError("No job id");
+    if (!args.env) throw new AbortError("no env");
+    let traceInfo = await parseTrace(args.env, jobId);
+
+    for (let line of traceInfo) {
+      if (typeof line == "string") {
+        log(chalk.red(line));
+      } else {
+        printOutLine(line);
+      }
+    }
+
+    return true;
   },
 
   async providers(args) {
@@ -3463,7 +3597,7 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
     return true;
   }
 
-}, (_applyDecoratedDescriptor(_obj, "help", [_dec, _dec2, _dec3], Object.getOwnPropertyDescriptor(_obj, "help"), _obj), _applyDecoratedDescriptor(_obj, "jupyter", [_dec4, _dec5, _dec6], Object.getOwnPropertyDescriptor(_obj, "jupyter"), _obj), _applyDecoratedDescriptor(_obj, "preset", [_dec7, _dec8, _dec9, _dec10, _dec11, _dec12], Object.getOwnPropertyDescriptor(_obj, "preset"), _obj), _applyDecoratedDescriptor(_obj, "rule", [_dec13, _dec14, _dec15, _dec16], Object.getOwnPropertyDescriptor(_obj, "rule"), _obj), _applyDecoratedDescriptor(_obj, "supply", [_dec17, _dec18, _dec19, _dec20, _dec21], Object.getOwnPropertyDescriptor(_obj, "supply"), _obj), _applyDecoratedDescriptor(_obj, "tag", [_dec22, _dec23, _dec24, _dec25], Object.getOwnPropertyDescriptor(_obj, "tag"), _obj), _applyDecoratedDescriptor(_obj, "providers", [_dec26, _dec27, _dec28, _dec29, _dec30], Object.getOwnPropertyDescriptor(_obj, "providers"), _obj), _applyDecoratedDescriptor(_obj, "config", [_dec31, _dec32, _dec33, _dec34, _dec35], Object.getOwnPropertyDescriptor(_obj, "config"), _obj), _applyDecoratedDescriptor(_obj, "asset", [_dec36, _dec37, _dec38, _dec39, _dec40, _dec41, _dec42, _dec43, _dec44], Object.getOwnPropertyDescriptor(_obj, "asset"), _obj)), _obj));
+}, (_applyDecoratedDescriptor(_obj, "help", [_dec, _dec2, _dec3], Object.getOwnPropertyDescriptor(_obj, "help"), _obj), _applyDecoratedDescriptor(_obj, "jupyter", [_dec4, _dec5, _dec6], Object.getOwnPropertyDescriptor(_obj, "jupyter"), _obj), _applyDecoratedDescriptor(_obj, "preset", [_dec7, _dec8, _dec9, _dec10, _dec11, _dec12], Object.getOwnPropertyDescriptor(_obj, "preset"), _obj), _applyDecoratedDescriptor(_obj, "rule", [_dec13, _dec14, _dec15, _dec16], Object.getOwnPropertyDescriptor(_obj, "rule"), _obj), _applyDecoratedDescriptor(_obj, "supply", [_dec17, _dec18, _dec19, _dec20, _dec21], Object.getOwnPropertyDescriptor(_obj, "supply"), _obj), _applyDecoratedDescriptor(_obj, "tag", [_dec22, _dec23, _dec24, _dec25], Object.getOwnPropertyDescriptor(_obj, "tag"), _obj), _applyDecoratedDescriptor(_obj, "trace", [_dec26, _dec27, _dec28, _dec29], Object.getOwnPropertyDescriptor(_obj, "trace"), _obj), _applyDecoratedDescriptor(_obj, "providers", [_dec30, _dec31, _dec32, _dec33, _dec34], Object.getOwnPropertyDescriptor(_obj, "providers"), _obj), _applyDecoratedDescriptor(_obj, "config", [_dec35, _dec36, _dec37, _dec38, _dec39], Object.getOwnPropertyDescriptor(_obj, "config"), _obj), _applyDecoratedDescriptor(_obj, "asset", [_dec40, _dec41, _dec42, _dec43, _dec44, _dec45, _dec46, _dec47, _dec48], Object.getOwnPropertyDescriptor(_obj, "asset"), _obj)), _obj));
 
 async function unknownCommand(cmd) {
   log(chalk`Unknown command {red ${cmd}}.`);

@@ -2179,7 +2179,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   RallyBase: RallyBase
 });
 
-var version = "1.13.0";
+var version = "1.14.0";
 
 async function findLineInFile(renderedPreset, lineNumber) {
   let trueFileLine = lineNumber;
@@ -2277,8 +2277,8 @@ async function parseTrace(env, jobid) {
   for (let tr of trace.split("\n\n").reverse()) {
     errorLines.push(tr);
     shouldBreak--;
-    if (tr.includes("Execption")) shouldBreak = 1;
-    if (tr.includes("raised on")) shouldBreak = 1;
+    if (tr.includes("Exception")) shouldBreak = 1;
+    if (tr.includes("raised")) shouldBreak = 1;
     if (!shouldBreak) break;
   }
 

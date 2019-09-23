@@ -104,8 +104,8 @@ export async function parseTrace(env, jobid){
     for(let tr of trace.split("\n\n").reverse()){
         errorLines.push(tr);
         shouldBreak--;
-        if(tr.includes("Execption")) shouldBreak = 1;
-        if(tr.includes("raised on")) shouldBreak = 1;
+        if(tr.includes("Exception")) shouldBreak = 1;
+        if(tr.includes("raised")) shouldBreak = 1;
         if(!shouldBreak) break;
     }
 

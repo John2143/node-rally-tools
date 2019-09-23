@@ -4,6 +4,9 @@ const rp = require("request-promise");
 async function contribute(id){
     let a = await Asset.getById("PROD", id);
     let files = await a.getFiles();
+    let x = files.arr[9]
+
+    log(await x.getContent());
     let labels;
 
     labels = files.findByName("ClassifiedAmazonLabelsEvents_Txt");
@@ -48,4 +51,4 @@ async function contribute(id){
 };
 
 contribute(479466);
-contribute(462286);
+//contribute(462286);

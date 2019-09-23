@@ -1,5 +1,6 @@
 import {cached, defineAssoc} from "./decorators.js";
 import {lib, Collection, RallyBase} from "./rally-tools.js";
+import File from "./file.js";
 
 class Asset extends RallyBase{
     constructor({data, remote, included}){
@@ -49,6 +50,16 @@ class Asset extends RallyBase{
             env: this.remote, path: "/assets/" + this.id,
             method: "DELETE",
         });
+    }
+
+    async getFiles(){
+        let req = await lib.indexPathFast({
+            env: this.remote, path: `/assets/${this.id}/files`,
+            method: "GET",
+        });
+
+        //return req;
+        return new Collection(req.map(x => new File({data: x, remote: this.remote, parent: this})));
     }
 
     async addFile(label, fileuris){

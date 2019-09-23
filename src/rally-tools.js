@@ -340,6 +340,13 @@ export class ProtectedEnvError extends AbortError{
     }
 }
 
+export class FileTooLargeError extends Error{
+    constructor(file){
+        super(`File ${file.parentAsset ? file.parentAsset.name : "(unknown)"}/${file.name} size is: ${file.sizeGB}g (> ~.2G)`);
+        this.name = "File too large error";
+    }
+}
+
 export class Collection{
     constructor(arr){
         this.arr = arr;

@@ -227,6 +227,7 @@ class Rule extends RallyBase {
 
             await this.patchStrip();
             this.data.id = this.idMap[env];
+            this.data.attributes.name = undefined;
             //If it exists we can replace it
             write("replace, ");
             // let metadata = { data: this.data };
@@ -248,7 +249,7 @@ class Rule extends RallyBase {
                 env,
                 path: `/workflowRules/${this.idMap[env]}`,
                 method: "PATCH",
-                payload: {data: this.name},
+                payload: {data: this.data},
                 fullResponse: true
             });
 

@@ -5,7 +5,10 @@ import {configObject} from "./config.js";
 import {homedir} from "os";
 
 
-const home = homedir();
+let home;
+if(homedir){
+    home = homedir();
+}
 const colon = /:/g;
 const siloLike = /(silo\-\w+?)s?\/([^\/]+)\.([\w1234567890]+)$/g;
 export function pathTransform(path){

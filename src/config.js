@@ -1,11 +1,16 @@
 import {homedir} from "os";
 import {readFileSync} from "fs";
 
-export let configFile = homedir() + "/.rallyconfig";
+export let configFile = null
+
+if(homedir){
+    configFile = homedir() + "/.rallyconfig";
+}
 
 let configObject;
 export function loadConfig(file){
     if(file) configFile = file;
+    if(!configFile) return;
 
     configObject = {hasConfig: true};
     try{

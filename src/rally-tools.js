@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import {configObject} from "./config.js";
 import {cached} from "./decorators.js";
-const rp = importLazy("request-promise")
+import rp from "request-promise";
 
 global.chalk = chalk;
 global.log      = (...text) => console.log(...text);

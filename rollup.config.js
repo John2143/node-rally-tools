@@ -55,9 +55,13 @@ const importLazy = require("import-lazy")(require);
     ],
 }
 
-function newConfig(input, output){
+function newConfig(input, output, format="cjs"){
     let newOut = {...config.output};
     newOut.file = output;
+    newOut.format = format
+    if(format !== "cjs"){
+        newOut.banner = "";
+    }
     let c = {
         ...config,
         input, output: newOut,
@@ -66,5 +70,6 @@ function newConfig(input, output){
 }
 
 export default [
-    newConfig("src/cli.js", "./bundle.js"),
+    newConfig("src/cli.js", "./bundle.js", "cjs"),
+    newConfig("src/index.js", "./web.js", "umd"),
 ];

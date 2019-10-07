@@ -56,7 +56,7 @@ class Preset extends RallyBase{
                     name = this.name;
                 }catch(e){
                     log(chalk`{yellow Warning}: ${path} does not have a readable metadata file! Looking for ${this.localmetadatapath}`);
-                    this.data = Preset.newShell();
+                    this.data = Preset.newShell(name);
                     this.isGeneric = false;
                 }
                 this.name = name;
@@ -100,10 +100,11 @@ class Preset extends RallyBase{
         return new Preset({path: realpath, subProject: subproject});
     }
 
-    static newShell(){
+    static newShell(name = undefined){
         return {
             "attributes": {
                 "providerSettings": {
+                    "PresetName": name
                 }
             },
             "relationships": {},
@@ -293,11 +294,15 @@ class Preset extends RallyBase{
         return this.name.includes("Constant");
     }
     async uploadPresetData(env, id){
-        let res = await lib.makeAPIRequest({
-            env, path: `/presets/${id}/providerData`,
-            body: this.code, method: "PUT", fullResponse: true, timeout: 5000
-        });
-        write(chalk`code up {yellow ${res.statusCode}}, `);
+        if(this.code.trim() !== "NOUPLOAD"){
+            let res = await lib.makeAPIRequest({
+                env, path: `/presets/${id}/providerData`,
+                body: this.code, method: "PUT", fullResponse: true, timeout: 5000
+            });
+            write(chalk`code up {yellow ${res.statusCode}}, `);
+        }else{
+            write(chalk`code skipped {yellow :)}, `);
+        }
     }
     async grabMetadata(env){
         let remote = await Preset.getByName(env, this.name);
@@ -308,10 +313,17 @@ class Preset extends RallyBase{
         this.data = remote.data;
         this.remote = env;
     }
+
     async uploadCodeToEnv(env, includeMetadata, shouldTest = true){
         if(!this.name){
-            log(chalk`Failed uploading {red ${this.path}}. No name found.`);
-            return;
+            let match;
+            if(match = /^(#|["']{3})\s*EPH (\d+)/.exec(this.code.trim())){
+                let a = await Asset.getById(env, Number(match[2]))
+                return a.startEphemeralEvaluateIdeal(this);
+            }else{
+                log(chalk`Failed uploading {red ${this.path}}. No name found.`);
+                return;
+            }
         }
 
         write(chalk`Uploading preset {green ${this.name}} to {green ${env}}: `);

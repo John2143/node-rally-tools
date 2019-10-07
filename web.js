@@ -642,6 +642,9 @@
       }
 
     }
+    function sleep(time = 1000) {
+      return new Promise(resolve => setTimeout(resolve, time));
+    }
 
     class Provider extends RallyBase {
       constructor({
@@ -952,6 +955,56 @@
         return req;
       }
 
+      async startEphemeralEvaluateIdeal(preset) {
+        let res;
+        const env = this.remote;
+        let provider = await Provider.getByName(this.remote, "SdviEvaluate");
+        write(chalk`Starting ephemeral evaluate on ${this.chalkPrint(false)}...`); // Fire and forget.
+
+        let evalInfo = await lib.makeAPIRequest({
+          env: this.remote,
+          path: "/jobs",
+          method: "POST",
+          payload: {
+            data: {
+              attributes: {
+                category: provider.category,
+                providerTypeName: provider.name,
+                rallyConfiguration: {},
+                providerData: Buffer.from(preset.code, "binary").toString("base64")
+              },
+              type: "jobs",
+              relationships: {
+                movie: {
+                  data: {
+                    id: this.id,
+                    type: "movies"
+                  }
+                }
+              }
+            }
+          }
+        });
+        write(" Waiting for finish...");
+
+        for (;;) {
+          res = await lib.makeAPIRequest({
+            env,
+            path_full: evalInfo.data.links.self
+          });
+          write(".");
+
+          if (res.data.attributes.state == "Complete") {
+            write(chalk`{green  Done}...\n`);
+            break;
+          }
+
+          await sleep(300);
+        }
+
+        return;
+      }
+
       async startEvaluate(presetid) {
         // Fire and forget.
         let data = await lib.makeAPIRequest({
@@ -1091,7 +1144,7 @@
               name = this.name;
             } catch (e) {
               log(chalk`{yellow Warning}: ${path$1} does not have a readable metadata file! Looking for ${this.localmetadatapath}`);
-              this.data = Preset.newShell();
+              this.data = Preset.newShell(name);
               this.isGeneric = false;
             }
 
@@ -1142,10 +1195,12 @@
         });
       }
 
-      static newShell() {
+      static newShell(name = undefined) {
         return {
           "attributes": {
-            "providerSettings": {}
+            "providerSettings": {
+              "PresetName": name
+            }
           },
           "relationships": {},
           "type": "presets"
@@ -1361,15 +1416,19 @@
       }
 
       async uploadPresetData(env, id) {
-        let res = await lib.makeAPIRequest({
-          env,
-          path: `/presets/${id}/providerData`,
-          body: this.code,
-          method: "PUT",
-          fullResponse: true,
-          timeout: 5000
-        });
-        write(chalk`code up {yellow ${res.statusCode}}, `);
+        if (this.code.trim() !== "NOUPLOAD") {
+          let res = await lib.makeAPIRequest({
+            env,
+            path: `/presets/${id}/providerData`,
+            body: this.code,
+            method: "PUT",
+            fullResponse: true,
+            timeout: 5000
+          });
+          write(chalk`code up {yellow ${res.statusCode}}, `);
+        } else {
+          write(chalk`code skipped {yellow :)}, `);
+        }
       }
 
       async grabMetadata(env) {
@@ -1386,8 +1445,15 @@
 
       async uploadCodeToEnv(env, includeMetadata, shouldTest = true) {
         if (!this.name) {
-          log(chalk`Failed uploading {red ${this.path}}. No name found.`);
-          return;
+          let match;
+
+          if (match = /^(#|["']{3})\s*EPH (\d+)/.exec(this.code.trim())) {
+            let a = await Asset.getById(env, Number(match[2]));
+            return a.startEphemeralEvaluateIdeal(this);
+          } else {
+            log(chalk`Failed uploading {red ${this.path}}. No name found.`);
+            return;
+          }
         }
 
         write(chalk`Uploading preset {green ${this.name}} to {green ${env}}: `);
@@ -2064,6 +2130,7 @@
     exports.loadConfig = loadConfig;
     exports.rallyFunctions = rallyFunctions;
     exports.setConfig = setConfig;
+    exports.sleep = sleep;
 
     Object.defineProperty(exports, '__esModule', { value: true });
 

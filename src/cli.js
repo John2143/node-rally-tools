@@ -846,10 +846,6 @@ let cli = {
         }
     },
 
-    sleep(time = 1000){
-        return new Promise(resolve => setTimeout(resolve, time));
-    },
-
     async audit(args){
         let supportedAudits = ["presets", "rule", "other"];
         await configHelpers.addAutoCompletePrompt();
@@ -940,7 +936,7 @@ let cli = {
         this.callid++;
         let callid = this.callid;
 
-        await this.sleep(500);
+        await allIndexBundle.sleep(500);
 
         if(callid != this.callid) return this.lastResult || [];
 

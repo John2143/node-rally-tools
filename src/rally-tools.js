@@ -492,3 +492,7 @@ export class RallyBase{
         delete this.data.links;
     }
 }
+
+export function sleep(time = 1000){
+    return new Promise(resolve => setTimeout(resolve, time));
+}

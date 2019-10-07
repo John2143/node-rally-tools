@@ -1,6 +1,7 @@
 import {cached, defineAssoc} from "./decorators.js";
-import {lib, Collection, RallyBase} from "./rally-tools.js";
+import {lib, Collection, RallyBase, sleep} from "./rally-tools.js";
 import File from "./file.js";
+import Provider from "./providers.js";
 
 class Asset extends RallyBase{
     constructor({data, remote, included}){
@@ -159,6 +160,54 @@ class Asset extends RallyBase{
         return req;
 
     }
+
+    async startEphemeralEvaluateIdeal(preset){
+        let res;
+        const env = this.remote;
+        let provider = await Provider.getByName(this.remote, "SdviEvaluate");
+
+        write(chalk`Starting ephemeral evaluate on ${this.chalkPrint(false)}...`)
+
+        // Fire and forget.
+        let evalInfo = await lib.makeAPIRequest({
+            env: this.remote, path: "/jobs", method: "POST",
+            payload: {
+                data: {
+                    attributes: {
+                        category: provider.category,
+                        providerTypeName: provider.name,
+                        rallyConfiguration: {},
+                        providerData: Buffer.from(preset.code, "binary").toString("base64"),
+                    },
+                    type: "jobs",
+                    relationships: {
+                        movie: {
+                            data: {
+                                id: this.id,
+                                type: "movies",
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        write(" Waiting for finish...");
+        for(;;){
+            res = await lib.makeAPIRequest({
+                env, path_full: evalInfo.data.links.self
+            });
+            write(".");
+            if(res.data.attributes.state == "Complete"){
+                write(chalk`{green  Done}...\n`);
+                break;
+            }
+            await sleep(300);
+        }
+
+        return;
+    }
+
     async startEvaluate(presetid){
         // Fire and forget.
         let data = await lib.makeAPIRequest({

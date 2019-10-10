@@ -4,7 +4,7 @@ import File from "./file.js";
 import Provider from "./providers.js";
 
 class Asset extends RallyBase{
-    constructor({data, remote, included}){
+    constructor({data, remote, included, lite}){
         super();
         this.data = data;
         this.meta = {};
@@ -12,6 +12,7 @@ class Asset extends RallyBase{
         if(included){
             this.meta.metadata = Asset.normalizeMetadata(included);
         }
+        this.lite = !!lite;
     }
     static normalizeMetadata(payload){
         let newMetadata = {}
@@ -23,7 +24,7 @@ class Asset extends RallyBase{
     }
 
     static lite(id, remote){
-        return new this({data: {id}, remote})
+        return new this({data: {id}, remote, lite: true})
     }
 
     chalkPrint(pad=false){
@@ -239,6 +240,7 @@ defineAssoc(Asset, "id", "data.id");
 defineAssoc(Asset, "name", "data.attributes.name");
 defineAssoc(Asset, "remote", "meta.remote");
 defineAssoc(Asset, "md", "meta.metadata");
+defineAssoc(Asset, "lite", "meta.lite");
 Asset.endpoint = "movies"
 
 export default Asset;

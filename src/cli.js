@@ -747,6 +747,7 @@ let cli = {
             }else if(arg === "create"){
                 throw new AbortError(`Cannot have more than 1 create/get per asset call`);
             }else if(arg === "show"){
+                if(asset.lite) asset = await Asset.getById(env, asset.id);
                 log(asset);
             }
         }

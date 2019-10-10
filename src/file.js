@@ -29,6 +29,12 @@ class File extends RallyBase{
             env: this.remote, fullPath: this.contentLink
         });
     }
+    async delete(remove = true){
+        return lib.makeAPIRequest({
+            env: this.remote, fullPath: this.selfLink,
+            method: "DELETE",
+        });
+    }
     get size(){
         return Object.values(this.data.attributes.instances)[0].size
     }
@@ -41,6 +47,7 @@ class File extends RallyBase{
 defineAssoc(File, "id", "data.id");
 defineAssoc(File, "name", "data.attributes.label");
 defineAssoc(File, "contentLink", "data.links.content");
+defineAssoc(File, "selfLink", "data.links.self");
 defineAssoc(File, "label", "data.attributes.label");
 defineAssoc(File, "md5", "data.attributes.md5");
 defineAssoc(File, "sha512", "data.attributes.sha512");

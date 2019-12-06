@@ -134,7 +134,7 @@ export async function selectProvider(providers, autoDefault = false){
     }
 }
 
-export async function selectLocal(path, typeName, Class){
+export async function selectLocal(path, typeName, Class, canSelectNone = true){
     addAutoCompletePrompt();
     let basePath = configObject.repodir;
     let f = await readdir(basePath);
@@ -147,7 +147,8 @@ export async function selectLocal(path, typeName, Class){
         name: (chalk`      {red None}: {red None}`),
         value: null,
     };
-    objsMap.unshift(none);
+
+    if(canSelectNone) objsMap.unshift(none);
 
     let q = await inquirer.prompt([{
         type: "autocomplete",
@@ -160,11 +161,11 @@ export async function selectLocal(path, typeName, Class){
     return q.obj;
 }
 
-export async function selectPreset(purpose = "preset"){
-    return selectLocal("silo-presets", purpose, Preset);
+export async function selectPreset({purpose = "preset", canSelectNone}){
+    return selectLocal("silo-presets", purpose, Preset, canSelectNone);
 }
-export async function selectRule(purpose = "rule"){
-    return selectLocal("silo-rules", purpose, Rule);
+export async function selectRule({purpose = "rule", canSelectNone}){
+    return selectLocal("silo-rules", purpose, Rule, canSelectNone);
 }
 
 export async function askInput(question, def){

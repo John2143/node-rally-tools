@@ -223,16 +223,16 @@ let rulesub = {
         for(let rule of rules) log(rule.chalkPrint());
     },
     async $create(args){
-        let preset = await configHelpers.selectPreset();
-        let passNext = await configHelpers.selectRule("'On Exit OK'");
-        let errorNext = await configHelpers.selectRule("'On Exit Error'");
+        let preset = await configHelpers.selectPreset({canSelectNone: false});
+        let passNext = await configHelpers.selectRule({purpose: "'On Exit OK'"});
+        let errorNext = await configHelpers.selectRule({purpose: "'On Exit Error'"});
         let name = await configHelpers.askInput("Rule Name", "What is the rule name?");
         name = name.replace("@", preset.name);
         let desc = await configHelpers.askInput("Description", "Enter a description.");
 
         let dynamicNexts = [];
         let next;
-        while(next = await configHelpers.selectRule("dynamic next")){
+        while(next = await configHelpers.selectRule({purpose: "dynamic next"})){
             let name = await configHelpers.askInput("Key", "Key name for dynamic next");
             dynamicNexts.push({
                 meta: {
@@ -770,6 +770,17 @@ let cli = {
          }, "00:00:00:00");
     },
 
+    async getJobs(args){
+        let req = await allIndexBundle.lib.indexPathFast({
+            env: args.env, path: "/jobs",
+            qs: {
+                filter: "presetName=DCTC Add Element US Checkin",
+            },
+        });
+
+        log(req.map(x => x.relationships.asset.data.id).join("\n"))
+    },
+
     async listAssets(args, tag){
         let req = await allIndexBundle.lib.indexPathFast({
             env: args.env, path: "/assets",
@@ -861,13 +872,13 @@ let cli = {
         let resourceId = undefined
         let filterFunc = _=>_;
         if(choice === "presets"){
-            let preset = await configHelpers.selectPreset();
+            let preset = await configHelpers.selectPreset({canSelectNone: false});
             let remote = await Preset.getByName(args.env, preset.name);
             if(!remote) throw new AbortError("Could not find this item on remote env");
             filterFunc = ev => ev.resource == "Preset";
             resourceId = remote.id;
         }else if(choice === "rule"){
-            let preset = await configHelpers.selectRule();
+            let preset = await configHelpers.selectRule({canSelectNone: false});
             let remote = await Rule.getByName(args.env, preset.name);
             if(!remote) throw new AbortError("Could not find this item on remote env");
             filterFunc = ev => ev.resource == "Rule";

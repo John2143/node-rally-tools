@@ -33,6 +33,7 @@ async function contribute(id){
     if(labels){
         log("Contributing google label " + a.name);
         let content = JSON.parse(await labels.getContent());
+        log(content);
         let res = await rp.post({
             method: "POST",
             uri: `http://localhost:8080/addData`,

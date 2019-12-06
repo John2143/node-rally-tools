@@ -295,9 +295,18 @@ class Preset extends RallyBase{
     }
     async uploadPresetData(env, id){
         if(this.code.trim() !== "NOUPLOAD"){
+            let headers = {};
+            //binary presets
+            if(this.relationships?.providerType?.data?.name == "Vantage"){
+                this.code = Buffer.from(this.code, "utf8");
+                this.code = this.code.toString("base64");
+                headers["Content-Transfer-Encoding"] = "base64";
+            }
+
             let res = await lib.makeAPIRequest({
                 env, path: `/presets/${id}/providerData`,
-                body: this.code, method: "PUT", fullResponse: true, timeout: 5000
+                body: this.code, method: "PUT", fullResponse: true, timeout: 10000,
+                headers,
             });
             write(chalk`code up {yellow ${res.statusCode}}, `);
         }else{
@@ -346,6 +355,10 @@ class Preset extends RallyBase{
                     fullResponse: true,
                 });
                 write(chalk`metadata {yellow ${res.statusCode}}, `);
+                if(res.statusCode == 500){
+                    log(chalk`skipping code upload, did not successfully upload metadata`)
+                    return;
+                }
             }
 
             await this.uploadPresetData(env, remote.id);
@@ -377,6 +390,7 @@ class Preset extends RallyBase{
         return JSON.parse(readFileSync(this.localmetadatapath, "utf-8"));
     }
     getLocalCode(){
+        //todo fixup for binary presets, see uploadPresetData
         return readFileSync(this.path, "utf-8");
     }
 }

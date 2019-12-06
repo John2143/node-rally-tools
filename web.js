@@ -211,6 +211,8 @@
         if (fullResponse) {
           return response;
         } else if (isJSONResponse) {
+          if (response.stateCode === 202) return true;
+
           try {
             return JSON.parse(response.body);
           } catch (e) {
@@ -293,8 +295,9 @@
       }
 
       static async keepalive(func, inputData, {
-        chunksize,
-        observe = async _ => _
+        chunksize = 20,
+        observe = async _ => _,
+        progress = true
       } = {}) {
         let total = inputData ? inputData.length : func.length;
         let i = 0;
@@ -315,17 +318,17 @@
 
         let values = [];
         let finished = 0;
-        process.stderr.write("\n");
-        let threads = [...this.range(20)].map(async whichThread => {
+        if (progress) process.stderr.write("\n");
+        let threads = [...this.range(chunksize)].map(async whichThread => {
           while (true) {
             let [i, currentPromise] = createPromise();
             if (i == undefined) break;
             values[i] = await observe((await currentPromise));
-            this.drawProgress(++finished, total);
+            if (progress) this.drawProgress(++finished, total);
           }
         });
         await Promise.all(threads);
-        process.stderr.write("\n");
+        if (progress) process.stderr.write("\n");
         return values;
       }
 
@@ -1431,13 +1434,24 @@
 
       async uploadPresetData(env, id) {
         if (this.code.trim() !== "NOUPLOAD") {
+          var _this$relationships, _this$relationships$p, _this$relationships$p2;
+
+          let headers = {}; //binary presets
+
+          if (((_this$relationships = this.relationships) === null || _this$relationships === void 0 ? void 0 : (_this$relationships$p = _this$relationships.providerType) === null || _this$relationships$p === void 0 ? void 0 : (_this$relationships$p2 = _this$relationships$p.data) === null || _this$relationships$p2 === void 0 ? void 0 : _this$relationships$p2.name) == "Vantage") {
+            this.code = Buffer.from(this.code, "utf8");
+            this.code = this.code.toString("base64");
+            headers["Content-Transfer-Encoding"] = "base64";
+          }
+
           let res = await lib.makeAPIRequest({
             env,
             path: `/presets/${id}/providerData`,
             body: this.code,
             method: "PUT",
             fullResponse: true,
-            timeout: 5000
+            timeout: 10000,
+            headers
           });
           write(chalk`code up {yellow ${res.statusCode}}, `);
         } else {
@@ -1498,6 +1512,11 @@
               fullResponse: true
             });
             write(chalk`metadata {yellow ${res.statusCode}}, `);
+
+            if (res.statusCode == 500) {
+              log(chalk`skipping code upload, did not successfully upload metadata`);
+              return;
+            }
           }
 
           await this.uploadPresetData(env, remote.id);
@@ -1537,6 +1556,7 @@
       }
 
       getLocalCode() {
+        //todo fixup for binary presets, see uploadPresetData
         return readFileSync(this.path, "utf-8");
       }
 

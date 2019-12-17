@@ -1,7 +1,7 @@
 import {cached, defineAssoc} from "./decorators.js";
 import {lib, Collection, RallyBase} from "./rally-tools.js";
 
-async function findLineInFile(renderedPreset, lineNumber){
+export async function findLineInFile(renderedPreset, lineNumber){
     let trueFileLine = lineNumber;
 
     let linedRenderedPreset = renderedPreset.split("\n").slice(2,-2);
@@ -16,8 +16,6 @@ async function findLineInFile(renderedPreset, lineNumber){
         addTabDepth = 0;
         withinInclude = false;
     }
-
-
 
     for (let index = includeLocation.length - 1; index >= 0; index--){
         let currIncludeIndex = linedRenderedPreset.indexOf(includeLocation[index]);
@@ -75,8 +73,8 @@ export function printOutLine(eLine){
 ${eLine.line}`)
 }
 
-export async function parseTrace(env, jobid){
-
+export async function getInfo(env, jobid){
+    log(env, jobid);
     let trace = lib.makeAPIRequest({
         env, path: `/jobs/${jobid}/artifacts/trace`,
     }).catch(x => null);
@@ -97,13 +95,17 @@ export async function parseTrace(env, jobid){
         env, path: `/jobs/${jobid}/artifacts/output`,
     }).catch(x => null);
 
+    [trace, renderedPreset, result, output, error] = await Promise.all([trace, renderedPreset, result, output, error]);
 
+    return {trace, renderedPreset, result, output, error}
+}
 
-    [trace, renderedPreset, result, output, error] = await Promise.all([trace, renderedPreset, result, output, error])
+export async function parseTrace(env, jobid){
+
+    let {trace, renderedPreset} = await getInfo(env, jobid);
 
     let fileName = '';
     let lineNumber = -1;
-
 
     let errorLines = []
     let shouldBreak = 0;
@@ -129,5 +131,5 @@ export async function parseTrace(env, jobid){
     return errorList;
 }
 
-const Trace = {parseTrace, printOutLine};
+const Trace = {parseTrace, printOutLine, getInfo, findLineInFile};
 export default Trace;

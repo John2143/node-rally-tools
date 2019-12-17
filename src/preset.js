@@ -291,7 +291,7 @@ class Preset extends RallyBase{
         return path.join(configObject.repodir, this.subproject || "",  "silo-metadata", this.name + ".json");
     }
     get immutable(){
-        return this.name.includes("Constant");
+        return this.name.includes("Constant") && !configObject.updateImmutable;
     }
     async uploadPresetData(env, id){
         if(this.code.trim() !== "NOUPLOAD"){
@@ -349,9 +349,13 @@ class Preset extends RallyBase{
             //If it exists we can replace it
             write("replace, ");
             if(includeMetadata){
+                let payload = {data: {attributes: this.data.attributes, type: "presets"}};
+                if(this.relationships.tagNames){
+                    payload.relationships = {tagNames: this.relationships.tagNames};
+                }
                 let res = await lib.makeAPIRequest({
                     env, path: `/presets/${remote.id}`, method: "PATCH",
-                    payload: {data: {attributes: this.data.attributes, type: "presets"}},
+                    payload,
                     fullResponse: true,
                 });
                 write(chalk`metadata {yellow ${res.statusCode}}, `);

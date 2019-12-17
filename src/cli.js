@@ -12,7 +12,7 @@ import {version as packageVersion} from "../package.json";
 import {configFile, configObject, loadConfig} from "./config.js";
 import {readFileSync, writeFileSync} from "fs";
 
-import {printOutLine, parseTrace} from "./trace.js";
+import {printOutLine, parseTrace, findLineInFile, getInfo as getTraceInfo} from "./trace.js";
 
 import {helpText, arg, param, usage, helpEntries, spawn} from "./decorators.js";
 
@@ -554,18 +554,23 @@ let cli = {
         let jobId = args._.shift();
         if(!jobId) throw new AbortError("No job id");
         if(!args.env) throw new AbortError("no env");
+        let ln = args._.shift();
+        if(!ln){
+            log("is trace");
+            let traceInfo = await parseTrace(args.env, jobId);
 
-        let traceInfo = await parseTrace(args.env, jobId);
-
-        for(let line of traceInfo){
-            if(typeof(line) == "string"){
-                log(chalk.red(line));
-            }else{
-                printOutLine(line);
+            for(let line of traceInfo){
+                if(typeof(line) == "string"){
+                    log(chalk.red(line));
+                }else{
+                    printOutLine(line);
+                }
             }
+        }else{
+            log("is ln");
+            let {renderedPreset} = await getTraceInfo(args.env, jobId);
+            return findLineInFile(renderedPreset, Number(ln));
         }
-
-        return true;
     },
 
     @helpText(`List all available providers, or find one by name/id`)
@@ -667,9 +672,10 @@ let cli = {
 
     @helpText(`create/modify asset`)
     @usage("rally asset [action] [action...]")
-    @param("action", chalk`Options are create, delete, launch, addfile. You can supply multiple actions to chain them`)
+    @param("action", chalk`Options are create, delete, launch, addfile, metadata, and show. You can supply multiple actions to chain them`)
     @arg(`-i`, `--id`,         chalk`MOVIE_ID of asset to select`)
     @arg(`-n`, `--name`,       chalk`MOVIE_NAME of asset. with {white create}, '{white #}' will be replaced with a uuid. Default is '{white TEST_#}'`)
+    @arg(`~`,  `--anon`,       chalk`Supply this if no asset is needed (used to lauch anonymous workflows)`)
     @arg(`-j`, `--job-name`,   chalk`Job name to start (used with launch)`)
     @arg(`~`,  `--init-data`,  chalk`Init data to use when launching job. can be string, or {white @path/to/file} for a file`)
     @arg(`~`,  `--file-label`, chalk`File label (used with addfile)`)
@@ -746,9 +752,11 @@ let cli = {
                 await asset.delete();
             }else if(arg === "create"){
                 throw new AbortError(`Cannot have more than 1 create/get per asset call`);
-            }else if(arg === "show"){
+            }else if(arg === "show" || arg == "load"){
                 if(asset.lite) asset = await Asset.getById(env, asset.id);
-                log(asset);
+                if(arg == "show") log(asset);
+            }else if(arg === "metadata" || arg === "md"){
+                log(await asset.getMetadata());
             }
         }
         if(configObject.rawOutput) return asset;
@@ -1012,8 +1020,10 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
         return;
     }
 
+    let envs = new Set(["LOCAL", "UAT", "DEV", "PROD", "QA", ...Object.keys(configObject.api)]);
+
     //API Access tests
-    for(let env of ["LOCAL", "DEV", "UAT", "QA", "PROD"]){
+    for(let env of envs){
         //Test access. Returns HTTP response code
         let resultStr;
         try{
@@ -1078,6 +1088,10 @@ async function $main(){
 
     if(argv["ignore-missing"]){
         configObject.ignoreMissing = true;
+    }
+
+    if(argv["update-immutable"]){
+        configObject.updateImmutable = true;
     }
 
     //Default enviornment should normally be from config, but it can be

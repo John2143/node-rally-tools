@@ -23,6 +23,15 @@ class Asset extends RallyBase{
         return newMetadata;
     }
 
+    async getMetadata(forceRefresh = false){
+        if(this.meta.metadata && !forceRefresh) return this.meta.metadata;
+        let req = await lib.makeAPIRequest({
+            env: this.remote, path: `/movies/${this.id}/metadata`,
+        });
+
+        return this.meta.metadata = Asset.normalizeMetadata(req.data);
+    }
+
     static lite(id, remote){
         return new this({data: {id}, remote, lite: true})
     }

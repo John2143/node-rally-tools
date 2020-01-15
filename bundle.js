@@ -2490,7 +2490,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   sleep: sleep
 });
 
-var version = "1.15.4";
+var version = "1.16.0";
 
 var baseCode = {
   SdviContentMover: `{

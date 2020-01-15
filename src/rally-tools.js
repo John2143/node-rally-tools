@@ -179,10 +179,12 @@ export class lib{
     }
 
     static clearProgress(size = 30){
+        if(!configObject.globalProgress) return;
         process.stderr.write(`\r${" ".repeat(size + 15)}\r`);
     }
 
     static async drawProgress(i, max, size = process.stdout.columns - 15 || 15){
+        if(!configObject.globalProgress) return;
         if(size > 45) size = 45;
         let pct = Number(i) / Number(max);
         //clamp between 0 and 1
@@ -195,7 +197,7 @@ export class lib{
     }
 
 
-    static async keepalive(func, inputData, {chunksize = 20, observe = async _=>_, progress = true} = {}){
+    static async keepalive(func, inputData, {chunksize = 20, observe = async _=>_, progress = configObject.globalProgress} = {}){
         let total = inputData ? inputData.length : func.length;
         let i = 0;
         let createPromise = () => {

@@ -32,6 +32,37 @@ class Asset extends RallyBase{
         return this.meta.metadata = Asset.normalizeMetadata(req.data);
     }
 
+    async patchMetadata(metadata){
+        if(metadata.Workflow && false){
+            let req = await lib.makeAPIRequest({
+                env: this.remote, path: `/movies/${this.id}/metadata/Workflow`,
+                method: "PATCH",
+                payload: {
+                    "data": {
+                        "type": "metadata",
+                        "attributes": {
+                            "metadata": metadata.Workflow
+                        },
+                    }
+                }
+            });
+        }
+        if(metadata.Metadata){
+            let req = await lib.makeAPIRequest({
+                env: this.remote, path: `/movies/${this.id}/metadata/Metadata`,
+                method: "PATCH",
+                payload: {
+                    "data": {
+                        "type": "metadata",
+                        "attributes": {
+                            "metadata": metadata.Metadata
+                        },
+                    }
+                }
+            });
+        }
+    }
+
     static lite(id, remote){
         return new this({data: {id}, remote, lite: true})
     }
@@ -171,7 +202,7 @@ class Asset extends RallyBase{
 
     }
 
-    async startEphemeralEvaluateIdeal(preset){
+    async startEphemeralEvaluateIdeal(preset, dynamicPresetData){
         let res;
         const env = this.remote;
         let provider = await Provider.getByName(this.remote, "SdviEvaluate");
@@ -188,6 +219,7 @@ class Asset extends RallyBase{
                         providerTypeName: provider.name,
                         rallyConfiguration: {},
                         providerData: Buffer.from(preset.code, "binary").toString("base64"),
+                        dynamicPresetData,
                     },
                     type: "jobs",
                     relationships: {
@@ -218,13 +250,16 @@ class Asset extends RallyBase{
         return;
     }
 
-    async startEvaluate(presetid){
+    async startEvaluate(presetid, dynamicPresetData){
         // Fire and forget.
         let data = await lib.makeAPIRequest({
             env: this.remote, path: "/jobs", method: "POST",
             payload: {
                 data: {
                     type: "jobs",
+                    attributes: {
+                        dynamicPresetData,
+                    },
                     relationships: {
                         movie: {
                             data: {

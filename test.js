@@ -1,8 +1,13 @@
 let rt = require("./bundle.js");
 
-(async _ => {
-    let x = await rt.Asset.getById("UAT", 166299)
-    let f = await x.getFiles();
-    log((await f.findByName("192052_002_NLIN_2369416_7_AutoAQCEvents")).delete())
-})()
+async function main(){
+    let x = await rt.lib.indexPathFast({
+        path: "/jobs", env: "PROD",
+        qs: {
+            filter: `presetName=Machine_Learning_Amazon_QCEventClassifier_Labels,completedBefore=${Date.now() - 1000 * 60 * 60 * 24 * 30},completedSince=${Date.now() - 1000 * 60 * 60 * 24 * 120}`,
+        },
+    });
+    log(JSON.stringify(x));
+}
 
+main()

@@ -280,10 +280,12 @@
       }
 
       static clearProgress(size = 30) {
+        if (!exports.configObject.globalProgress) return;
         process.stderr.write(`\r${" ".repeat(size + 15)}\r`);
       }
 
       static async drawProgress(i, max, size = process.stdout.columns - 15 || 15) {
+        if (!exports.configObject.globalProgress) return;
         if (size > 45) size = 45;
         let pct = Number(i) / Number(max); //clamp between 0 and 1
 
@@ -297,7 +299,7 @@
       static async keepalive(func, inputData, {
         chunksize = 20,
         observe = async _ => _,
-        progress = true
+        progress = exports.configObject.globalProgress
       } = {}) {
         let total = inputData ? inputData.length : func.length;
         let i = 0;
@@ -811,6 +813,40 @@
         return this.meta.metadata = Asset.normalizeMetadata(req.data);
       }
 
+      async patchMetadata(metadata) {
+        if (metadata.Workflow && false) {
+          let req = await lib.makeAPIRequest({
+            env: this.remote,
+            path: `/movies/${this.id}/metadata/Workflow`,
+            method: "PATCH",
+            payload: {
+              "data": {
+                "type": "metadata",
+                "attributes": {
+                  "metadata": metadata.Workflow
+                }
+              }
+            }
+          });
+        }
+
+        if (metadata.Metadata) {
+          let req = await lib.makeAPIRequest({
+            env: this.remote,
+            path: `/movies/${this.id}/metadata/Metadata`,
+            method: "PATCH",
+            payload: {
+              "data": {
+                "type": "metadata",
+                "attributes": {
+                  "metadata": metadata.Metadata
+                }
+              }
+            }
+          });
+        }
+      }
+
       static lite(id, remote) {
         return new this({
           data: {
@@ -980,7 +1016,7 @@
         return req;
       }
 
-      async startEphemeralEvaluateIdeal(preset) {
+      async startEphemeralEvaluateIdeal(preset, dynamicPresetData) {
         let res;
         const env = this.remote;
         let provider = await Provider.getByName(this.remote, "SdviEvaluate");
@@ -996,7 +1032,8 @@
                 category: provider.category,
                 providerTypeName: provider.name,
                 rallyConfiguration: {},
-                providerData: Buffer.from(preset.code, "binary").toString("base64")
+                providerData: Buffer.from(preset.code, "binary").toString("base64"),
+                dynamicPresetData
               },
               type: "jobs",
               relationships: {
@@ -1030,7 +1067,7 @@
         return;
       }
 
-      async startEvaluate(presetid) {
+      async startEvaluate(presetid, dynamicPresetData) {
         // Fire and forget.
         let data = await lib.makeAPIRequest({
           env: this.remote,
@@ -1039,6 +1076,9 @@
           payload: {
             data: {
               type: "jobs",
+              attributes: {
+                dynamicPresetData
+              },
               relationships: {
                 movie: {
                   data: {

@@ -330,7 +330,7 @@ let tagsub = {
         for(let tag of tags) log(tag.chalkPrint());
     },
     async $create(args){
-        return Tag.create(this.env, "testTag");
+        return Tag.create(this.env, args._.shift());
     }
 };
 
@@ -718,6 +718,7 @@ let cli = {
         let arrayify = (obj, i) => Array.isArray(obj) ? obj[i] : (i == 0 ? obj : undefined);
 
         while(arg = args._.shift()){
+
             if(arg === "launch"){
                 let initData = arrayify(args["init-data"], launchArg);
                 if(initData && initData.startsWith("@")){
@@ -739,6 +740,36 @@ let cli = {
                     await Asset.startAnonWorkflow(env, jobName, initData)
                 }
                 launchArg++;
+            }else if(arg === "launchEvaluate"){
+                let initData = arrayify(args["init-data"], launchArg);
+                if(initData && initData.startsWith("@")){
+                    log(chalk`Reading init data from {white ${initData.slice(1)}}`);
+                    initData = readFileSync(initData.slice(1), "utf-8");
+                }
+
+                let jobName = arrayify(args["job-name"], launchArg);
+                let jobData;
+                let ephemeralEval = false;
+                let p;
+                if(jobName.startsWith("@")){
+                    ephemeralEval = true;
+                    jobData = readFileSync(jobName.slice(1));
+                }else{
+                    p = await Preset.getByName(env, jobName);
+                    if(!p){
+                        throw new AbortError(`Cannot launch preset ${jobName}, does not exist (?)`);
+                    }else{
+                        log(chalk`Launching ${p.chalkPrint(false)} on ${asset ? asset.chalkPrint(false) : "(None)"}`);
+                    }
+                }
+
+
+                if(ephemeralEval){
+                    await Asset.startEphemeralEvaluateIdeal(env, p.id, initData)
+                }else{
+                    await asset.startEvaluate(p.id, initData)
+                }
+                launchArg++;
             }else if(arg === "addfile"){
                 let label = arrayify(args["file-label"], fileArg)
                 let uri   = arrayify(args["file-uri"], fileArg)
@@ -757,6 +788,16 @@ let cli = {
                 if(arg == "show") log(asset);
             }else if(arg === "metadata" || arg === "md"){
                 log(await asset.getMetadata());
+            }else if(arg === "patchMetadata"){
+                let initData = arrayify(args["metadata"], launchArg);
+                if(initData && initData.startsWith("@")){
+                    log(chalk`Reading data from {white ${initData.slice(1)}}`);
+                    initData = readFileSync(initData.slice(1), "utf-8");
+                }
+
+                initData = JSON.parse(initData);
+
+                await asset.patchMetadata(initData);
             }
         }
         if(configObject.rawOutput) return asset;

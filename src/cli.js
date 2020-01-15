@@ -672,14 +672,15 @@ let cli = {
 
     @helpText(`create/modify asset`)
     @usage("rally asset [action] [action...]")
-    @param("action", chalk`Options are create, delete, launch, addfile, metadata, and show. You can supply multiple actions to chain them`)
+    @param("action", chalk`Options are create, delete, launch, addfile, metadata, show, patchMetadata, and launchEvalute. You can supply multiple actions to chain them`)
     @arg(`-i`, `--id`,         chalk`MOVIE_ID of asset to select`)
     @arg(`-n`, `--name`,       chalk`MOVIE_NAME of asset. with {white create}, '{white #}' will be replaced with a uuid. Default is '{white TEST_#}'`)
     @arg(`~`,  `--anon`,       chalk`Supply this if no asset is needed (used to lauch anonymous workflows)`)
-    @arg(`-j`, `--job-name`,   chalk`Job name to start (used with launch)`)
+    @arg(`-j`, `--job-name`,   chalk`Job name to start (used with launch and launchEvalute)`)
     @arg(`~`,  `--init-data`,  chalk`Init data to use when launching job. can be string, or {white @path/to/file} for a file`)
     @arg(`~`,  `--file-label`, chalk`File label (used with addfile)`)
     @arg(`~`,  `--file-uri`,   chalk`File s3 uri. Can use multiple uri's for the same label (used with addfile)`)
+    @arg(`~`,  `--metadata`,   chalk`Metadata to use with patchMetadata. Can be string, or {white @path/to/file} for a file. Data must contain a top level key Metadata, or Workflow. Metadata will be pached into METADATA. Workflow will be patched into WORKFLOW_METADATA(not currently available)`)
     async asset(args){
         function uuid(args){
             const digits = 16;
@@ -1134,6 +1135,8 @@ async function $main(){
     if(argv["update-immutable"]){
         configObject.updateImmutable = true;
     }
+
+    configObject.globalProgress = !argv["hide-progress"];
 
     //Default enviornment should normally be from config, but it can be
     //overridden by the -e/--env flag

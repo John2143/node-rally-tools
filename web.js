@@ -940,15 +940,20 @@
         return req;
       }
 
-      async startWorkflow(jobName, initData) {
-        let attributes;
+      async startWorkflow(jobName, {
+        initData,
+        priority
+      } = {}) {
+        let attributes = {};
 
         if (initData) {
           //Convert init data to string
           initData = typeof initData === "string" ? initData : JSON.stringify(initData);
-          attributes = {
-            initData
-          };
+          attributes.initData = initData;
+        }
+
+        if (priority) {
+          attributes.priority = priority;
         }
 
         let req = await lib.makeAPIRequest({
@@ -981,15 +986,20 @@
         return req;
       }
 
-      static async startAnonWorkflow(env, jobName, initData) {
-        let attributes;
+      static async startAnonWorkflow(env, jobName, {
+        initData,
+        priority
+      } = {}) {
+        let attributes = {};
 
         if (initData) {
           //Convert init data to string
           initData = typeof initData === "string" ? initData : JSON.stringify(initData);
-          attributes = {
-            initData
-          };
+          attributes.initData = initData;
+        }
+
+        if (priority) {
+          attributes.priority = priority;
         }
 
         let req = await lib.makeAPIRequest({

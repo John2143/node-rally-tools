@@ -1,13 +1,26 @@
 let rt = require("./bundle.js");
 
+rt.configObject.globalProgress = true;
+
 async function main(){
     let x = await rt.lib.indexPathFast({
         path: "/jobs", env: "PROD",
         qs: {
-            filter: `presetName=Machine_Learning_Amazon_QCEventClassifier_Labels,completedBefore=${Date.now() - 1000 * 60 * 60 * 24 * 30},completedSince=${Date.now() - 1000 * 60 * 60 * 24 * 120}`,
+            filter: `{"presetName": "omneon re-hash reference so replacements work","completedBefore": "${Date.now()}"}`,
         },
     });
     log(JSON.stringify(x));
 }
 
-main()
+async function getName(id){
+    let x = await rt.Asset.getById("PROD", id)
+    log(x.name);
+}
+
+async function main2(){
+    let items = require("fs").readFileSync("nice.txt", "utf-8").trim().split("\n");
+
+    await rt.lib.keepalive(getName, items, {chunksize: 50});
+}
+
+main2();

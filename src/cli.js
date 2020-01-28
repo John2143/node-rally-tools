@@ -131,7 +131,7 @@ let presetsub = {
         }
 
         preset.saveLocalMetadata();
-        preset.saveLocalFile();
+        if(!args["only-metadata"]) preset.saveLocalFile();
     },
     async $list(args){
         log("Loading...");
@@ -681,6 +681,7 @@ let cli = {
     @arg(`~`,  `--file-label`, chalk`File label (used with addfile)`)
     @arg(`~`,  `--file-uri`,   chalk`File s3 uri. Can use multiple uri's for the same label (used with addfile)`)
     @arg(`~`,  `--metadata`,   chalk`Metadata to use with patchMetadata. Can be string, or {white @path/to/file} for a file. Data must contain a top level key Metadata, or Workflow. Metadata will be pached into METADATA. Workflow will be patched into WORKFLOW_METADATA(not currently available)`)
+    @arg(`~`,  `--priority`,   chalk`set the priority of all launched jobs`)
     async asset(args){
         function uuid(args){
             const digits = 16;
@@ -736,9 +737,9 @@ let cli = {
                 }
 
                 if(asset){
-                    await asset.startWorkflow(jobName, initData)
+                    await asset.startWorkflow(jobName, {initData, priority: args.priority})
                 }else{
-                    await Asset.startAnonWorkflow(env, jobName, initData)
+                    await Asset.startAnonWorkflow(env, jobName, {initData, priority: args.priority})
                 }
                 launchArg++;
             }else if(arg === "launchEvaluate"){

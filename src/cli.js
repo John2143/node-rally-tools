@@ -408,6 +408,9 @@ let supplysub = {
             for(let preset of this.chain.presets){
                 let otherPreset = otherPresets.arr.find(x => x.name === preset.name) || {};
 
+                preset.code      = preset.code.replace(/[\r\n ]/, "");
+                otherPreset.code = otherPreset.code.replace(/[\r\n ]/, "");
+
                 if(preset.code === otherPreset.code){
                     if(!args["ignore-same"]){
                         printPresets(preset, otherPreset);
@@ -682,6 +685,7 @@ let cli = {
     @arg(`~`,  `--file-uri`,   chalk`File s3 uri. Can use multiple uri's for the same label (used with addfile)`)
     @arg(`~`,  `--metadata`,   chalk`Metadata to use with patchMetadata. Can be string, or {white @path/to/file} for a file. Data must contain a top level key Metadata, or Workflow. Metadata will be pached into METADATA. Workflow will be patched into WORKFLOW_METADATA(not currently available)`)
     @arg(`~`,  `--priority`,   chalk`set the priority of all launched jobs`)
+    @arg(`~`,  `--new-name`,    chalk`set the new name`)
     async asset(args){
         function uuid(args){
             const digits = 16;
@@ -800,6 +804,11 @@ let cli = {
                 initData = JSON.parse(initData);
 
                 await asset.patchMetadata(initData);
+            }else if(arg === "rename"){
+                let newName = args["new-name"];
+                let oldName = asset.name;
+                await asset.rename(newName);
+                log(chalk`Rename: {green ${oldName}} -> {green ${newName}}`);
             }
         }
         if(configObject.rawOutput) return asset;
@@ -862,6 +871,27 @@ let cli = {
                 log(asset.name);
             }
         }
+    },
+    async test4(args){
+        let things = await allIndexBundle.lib.indexPathFast({
+            env: args.env, path: "/assets",
+            qs: {
+                filter: `createdBefore=${Date.now() - 1000 * 47 * 24 * 60 * 60},createdSince=${Date.now() - 1000 * 66 * 24 * 60 * 60}`
+            }
+        });
+
+        log(JSON.stringify(things, null, 4));
+    },
+
+    async test5(args){
+        let things = await allIndexBundle.lib.indexPathFast({
+            env: args.env, path: "/jobs",
+            qs: {
+                filter: `state=Queued,presetName=E2 P4101 - DNE Compliance Edit - US Output Deal - Edit WorkOrder`
+            }
+        });
+
+        log(JSON.stringify(things, null, 4));
     },
     async test2(args){
         let wfr = await allIndexBundle.lib.indexPath({
@@ -1065,12 +1095,18 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
 
     let envs = new Set(["LOCAL", "UAT", "DEV", "PROD", "QA", ...Object.keys(configObject.api)]);
 
-    //API Access tests
+    let proms = [];
     for(let env of envs){
+        proms.push({env, prom: funcs.testAccess(env)});
+    }
+
+    //API Access tests
+    for(let {env, prom} of proms){
         //Test access. Returns HTTP response code
         let resultStr;
         try{
-            let result = await funcs.testAccess(env);
+
+            let result = await prom;
 
             //Create a colored display and response
             resultStr = chalk`{yellow ${result} <unknown>}`;

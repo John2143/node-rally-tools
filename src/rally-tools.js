@@ -118,7 +118,7 @@ export class lib{
         if(fullResponse){
             return response;
         }else if(isJSONResponse){
-            if(response.stateCode === 202) return true;
+            if((response.stateCode === 202 || response.statusCode === 201) && !response?.body?.trim()) return {};
             try{
                 return JSON.parse(response.body);
             }catch(e){

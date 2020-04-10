@@ -2,11 +2,11 @@
     typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('chalk'), require('os'), require('fs'), require('child_process'), require('perf_hooks'), require('request-promise'), require('path')) :
     typeof define === 'function' && define.amd ? define(['exports', 'chalk', 'os', 'fs', 'child_process', 'perf_hooks', 'request-promise', 'path'], factory) :
     (global = global || self, factory(global.RallyTools = {}, global.chalk$1, global.os, global.fs, global.child_process, global.perf_hooks, global.rp, global.path));
-}(this, function (exports, chalk$1, os, fs, child_process, perf_hooks, rp, path) { 'use strict';
+}(this, (function (exports, chalk$1, os, fs, child_process, perf_hooks, rp, path) { 'use strict';
 
-    chalk$1 = chalk$1 && chalk$1.hasOwnProperty('default') ? chalk$1['default'] : chalk$1;
+    chalk$1 = chalk$1 && Object.prototype.hasOwnProperty.call(chalk$1, 'default') ? chalk$1['default'] : chalk$1;
     var fs__default = 'default' in fs ? fs['default'] : fs;
-    rp = rp && rp.hasOwnProperty('default') ? rp['default'] : rp;
+    rp = rp && Object.prototype.hasOwnProperty.call(rp, 'default') ? rp['default'] : rp;
     var path__default = 'default' in path ? path['default'] : path;
 
     exports.configFile = null;
@@ -211,7 +211,9 @@
         if (fullResponse) {
           return response;
         } else if (isJSONResponse) {
-          if (response.stateCode === 202) return true;
+          var _response, _response$body;
+
+          if ((response.stateCode === 202 || response.statusCode === 201) && !((_response = response) === null || _response === void 0 ? void 0 : (_response$body = _response.body) === null || _response$body === void 0 ? void 0 : _response$body.trim())) return {};
 
           try {
             return JSON.parse(response.body);
@@ -940,15 +942,20 @@
         return req;
       }
 
-      async startWorkflow(jobName, initData) {
-        let attributes;
+      async startWorkflow(jobName, {
+        initData,
+        priority
+      } = {}) {
+        let attributes = {};
 
         if (initData) {
           //Convert init data to string
           initData = typeof initData === "string" ? initData : JSON.stringify(initData);
-          attributes = {
-            initData
-          };
+          attributes.initData = initData;
+        }
+
+        if (priority) {
+          attributes.priority = priority;
         }
 
         let req = await lib.makeAPIRequest({
@@ -981,15 +988,20 @@
         return req;
       }
 
-      static async startAnonWorkflow(env, jobName, initData) {
-        let attributes;
+      static async startAnonWorkflow(env, jobName, {
+        initData,
+        priority
+      } = {}) {
+        let attributes = {};
 
         if (initData) {
           //Convert init data to string
           initData = typeof initData === "string" ? initData : JSON.stringify(initData);
-          attributes = {
-            initData
-          };
+          attributes.initData = initData;
+        }
+
+        if (priority) {
+          attributes.priority = priority;
         }
 
         let req = await lib.makeAPIRequest({
@@ -1097,6 +1109,24 @@
           }
         });
         return data;
+      }
+
+      async rename(newName) {
+        let req = await lib.makeAPIRequest({
+          env: this.remote,
+          path: `/assets/${this.id}`,
+          method: "PATCH",
+          payload: {
+            data: {
+              attributes: {
+                name: newName
+              },
+              type: "assets"
+            }
+          }
+        });
+        this.name = newName;
+        return req;
       }
 
     }
@@ -2366,5 +2396,5 @@ ${eLine.line}`);
 
     Object.defineProperty(exports, '__esModule', { value: true });
 
-}));
+})));
 //# sourceMappingURL=web.js.map

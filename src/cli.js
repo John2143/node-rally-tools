@@ -9,7 +9,7 @@ import {
 } from "./index.js";
 
 import {version as packageVersion} from "../package.json";
-import {configFile, configObject, loadConfig} from "./config.js";
+import {configFile, configObject, loadConfig, loadConfigFromArgs} from "./config.js";
 import {readFileSync, writeFileSync} from "fs";
 
 import {printOutLine, parseTrace, findLineInFile, getInfo as getTraceInfo} from "./trace.js";
@@ -1135,7 +1135,13 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
 
 async function $main(){
     //Supply --config to load a different config file
-    if(argv.config) loadConfig(argv.config);
+    if(typeof(argv.config) === "string"){
+        loadConfig(argv.config);
+    }else if(typeof(argv.config) === "object") {
+        loadConfigFromArgs(argv);
+    }else{
+        loadConfig();
+    }
 
     // First we need to decide if the user wants color or not. If they do want
     // color, we need to make sure we use the right mode
@@ -1241,5 +1247,6 @@ async function main(...args){
 if(require.main === module){
     main();
 }else{
+    loadConfig();
     module.exports = allIndexBundle;
 }

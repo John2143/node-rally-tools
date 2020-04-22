@@ -27,10 +27,17 @@ export function loadConfig(file){
     }
 }
 
+export function loadConfigFromArgs(args){
+    let tempConfig = {
+        hasConfig: true,
+        ...args.config
+    };
+
+    configObject = tempConfig;
+}
+
 export function setConfig(obj){
     configObject = obj;
 }
-
-loadConfig();
 
 export {configObject};

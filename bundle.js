@@ -76,10 +76,16 @@ function loadConfig(file) {
     }
   }
 }
+function loadConfigFromArgs(args) {
+  let tempConfig = {
+    hasConfig: true,
+    ...args.config
+  };
+  configObject = tempConfig;
+}
 function setConfig(obj) {
   configObject = obj;
 }
-loadConfig();
 
 //these are the help entries for each command
 let helpEntries = {};
@@ -2507,6 +2513,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   Trace: Trace,
   get configFile () { return configFile; },
   loadConfig: loadConfig,
+  loadConfigFromArgs: loadConfigFromArgs,
   setConfig: setConfig,
   get configObject () { return configObject; },
   lib: lib,
@@ -2520,7 +2527,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   sleep: sleep
 });
 
-var version = "1.16.2";
+var version = "1.16.3";
 
 var baseCode = {
   SdviContentMover: `{
@@ -4052,8 +4059,15 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
 
 async function $main() {
   //Supply --config to load a different config file
-  if (argv.config) loadConfig(argv.config); // First we need to decide if the user wants color or not. If they do want
+  if (typeof argv.config === "string") {
+    loadConfig(argv.config);
+  } else if (typeof argv.config === "object") {
+    loadConfigFromArgs(argv);
+  } else {
+    loadConfig();
+  } // First we need to decide if the user wants color or not. If they do want
   // color, we need to make sure we use the right mode
+
 
   chalk.enabled = configObject.hasConfig ? configObject.chalk : true;
 
@@ -4163,6 +4177,7 @@ async function main(...args) {
 if (require.main === module) {
   main();
 } else {
+  loadConfig();
   module.exports = allIndexBundle;
 }
 //# sourceMappingURL=bundle.js.map

@@ -35,10 +35,16 @@
         }
       }
     }
+    function loadConfigFromArgs(args) {
+      let tempConfig = {
+        hasConfig: true,
+        ...args.config
+      };
+      exports.configObject = tempConfig;
+    }
     function setConfig(obj) {
       exports.configObject = obj;
     }
-    loadConfig();
 
     //these are the help entries for each command
     //function retuns obj.a.b.c
@@ -2390,6 +2396,7 @@ ${eLine.line}`);
     exports.User = User;
     exports.lib = lib;
     exports.loadConfig = loadConfig;
+    exports.loadConfigFromArgs = loadConfigFromArgs;
     exports.rallyFunctions = rallyFunctions;
     exports.setConfig = setConfig;
     exports.sleep = sleep;

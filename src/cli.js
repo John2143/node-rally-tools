@@ -168,6 +168,26 @@ let presetsub = {
         let presets = this.files.map(path => new Preset({path, remote: false}));
         await funcs.uploadPresets(this.env, presets);
     },
+    async $deleteRemote(args){
+        let file = this.files[0];
+        if(!this.files){
+            throw new AbortError("No files provided to diff (use --file argument)");
+        }
+
+        let preset = new Preset({path: file, remote: false});
+        if(!preset.name){
+            throw new AbortError(chalk`No preset header found. Cannot get name.`);
+        }
+
+        let preset2 = await Preset.getByName(this.env, preset.name);
+        if(!preset2){
+            throw new AbortError(chalk`No preset found with name {red ${preset.name}} on {blue ${this.env}}`);
+        }
+
+        log(chalk`Deleting ${preset2.chalkPrint(true)}.`);
+
+        log(await preset2.delete());
+    },
     async $diff(args){
         let file = this.files[0];
         if(!this.files){
@@ -385,6 +405,15 @@ let supplysub = {
             }else{
                 await this.chain.syncTo(args["to"]);
             }
+
+        }else if(args["delete"]){
+            if(Array.isArray(args["delete"])){
+                for(let to of args["delete"]){
+                    await this.chain.deleteTo(to);
+                }
+            }else{
+                await this.chain.deleteTo(args["delete"]);
+            }
         }else if(args["diff"]){
             //Very basic diff
             let env = args["diff"];
@@ -516,7 +545,7 @@ let cli = {
 
     @helpText(`Preset related actions`)
     @usage(`rally preset [action] --env <enviornment> --file [file1] --file [file2] ...`)
-    @param("action", "The action to perform. Can be upload, diff, list")
+    @param("action", "The action to perform. Can be upload, diff, list, deleteRemote")
     @arg("-e", "--env", "The enviornment you wish to perform the action on")
     @arg("-f", "--file", "A file to act on")
     @arg("~", "--command", "If the action is diff, this is the command to run instead of diff")
@@ -533,10 +562,14 @@ let cli = {
     },
 
     @helpText(`supply chain related actions`)
-    @usage(`rally supply [action] [identifier] --env [enviornment]`)
-    @param("action", "The action to perform. Can be calc.")
-    @param("identifier", "If the action is calc, then this identifier should be the first rule in the chain.")
-    @arg("-e", "--env", "The enviornment you wish to perform the action on")
+    @usage(`rally supply [action] [identifier] --env [enviornment] [post actions]`)
+    @param("action", "The action to perform. Can be calc or make.")
+    @param("identifier", "If the action is calc, then this identifier should be the first rule in the chain. If this is make, then supply '-' to read from stdin")
+    @param("post actions", "The action to perform on the created supply chain. See commands below")
+    @arg("-e", "--env", "(calc only) environment to do the calculation on")
+    @arg("~", "--diff", "(post action) Use as `--diff [env]`. List all files with differences on the given env.")
+    @arg("~", "--to", "(post action) Use as `--to [env]`. Upload all objects.")
+    @arg("~", "--delete", "(post action) Use as `--delete [env]`. The reverse of uploading. Only presets are supported right now.")
     async supply(args){
         return subCommand(supplysub)(args);
     },
@@ -876,7 +909,7 @@ let cli = {
         let things = await allIndexBundle.lib.indexPathFast({
             env: args.env, path: "/assets",
             qs: {
-                filter: `createdBefore=${Date.now() - 1000 * 47 * 24 * 60 * 60},createdSince=${Date.now() - 1000 * 66 * 24 * 60 * 60}`
+                filter: `createdBefore=${Date.now() - 1000 * 160 * 24 * 60 * 60},createdSince=${Date.now() - 1000 * 170 * 24 * 60 * 60}`
             }
         });
 

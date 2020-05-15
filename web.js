@@ -219,7 +219,7 @@
         } else if (isJSONResponse) {
           var _response, _response$body;
 
-          if ((response.stateCode === 202 || response.statusCode === 201) && !((_response = response) === null || _response === void 0 ? void 0 : (_response$body = _response.body) === null || _response$body === void 0 ? void 0 : _response$body.trim())) return {};
+          if ([200, 201, 202, 203, 204].includes(response.statusCode) && !((_response = response) === null || _response === void 0 ? void 0 : (_response$body = _response.body) === null || _response$body === void 0 ? void 0 : _response$body.trim())) return {};
 
           try {
             return JSON.parse(response.body);
@@ -1556,6 +1556,26 @@
         this.remote = env;
       }
 
+      async deleteRemoteVersion(env, id = null) {
+        if (lib.isLocalEnv(env)) return false;
+
+        if (!id) {
+          let remote = await Preset.getByName(env, this.name);
+          id = remote.id;
+        }
+
+        return await lib.makeAPIRequest({
+          env,
+          path: `/presets/${id}`,
+          method: "DELETE"
+        });
+      }
+
+      async delete() {
+        if (lib.isLocalEnv(this.remote)) return false;
+        return await this.deleteRemoteVersion(this.remote, this.id);
+      }
+
       async uploadCodeToEnv(env, includeMetadata, shouldTest = true) {
         if (!this.name) {
           let match;
@@ -2087,6 +2107,16 @@
             rules: this.rules.arr,
             notifications: this.notifications.arr
           };
+        }
+      }
+
+      async deleteTo(env) {
+        for (let preset of this.presets) {
+          try {
+            await preset.deleteRemoteVersion(env);
+          } catch (e) {
+            log(e);
+          }
         }
       }
 

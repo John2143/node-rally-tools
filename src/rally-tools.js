@@ -118,7 +118,7 @@ export class lib{
         if(fullResponse){
             return response;
         }else if(isJSONResponse){
-            if((response.stateCode === 202 || response.statusCode === 201) && !response?.body?.trim()) return {};
+            if([200, 201, 202, 203, 204].includes(response.statusCode) && !response?.body?.trim()) return {};
             try{
                 return JSON.parse(response.body);
             }catch(e){
@@ -238,7 +238,6 @@ export class lib{
         }
         while(start < end) yield start++;
     }
-
 
     //Index a json endpoint that returns a {links} field.
     //

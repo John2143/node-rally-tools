@@ -146,6 +146,13 @@ export default class SupplyChain{
             return {presets: this.presets.arr, rules: this.rules.arr, notifications: this.notifications.arr};
         }
     }
+    async deleteTo(env){
+         for(let preset of this.presets){
+            try{
+                await preset.deleteRemoteVersion(env);
+            }catch(e){log(e);}
+         }
+    }
     async syncTo(env){
         for(let preset of this.presets){
             try{

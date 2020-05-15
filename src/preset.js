@@ -323,6 +323,25 @@ class Preset extends RallyBase{
         this.remote = env;
     }
 
+    async deleteRemoteVersion(env, id=null){
+        if(lib.isLocalEnv(env)) return false;
+        if(!id){
+            let remote = await Preset.getByName(env, this.name);
+            id = remote.id;
+        }
+
+        return await lib.makeAPIRequest({
+            env, path: `/presets/${id}`,
+            method: "DELETE",
+        });
+    }
+
+    async delete(){
+        if(lib.isLocalEnv(this.remote)) return false;
+
+        return await this.deleteRemoteVersion(this.remote, this.id);
+    }
+
     async uploadCodeToEnv(env, includeMetadata, shouldTest = true){
         if(!this.name){
             let match;

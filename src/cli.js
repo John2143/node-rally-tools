@@ -972,6 +972,27 @@ let cli = {
         }
     },
 
+    async deleteOmneons(args){
+        let id = args._.shift();
+
+        let asset;
+        if(Number(id)) {
+            asset = await Asset.getById("PROD", Number(id));
+        }else{
+            asset = await Asset.getByName("PROD", id);
+        }
+
+        log(asset);
+        let f = await asset.getFiles();
+
+        for(let file of f){
+            if(file.label.includes("Omneon")){
+                log(`removing ${file.label}`);
+                await file.delete();
+            }
+        }
+    },
+
     async audit(args){
         let supportedAudits = ["presets", "rule", "other"];
         await configHelpers.addAutoCompletePrompt();

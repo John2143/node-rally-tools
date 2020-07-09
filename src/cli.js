@@ -438,7 +438,7 @@ let supplysub = {
                 let otherPreset = otherPresets.arr.find(x => x.name === preset.name) || {};
 
                 preset.code      = preset.code.replace(/[\r\n ]/, "");
-                otherPreset.code = otherPreset.code.replace(/[\r\n ]/, "");
+                otherPreset.code = (otherPreset.code || "").replace(/[\r\n ]/, "");
 
                 if(preset.code === otherPreset.code){
                     if(!args["ignore-same"]){

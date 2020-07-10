@@ -1585,7 +1585,7 @@
         let headers = {};
         let providerName = (_this$relationships = this.relationships) === null || _this$relationships === void 0 ? void 0 : (_this$relationships$p = _this$relationships.providerType) === null || _this$relationships$p === void 0 ? void 0 : (_this$relationships$p2 = _this$relationships$p.data) === null || _this$relationships$p2 === void 0 ? void 0 : _this$relationships$p2.name;
 
-        if (providerName === "SdviEvaluate" || providerName === "SdviEvalPro") {
+        if (!exports.configObject.skipHeader && (providerName === "SdviEvaluate" || providerName === "SdviEvalPro")) {
           write(chalk`generate header, `);
           let repodir = exports.configObject.repodir;
           let localpath = this.path.replace(repodir, "");

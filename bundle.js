@@ -1669,7 +1669,7 @@ class Preset extends RallyBase {
     let headers = {};
     let providerName = (_this$relationships = this.relationships) === null || _this$relationships === void 0 ? void 0 : (_this$relationships$p = _this$relationships.providerType) === null || _this$relationships$p === void 0 ? void 0 : (_this$relationships$p2 = _this$relationships$p.data) === null || _this$relationships$p2 === void 0 ? void 0 : _this$relationships$p2.name;
 
-    if (providerName === "SdviEvaluate" || providerName === "SdviEvalPro") {
+    if (!configObject.skipHeader && (providerName === "SdviEvaluate" || providerName === "SdviEvalPro")) {
       write(chalk`generate header, `);
       let repodir = configObject.repodir;
       let localpath = this.path.replace(repodir, "");
@@ -2598,7 +2598,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   sleep: sleep
 });
 
-var version = "1.20.0";
+var version = "2.0.0";
 
 var baseCode = {
   SdviContentMover: `{
@@ -4234,6 +4234,10 @@ async function $main() {
 
   if (argv["update-immutable"]) {
     configObject.updateImmutable = true;
+  }
+
+  if (argv["skip-header"]) {
+    configObject.skipHeader = true;
   }
 
   configObject.globalProgress = !argv["hide-progress"]; //Default enviornment should normally be from config, but it can be

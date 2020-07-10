@@ -318,7 +318,7 @@ class Preset extends RallyBase{
         let headers = {};
 
         let providerName = this.relationships?.providerType?.data?.name;
-        if(providerName === "SdviEvaluate" || providerName === "SdviEvalPro"){
+        if(!configObject.skipHeader && (providerName === "SdviEvaluate" || providerName === "SdviEvalPro")){
             write(chalk`generate header, `);
             let repodir = configObject.repodir;
             let localpath = this.path.replace(repodir, "");

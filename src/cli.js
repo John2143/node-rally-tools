@@ -1233,6 +1233,10 @@ async function $main(){
         configObject.updateImmutable = true;
     }
 
+    if(argv["skip-header"]){
+        configObject.skipHeader = true;
+    }
+
     configObject.globalProgress = !argv["hide-progress"];
 
     //Default enviornment should normally be from config, but it can be

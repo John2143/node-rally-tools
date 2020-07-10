@@ -1670,13 +1670,22 @@ class Preset extends RallyBase {
     let providerName = (_this$relationships = this.relationships) === null || _this$relationships === void 0 ? void 0 : (_this$relationships$p = _this$relationships.providerType) === null || _this$relationships$p === void 0 ? void 0 : (_this$relationships$p2 = _this$relationships$p.data) === null || _this$relationships$p2 === void 0 ? void 0 : _this$relationships$p2.name;
 
     if (providerName === "SdviEvaluate" || providerName === "SdviEvalPro") {
-      write(chalk`generate header...`);
-      let {
-        stdout: headerText
-      } = await spawn({
-        noecho: true
-      }, "sh", [path__default.join(configObject.repodir, `bin/header.sh`)]);
-      code = headerText + code;
+      write(chalk`generate header, `);
+      let repodir = configObject.repodir;
+      let localpath = this.path.replace(repodir, "");
+      if (localpath.startsWith("/")) localpath = localpath.substring(1);
+
+      try {
+        let {
+          stdout: headerText
+        } = await spawn({
+          noecho: true
+        }, "sh", [path__default.join(configObject.repodir, `bin/header.sh`), moment(Date.now()).format("ddd YYYY/MM/DD hh:mm:ssa"), localpath]);
+        code = headerText + code;
+        write(chalk`header ok, `);
+      } catch (e) {
+        write(chalk`missing unix, `);
+      }
     } //binary presets
 
 
@@ -1685,7 +1694,6 @@ class Preset extends RallyBase {
       headers["Content-Transfer-Encoding"] = "base64";
     }
 
-    log(code);
     let res = await lib.makeAPIRequest({
       env,
       path: `/presets/${id}/providerData`,

@@ -8,6 +8,7 @@ import Asset from "./asset.js";
 // pathtransform for hotfix
 import {writeFileSync, readFileSync, pathTransform} from "./fswrap.js";
 import path from "path";
+import moment from "moment";
 
 let exists = {};
 
@@ -318,10 +319,26 @@ class Preset extends RallyBase{
 
         let providerName = this.relationships?.providerType?.data?.name;
         if(providerName === "SdviEvaluate" || providerName === "SdviEvalPro"){
-            write(chalk`generate header...`);
-            let {stdout: headerText} = await spawn({noecho: true}, "sh", [path.join(configObject.repodir, `bin/header.sh`)]);
+            write(chalk`generate header, `);
+            let repodir = configObject.repodir;
+            let localpath = this.path.replace(repodir, "");
+            if(localpath.startsWith("/")) localpath = localpath.substring(1);
 
-            code = headerText + code;
+            try{
+                let {stdout: headerText} = await spawn(
+                    {noecho: true},
+                    "sh",
+                    [
+                        path.join(configObject.repodir, `bin/header.sh`),
+                        moment(Date.now()).format("ddd YYYY/MM/DD hh:mm:ssa"),
+                        localpath,
+                    ]
+                );
+                code = headerText + code;
+                write(chalk`header ok, `);
+            }catch(e){
+                write(chalk`missing unix, `);
+            }
         }
 
         //binary presets
@@ -329,8 +346,6 @@ class Preset extends RallyBase{
             code = code.toString("base64");
             headers["Content-Transfer-Encoding"] = "base64";
         }
-
-        log(code);
 
         let res = await lib.makeAPIRequest({
             env, path: `/presets/${id}/providerData`,

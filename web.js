@@ -1,13 +1,14 @@
 (function (global, factory) {
-    typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('chalk'), require('os'), require('fs'), require('child_process'), require('perf_hooks'), require('request-promise'), require('path')) :
-    typeof define === 'function' && define.amd ? define(['exports', 'chalk', 'os', 'fs', 'child_process', 'perf_hooks', 'request-promise', 'path'], factory) :
-    (global = global || self, factory(global.RallyTools = {}, global.chalk$1, global.os, global.fs, global.child_process, global.perf_hooks, global.rp, global.path));
-}(this, (function (exports, chalk$1, os, fs, child_process, perf_hooks, rp, path) { 'use strict';
+    typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('chalk'), require('os'), require('fs'), require('child_process'), require('perf_hooks'), require('request-promise'), require('path'), require('moment')) :
+    typeof define === 'function' && define.amd ? define(['exports', 'chalk', 'os', 'fs', 'child_process', 'perf_hooks', 'request-promise', 'path', 'moment'], factory) :
+    (global = global || self, factory(global.RallyTools = {}, global.chalk$1, global.os, global.fs, global.child_process, global.perf_hooks, global.rp, global.path, global.moment));
+}(this, (function (exports, chalk$1, os, fs, child_process, perf_hooks, rp, path, moment) { 'use strict';
 
     chalk$1 = chalk$1 && Object.prototype.hasOwnProperty.call(chalk$1, 'default') ? chalk$1['default'] : chalk$1;
     var fs__default = 'default' in fs ? fs['default'] : fs;
     rp = rp && Object.prototype.hasOwnProperty.call(rp, 'default') ? rp['default'] : rp;
     var path__default = 'default' in path ? path['default'] : path;
+    moment = moment && Object.prototype.hasOwnProperty.call(moment, 'default') ? moment['default'] : moment;
 
     exports.configFile = null;
 
@@ -1585,13 +1586,22 @@
         let providerName = (_this$relationships = this.relationships) === null || _this$relationships === void 0 ? void 0 : (_this$relationships$p = _this$relationships.providerType) === null || _this$relationships$p === void 0 ? void 0 : (_this$relationships$p2 = _this$relationships$p.data) === null || _this$relationships$p2 === void 0 ? void 0 : _this$relationships$p2.name;
 
         if (providerName === "SdviEvaluate" || providerName === "SdviEvalPro") {
-          write(chalk`generate header...`);
-          let {
-            stdout: headerText
-          } = await spawn({
-            noecho: true
-          }, "sh", [path__default.join(exports.configObject.repodir, `bin/header.sh`)]);
-          code = headerText + code;
+          write(chalk`generate header, `);
+          let repodir = exports.configObject.repodir;
+          let localpath = this.path.replace(repodir, "");
+          if (localpath.startsWith("/")) localpath = localpath.substring(1);
+
+          try {
+            let {
+              stdout: headerText
+            } = await spawn({
+              noecho: true
+            }, "sh", [path__default.join(exports.configObject.repodir, `bin/header.sh`), moment(Date.now()).format("ddd YYYY/MM/DD hh:mm:ssa"), localpath]);
+            code = headerText + code;
+            write(chalk`header ok, `);
+          } catch (e) {
+            write(chalk`missing unix, `);
+          }
         } //binary presets
 
 
@@ -1600,7 +1610,6 @@
           headers["Content-Transfer-Encoding"] = "base64";
         }
 
-        log(code);
         let res = await lib.makeAPIRequest({
           env,
           path: `/presets/${id}/providerData`,

@@ -141,6 +141,10 @@ export function spawn(options, ...args){
         let stderr = "";
         let cp = cp_spawn(...args);
 
+        let write = global.write;
+        if(options.noecho){
+            write = () => {};
+        }
         if(cp.stdout) cp.stdout.on("data", chunk => {stdout += chunk; write(chunk)});
         if(cp.stderr) cp.stderr.on("data", chunk => {stderr += chunk; write(chunk)});
 

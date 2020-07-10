@@ -174,6 +174,12 @@ function spawn(options, ...args) {
     let stdout = "";
     let stderr = "";
     let cp = child_process.spawn(...args);
+    let write = global.write;
+
+    if (options.noecho) {
+      write = () => {};
+    }
+
     if (cp.stdout) cp.stdout.on("data", chunk => {
       stdout += chunk;
       write(chunk);
@@ -1539,11 +1545,24 @@ class Preset extends RallyBase {
 
   async downloadCode() {
     if (!this.remote || this.code) return this.code;
-    return this.code = await lib.makeAPIRequest({
+    let code = await lib.makeAPIRequest({
       env: this.remote,
       path_full: this.data.links.providerData,
       json: false
-    });
+    }); //match header like 
+    // # c: d
+    // # b
+    // # a
+    // ##################
+
+    let headerRegex = /(^# .+[\r\n]+)+#+[\r\n]+/gim;
+    let hasHeader = headerRegex.exec(code);
+
+    if (hasHeader) {
+      code = code.substring(hasHeader[0].length);
+    }
+
+    return this.code = code;
   }
 
   get code() {
@@ -1639,30 +1658,44 @@ class Preset extends RallyBase {
   }
 
   async uploadPresetData(env, id) {
-    if (this.code.trim() !== "NOUPLOAD") {
-      var _this$relationships, _this$relationships$p, _this$relationships$p2;
+    var _this$relationships, _this$relationships$p, _this$relationships$p2;
 
-      let headers = {}; //binary presets
-
-      if (((_this$relationships = this.relationships) === null || _this$relationships === void 0 ? void 0 : (_this$relationships$p = _this$relationships.providerType) === null || _this$relationships$p === void 0 ? void 0 : (_this$relationships$p2 = _this$relationships$p.data) === null || _this$relationships$p2 === void 0 ? void 0 : _this$relationships$p2.name) == "Vantage") {
-        this.code = Buffer.from(this.code, "utf8");
-        this.code = this.code.toString("base64");
-        headers["Content-Transfer-Encoding"] = "base64";
-      }
-
-      let res = await lib.makeAPIRequest({
-        env,
-        path: `/presets/${id}/providerData`,
-        body: this.code,
-        method: "PUT",
-        fullResponse: true,
-        timeout: 10000,
-        headers
-      });
-      write(chalk`code up {yellow ${res.statusCode}}, `);
-    } else {
+    if (this.code.trim() === "NOUPLOAD") {
       write(chalk`code skipped {yellow :)}, `);
+      return;
     }
+
+    let code = this.code;
+    let headers = {};
+    let providerName = (_this$relationships = this.relationships) === null || _this$relationships === void 0 ? void 0 : (_this$relationships$p = _this$relationships.providerType) === null || _this$relationships$p === void 0 ? void 0 : (_this$relationships$p2 = _this$relationships$p.data) === null || _this$relationships$p2 === void 0 ? void 0 : _this$relationships$p2.name;
+
+    if (providerName === "SdviEvaluate" || providerName === "SdviEvalPro") {
+      write(chalk`generate header...`);
+      let {
+        stdout: headerText
+      } = await spawn({
+        noecho: true
+      }, "sh", [path__default.join(configObject.repodir, `bin/header.sh`)]);
+      code = headerText + code;
+    } //binary presets
+
+
+    if (providerName == "Vantage") {
+      code = code.toString("base64");
+      headers["Content-Transfer-Encoding"] = "base64";
+    }
+
+    log(code);
+    let res = await lib.makeAPIRequest({
+      env,
+      path: `/presets/${id}/providerData`,
+      body: code,
+      method: "PUT",
+      fullResponse: true,
+      timeout: 10000,
+      headers
+    });
+    write(chalk`code up {yellow ${res.statusCode}}, `);
   }
 
   async grabMetadata(env) {

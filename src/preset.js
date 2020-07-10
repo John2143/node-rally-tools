@@ -1,6 +1,6 @@
 import {RallyBase, lib, AbortError, Collection} from  "./rally-tools.js";
 import {basename, resolve as pathResolve, dirname} from "path";
-import {cached, defineAssoc} from "./decorators.js";
+import {cached, defineAssoc, spawn} from "./decorators.js";
 import {configObject} from "./config.js";
 import Provider from "./providers.js";
 import Asset from "./asset.js";
@@ -207,11 +207,25 @@ class Preset extends RallyBase{
 
     async downloadCode(){
         if(!this.remote || this.code) return this.code;
-        return this.code = await lib.makeAPIRequest({
+        let code = await lib.makeAPIRequest({
             env: this.remote,
             path_full: this.data.links.providerData,
             json: false,
         });
+
+        //match header like 
+        // # c: d
+        // # b
+        // # a
+        // ##################
+        let headerRegex = /(^# .+[\r\n]+)+#+[\r\n]+/gim;
+        let hasHeader = headerRegex.exec(code);
+
+        if(hasHeader){
+            code = code.substring(hasHeader[0].length);
+        }
+
+        return this.code = code;
     }
 
     get code(){
@@ -294,24 +308,36 @@ class Preset extends RallyBase{
         return this.name.includes("Constant") && !configObject.updateImmutable;
     }
     async uploadPresetData(env, id){
-        if(this.code.trim() !== "NOUPLOAD"){
-            let headers = {};
-            //binary presets
-            if(this.relationships?.providerType?.data?.name == "Vantage"){
-                this.code = Buffer.from(this.code, "utf8");
-                this.code = this.code.toString("base64");
-                headers["Content-Transfer-Encoding"] = "base64";
-            }
-
-            let res = await lib.makeAPIRequest({
-                env, path: `/presets/${id}/providerData`,
-                body: this.code, method: "PUT", fullResponse: true, timeout: 10000,
-                headers,
-            });
-            write(chalk`code up {yellow ${res.statusCode}}, `);
-        }else{
+        if(this.code.trim() === "NOUPLOAD"){
             write(chalk`code skipped {yellow :)}, `);
+            return;
         }
+
+        let code = this.code;
+        let headers = {};
+
+        let providerName = this.relationships?.providerType?.data?.name;
+        if(providerName === "SdviEvaluate" || providerName === "SdviEvalPro"){
+            write(chalk`generate header...`);
+            let {stdout: headerText} = await spawn({noecho: true}, "sh", [path.join(configObject.repodir, `bin/header.sh`)]);
+
+            code = headerText + code;
+        }
+
+        //binary presets
+        if(providerName == "Vantage"){
+            code = code.toString("base64");
+            headers["Content-Transfer-Encoding"] = "base64";
+        }
+
+        log(code);
+
+        let res = await lib.makeAPIRequest({
+            env, path: `/presets/${id}/providerData`,
+            body: code, method: "PUT", fullResponse: true, timeout: 10000,
+            headers,
+        });
+        write(chalk`code up {yellow ${res.statusCode}}, `);
     }
     async grabMetadata(env){
         let remote = await Preset.getByName(env, this.name);

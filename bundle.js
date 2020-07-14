@@ -786,6 +786,229 @@ function sleep(time = 1000) {
   return new Promise(resolve => setTimeout(resolve, time));
 }
 
+const inquirer = importLazy("inquirer");
+const readdir = importLazy("recursive-readdir");
+let hasAutoCompletePrompt = false;
+function addAutoCompletePrompt() {
+  if (hasAutoCompletePrompt) return;
+  hasAutoCompletePrompt = true;
+  inquirer.registerPrompt("autocomplete", require("inquirer-autocomplete-prompt"));
+}
+async function $api(propArray) {
+  let q;
+  q = await inquirer.prompt([{
+    type: "input",
+    name: "company",
+    message: `What is your company?`,
+    default: `discovery`
+  }]);
+  let company = q.company;
+  const defaults = {
+    DEV: `https://${company}-dev.sdvi.com/api/v2`,
+    UAT: `https://${company}-uat.sdvi.com/api/v2`,
+    QA: `https://${company}-qa.sdvi.com/api/v2`,
+    PROD: `https://${company}.sdvi.com/api/v2`
+  };
+
+  if (propArray && propArray[1]) {
+    q = {
+      envs: [propArray[1]]
+    };
+  } else {
+    //Create a checkbox prompt to choose enviornments
+    q = await inquirer.prompt([{
+      type: "checkbox",
+      name: "envs",
+      message: `What enviornments would you like to configure?`,
+      choices: Object.keys(defaults).map(name => ({
+        name,
+        checked: true
+      }))
+    }]);
+  } //Each env should ask 2 for two things: The url and the key.
+
+
+  let questions = q.envs.map(env => {
+    let defaultKey = process.env[`rally_api_key_${env}`];
+
+    if (configObject && configObject.api && configObject.api[env]) {
+      defaultKey = configObject.api[env].key;
+    }
+
+    return [{
+      type: "input",
+      name: `api.${env}.url`,
+      message: `What is the api endpoint for ${env}?`,
+      default: defaults[env]
+    }, {
+      type: "input",
+      name: `api.${env}.key`,
+      message: `What is your api key for ${env}?`,
+      default: defaultKey
+    }];
+  }); //flatten and ask
+
+  questions = [].concat(...questions);
+  q = await inquirer.prompt(questions);
+
+  if (propArray) {
+    q.api = { ...configObject.api,
+      ...q.api
+    };
+  }
+
+  return q;
+}
+async function $chalk(propArray) {
+  return {
+    chalk: await askQuestion("Would you like chalk enabled (Adds coloring)?")
+  };
+}
+async function $restrictUAT(propArray) {
+  return {
+    restrictUAT: await askQuestion("Would you like to protect UAT?")
+  };
+}
+async function $repodir(propArray) {
+  return await inquirer.prompt([{
+    type: "input",
+    name: `repodir`,
+    message: `Where is your rally repository?`,
+    default: process.env["rally_repo_path"]
+  }]);
+}
+async function $appName(propArray) {
+  let defaultAppName = "cmdline-" + (process.env.USERNAME || process.env.LOGNAME);
+  let project = await askInput("Application name?", defaultAppName);
+
+  if (project === "none" || project === "-" || project === "" || !project) {
+    project = null;
+  }
+
+  return {
+    appName: project
+  };
+}
+async function $project(propArray) {
+  let project = await askInput("Subproject directory?");
+
+  if (project === "none" || project === "-" || project === "" || !project) {
+    project = null;
+  }
+
+  return {
+    project
+  };
+}
+async function $defaultEnv(propArray) {
+  return await inquirer.prompt([{
+    type: "input",
+    name: `defaultEnv`,
+    message: `Default enviornment?`,
+    default: "DEV"
+  }]);
+} //Internal usage/testing
+
+async function selectProvider(providers, autoDefault = false) {
+  addAutoCompletePrompt();
+  let defaultProvider = providers.findByName("SdviEvaluate");
+
+  if (autoDefault) {
+    return defaultProvider;
+  } else {
+    let choices = providers.arr.map(x => ({
+      name: x.chalkPrint(true),
+      value: x
+    }));
+    let q = await inquirer.prompt([{
+      type: "autocomplete",
+      name: "provider",
+      default: defaultProvider,
+      source: async (sofar, input) => {
+        return choices.filter(x => input ? x.value.name.toLowerCase().includes(input.toLowerCase()) : true);
+      }
+    }]);
+    return q.provider;
+  }
+}
+async function loadLocals(path, Class) {
+  let basePath = configObject.repodir;
+  let f = await readdir(basePath);
+  let objs = f.filter(name => name.includes(path)).map(name => new Class({
+    path: name
+  }));
+  return objs;
+}
+async function selectLocal(path, typeName, Class, canSelectNone = true) {
+  addAutoCompletePrompt();
+  let objs = loadLocals(path, Class);
+  let objsMap = objs.map(x => ({
+    name: x.chalkPrint(true),
+    value: x
+  }));
+  let none = {
+    name: chalk`      {red None}: {red None}`,
+    value: null
+  };
+  if (canSelectNone) objsMap.unshift(none);
+  let q = await inquirer.prompt([{
+    type: "autocomplete",
+    name: "obj",
+    message: `What ${typeName} do you want?`,
+    source: async (sofar, input) => {
+      return objsMap.filter(x => input ? x.name.toLowerCase().includes(input.toLowerCase()) : true);
+    }
+  }]);
+  return q.obj;
+}
+async function selectPreset({
+  purpose = "preset",
+  canSelectNone
+}) {
+  return selectLocal("silo-presets", purpose, Preset, canSelectNone);
+}
+async function selectRule({
+  purpose = "rule",
+  canSelectNone
+}) {
+  return selectLocal("silo-rules", purpose, Rule, canSelectNone);
+}
+async function askInput(question, def) {
+  return (await inquirer.prompt([{
+    type: "input",
+    name: "ok",
+    message: question,
+    default: def
+  }])).ok;
+}
+async function askQuestion(question) {
+  return (await inquirer.prompt([{
+    type: "confirm",
+    name: "ok",
+    message: question
+  }])).ok;
+}
+
+var configHelpers = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  inquirer: inquirer,
+  addAutoCompletePrompt: addAutoCompletePrompt,
+  $api: $api,
+  $chalk: $chalk,
+  $restrictUAT: $restrictUAT,
+  $repodir: $repodir,
+  $appName: $appName,
+  $project: $project,
+  $defaultEnv: $defaultEnv,
+  selectProvider: selectProvider,
+  loadLocals: loadLocals,
+  selectLocal: selectLocal,
+  selectPreset: selectPreset,
+  selectRule: selectRule,
+  askInput: askInput,
+  askQuestion: askQuestion
+});
+
 class Provider extends RallyBase {
   constructor({
     data,
@@ -1559,6 +1782,7 @@ class Preset extends RallyBase {
     let hasHeader = headerRegex.exec(code);
 
     if (hasHeader) {
+      this.header = code.substring(0, hasHeader[0].length - 1);
       code = code.substring(hasHeader[0].length);
     }
 
@@ -1833,6 +2057,61 @@ class Preset extends RallyBase {
   getLocalCode() {
     //todo fixup for binary presets, see uploadPresetData
     return readFileSync(this.path, "utf-8");
+  }
+
+  parseHeaderInfo() {
+    var _$exec$, _$exec$2, _$exec$3, _$exec$4, _$exec$5, _$exec$6, _$exec$7;
+
+    if (!this.header) return null;
+    let abs = {
+      built: (_$exec$ = /Built On:(.+)/.exec(this.header)[1]) === null || _$exec$ === void 0 ? void 0 : _$exec$.trim(),
+      author: (_$exec$2 = /Author:(.+)/.exec(this.header)[1]) === null || _$exec$2 === void 0 ? void 0 : _$exec$2.trim(),
+      build: (_$exec$3 = /Build:(.+)/.exec(this.header)[1]) === null || _$exec$3 === void 0 ? void 0 : _$exec$3.trim(),
+      version: (_$exec$4 = /Version:(.+)/.exec(this.header)[1]) === null || _$exec$4 === void 0 ? void 0 : _$exec$4.trim(),
+      branch: (_$exec$5 = /Branch:(.+)/.exec(this.header)[1]) === null || _$exec$5 === void 0 ? void 0 : _$exec$5.trim(),
+      commit: (_$exec$6 = /Commit:(.+)/.exec(this.header)[1]) === null || _$exec$6 === void 0 ? void 0 : _$exec$6.trim(),
+      local: (_$exec$7 = /Local File:(.+)/.exec(this.header)[1]) === null || _$exec$7 === void 0 ? void 0 : _$exec$7.trim()
+    };
+    return abs;
+  }
+
+  async printRemoteInfo(env) {
+    let remote = await Preset.getByName(env, this.name);
+    await remote.downloadCode();
+    let i = remote.parseHeaderInfo();
+    log(chalk`
+            ENV: {red ${env}}
+            Built on {blue ${i.built}} by {green ${i.author}}
+            From ${i.build || "(unknown)"} on ${i.branch} ({yellow ${i.commit}})
+        `.replace(/^[ \t]+/gim, "").trim());
+  }
+
+  async getInfo(envs) {
+    await this.printDepends();
+
+    for (let env of envs.split(",")) {
+      await this.printRemoteInfo(env);
+    }
+  }
+
+  async printDepends(indent = 0, locals = null, seen = {}) {
+    let includeRegex = /@include "(.+)"/gim;
+    let includes = this.code.split("\n").map(x => includeRegex.exec(x)).filter(x => x).map(x => x[1]);
+
+    if (!locals) {
+      locals = new Collection((await loadLocals("silo-presets", Preset)));
+    }
+
+    log(Array(indent + 1).join(" ") + "- " + this.name);
+
+    for (let include of includes) {
+      if (seen[include]) {
+        log(Array(indent + 1).join(" ") + "  - (seen) " + include);
+      } else {
+        seen[include] = true;
+        await locals.findByName(include).printDepends(indent + 2, locals, seen);
+      }
+    }
   }
 
 }
@@ -2677,224 +2956,6 @@ def evalMain(context):
     # code here`
 };
 
-const inquirer = importLazy("inquirer");
-const readdir = importLazy("recursive-readdir");
-let hasAutoCompletePrompt = false;
-function addAutoCompletePrompt() {
-  if (hasAutoCompletePrompt) return;
-  hasAutoCompletePrompt = true;
-  inquirer.registerPrompt("autocomplete", require("inquirer-autocomplete-prompt"));
-}
-async function $api(propArray) {
-  let q;
-  q = await inquirer.prompt([{
-    type: "input",
-    name: "company",
-    message: `What is your company?`,
-    default: `discovery`
-  }]);
-  let company = q.company;
-  const defaults = {
-    DEV: `https://${company}-dev.sdvi.com/api/v2`,
-    UAT: `https://${company}-uat.sdvi.com/api/v2`,
-    QA: `https://${company}-qa.sdvi.com/api/v2`,
-    PROD: `https://${company}.sdvi.com/api/v2`
-  };
-
-  if (propArray && propArray[1]) {
-    q = {
-      envs: [propArray[1]]
-    };
-  } else {
-    //Create a checkbox prompt to choose enviornments
-    q = await inquirer.prompt([{
-      type: "checkbox",
-      name: "envs",
-      message: `What enviornments would you like to configure?`,
-      choices: Object.keys(defaults).map(name => ({
-        name,
-        checked: true
-      }))
-    }]);
-  } //Each env should ask 2 for two things: The url and the key.
-
-
-  let questions = q.envs.map(env => {
-    let defaultKey = process.env[`rally_api_key_${env}`];
-
-    if (configObject && configObject.api && configObject.api[env]) {
-      defaultKey = configObject.api[env].key;
-    }
-
-    return [{
-      type: "input",
-      name: `api.${env}.url`,
-      message: `What is the api endpoint for ${env}?`,
-      default: defaults[env]
-    }, {
-      type: "input",
-      name: `api.${env}.key`,
-      message: `What is your api key for ${env}?`,
-      default: defaultKey
-    }];
-  }); //flatten and ask
-
-  questions = [].concat(...questions);
-  q = await inquirer.prompt(questions);
-
-  if (propArray) {
-    q.api = { ...configObject.api,
-      ...q.api
-    };
-  }
-
-  return q;
-}
-async function $chalk(propArray) {
-  return {
-    chalk: await askQuestion("Would you like chalk enabled (Adds coloring)?")
-  };
-}
-async function $restrictUAT(propArray) {
-  return {
-    restrictUAT: await askQuestion("Would you like to protect UAT?")
-  };
-}
-async function $repodir(propArray) {
-  return await inquirer.prompt([{
-    type: "input",
-    name: `repodir`,
-    message: `Where is your rally repository?`,
-    default: process.env["rally_repo_path"]
-  }]);
-}
-async function $appName(propArray) {
-  let defaultAppName = "cmdline-" + (process.env.USERNAME || process.env.LOGNAME);
-  let project = await askInput("Application name?", defaultAppName);
-
-  if (project === "none" || project === "-" || project === "" || !project) {
-    project = null;
-  }
-
-  return {
-    appName: project
-  };
-}
-async function $project(propArray) {
-  let project = await askInput("Subproject directory?");
-
-  if (project === "none" || project === "-" || project === "" || !project) {
-    project = null;
-  }
-
-  return {
-    project
-  };
-}
-async function $defaultEnv(propArray) {
-  return await inquirer.prompt([{
-    type: "input",
-    name: `defaultEnv`,
-    message: `Default enviornment?`,
-    default: "DEV"
-  }]);
-} //Internal usage/testing
-
-async function selectProvider(providers, autoDefault = false) {
-  addAutoCompletePrompt();
-  let defaultProvider = providers.findByName("SdviEvaluate");
-
-  if (autoDefault) {
-    return defaultProvider;
-  } else {
-    let choices = providers.arr.map(x => ({
-      name: x.chalkPrint(true),
-      value: x
-    }));
-    let q = await inquirer.prompt([{
-      type: "autocomplete",
-      name: "provider",
-      default: defaultProvider,
-      source: async (sofar, input) => {
-        return choices.filter(x => input ? x.value.name.toLowerCase().includes(input.toLowerCase()) : true);
-      }
-    }]);
-    return q.provider;
-  }
-}
-async function selectLocal(path, typeName, Class, canSelectNone = true) {
-  addAutoCompletePrompt();
-  let basePath = configObject.repodir;
-  let f = await readdir(basePath);
-  let objs = f.filter(name => name.includes(path)).map(name => new Class({
-    path: name
-  }));
-  let objsMap = objs.map(x => ({
-    name: x.chalkPrint(true),
-    value: x
-  }));
-  let none = {
-    name: chalk`      {red None}: {red None}`,
-    value: null
-  };
-  if (canSelectNone) objsMap.unshift(none);
-  let q = await inquirer.prompt([{
-    type: "autocomplete",
-    name: "obj",
-    message: `What ${typeName} do you want?`,
-    source: async (sofar, input) => {
-      return objsMap.filter(x => input ? x.name.toLowerCase().includes(input.toLowerCase()) : true);
-    }
-  }]);
-  return q.obj;
-}
-async function selectPreset({
-  purpose = "preset",
-  canSelectNone
-}) {
-  return selectLocal("silo-presets", purpose, Preset, canSelectNone);
-}
-async function selectRule({
-  purpose = "rule",
-  canSelectNone
-}) {
-  return selectLocal("silo-rules", purpose, Rule, canSelectNone);
-}
-async function askInput(question, def) {
-  return (await inquirer.prompt([{
-    type: "input",
-    name: "ok",
-    message: question,
-    default: def
-  }])).ok;
-}
-async function askQuestion(question) {
-  return (await inquirer.prompt([{
-    type: "confirm",
-    name: "ok",
-    message: question
-  }])).ok;
-}
-
-var configHelpers = /*#__PURE__*/Object.freeze({
-  __proto__: null,
-  inquirer: inquirer,
-  addAutoCompletePrompt: addAutoCompletePrompt,
-  $api: $api,
-  $chalk: $chalk,
-  $restrictUAT: $restrictUAT,
-  $repodir: $repodir,
-  $appName: $appName,
-  $project: $project,
-  $defaultEnv: $defaultEnv,
-  selectProvider: selectProvider,
-  selectLocal: selectLocal,
-  selectPreset: selectPreset,
-  selectRule: selectRule,
-  askInput: askInput,
-  askQuestion: askQuestion
-});
-
 var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _dec10, _dec11, _dec12, _dec13, _dec14, _dec15, _dec16, _dec17, _dec18, _dec19, _dec20, _dec21, _dec22, _dec23, _dec24, _dec25, _dec26, _dec27, _dec28, _dec29, _dec30, _dec31, _dec32, _dec33, _dec34, _dec35, _dec36, _dec37, _dec38, _dec39, _dec40, _dec41, _dec42, _dec43, _dec44, _dec45, _dec46, _dec47, _dec48, _dec49, _dec50, _dec51, _dec52, _dec53, _dec54, _dec55, _dec56, _obj;
 
 require("source-map-support").install();
@@ -3139,6 +3200,24 @@ let presetsub = {
     await spawn(argv.command, [file, temp], {
       stdio: "inherit"
     });
+  },
+
+  async $info(args) {
+    if (!this.files) {
+      throw new AbortError("No files provided to diff (use --file argument)");
+    }
+
+    let file = this.files[0];
+    let preset = new Preset({
+      path: file,
+      remote: false
+    });
+
+    if (!preset.name) {
+      throw new AbortError(chalk`No preset header found. Cannot get name.`);
+    }
+
+    await preset.getInfo(args.env);
   },
 
   async unknown(arg, args) {

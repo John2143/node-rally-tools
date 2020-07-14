@@ -2,6 +2,7 @@ import {RallyBase, lib, AbortError, Collection} from  "./rally-tools.js";
 import {basename, resolve as pathResolve, dirname} from "path";
 import {cached, defineAssoc, spawn} from "./decorators.js";
 import {configObject} from "./config.js";
+import {loadLocals} from "./config-create";
 import Provider from "./providers.js";
 import Asset from "./asset.js";
 
@@ -223,6 +224,7 @@ class Preset extends RallyBase{
         let hasHeader = headerRegex.exec(code);
 
         if(hasHeader){
+            this.header = code.substring(0, hasHeader[0].length - 1);
             code = code.substring(hasHeader[0].length);
         }
 
@@ -456,6 +458,64 @@ class Preset extends RallyBase{
     getLocalCode(){
         //todo fixup for binary presets, see uploadPresetData
         return readFileSync(this.path, "utf-8");
+    }
+
+    parseHeaderInfo(){
+        if(!this.header) return null;
+        let abs = {
+            built:   /Built On:(.+)/.exec(this.header)[1]?.trim(),
+            author:  /Author:(.+)/.exec(this.header)[1]?.trim(),
+            build:   /Build:(.+)/.exec(this.header)[1]?.trim(),
+            version: /Version:(.+)/.exec(this.header)[1]?.trim(),
+            branch:  /Branch:(.+)/.exec(this.header)[1]?.trim(),
+            commit:  /Commit:(.+)/.exec(this.header)[1]?.trim(),
+            local:   /Local File:(.+)/.exec(this.header)[1]?.trim(),
+        }
+
+        return abs;
+    }
+
+    async printRemoteInfo(env){
+        let remote = await Preset.getByName(env, this.name);
+        await remote.downloadCode();
+        let i = remote.parseHeaderInfo();
+
+        log(chalk`
+            ENV: {red ${env}}
+            Built on {blue ${i.built}} by {green ${i.author}}
+            From ${i.build || "(unknown)"} on ${i.branch} ({yellow ${i.commit}})
+        `.replace(/^[ \t]+/gim, "").trim());
+    }
+
+    async getInfo(envs){
+        await this.printDepends();
+        for(let env of envs.split(",")){
+            await this.printRemoteInfo(env);
+        }
+    }
+
+    async printDepends(indent=0, locals=null, seen={}){
+        let includeRegex = /@include "(.+)"/gim;
+        let includes = this.code
+            .split("\n")
+            .map(x => includeRegex.exec(x))
+            .filter(x => x)
+            .map(x => x[1]);
+
+        if(!locals){
+            locals = new Collection(await loadLocals("silo-presets", Preset));
+        }
+
+        log(Array(indent + 1).join(" ") + "- " + this.name);
+
+        for(let include of includes){
+            if(seen[include]){
+                log(Array(indent + 1).join(" ") + "  - (seen) " + include);
+            }else{
+                seen[include] = true
+                await locals.findByName(include).printDepends(indent + 2, locals, seen);
+            }
+        }
     }
 }
 

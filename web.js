@@ -702,6 +702,17 @@
       return new Promise(resolve => setTimeout(resolve, time));
     }
 
+    const inquirer = importLazy("inquirer");
+    const readdir = importLazy("recursive-readdir");
+    async function loadLocals(path, Class) {
+      let basePath = exports.configObject.repodir;
+      let f = await readdir(basePath);
+      let objs = f.filter(name => name.includes(path)).map(name => new Class({
+        path: name
+      }));
+      return objs;
+    }
+
     class Provider extends RallyBase {
       constructor({
         data,
@@ -1475,6 +1486,7 @@
         let hasHeader = headerRegex.exec(code);
 
         if (hasHeader) {
+          this.header = code.substring(0, hasHeader[0].length - 1);
           code = code.substring(hasHeader[0].length);
         }
 
@@ -1749,6 +1761,61 @@
       getLocalCode() {
         //todo fixup for binary presets, see uploadPresetData
         return readFileSync(this.path, "utf-8");
+      }
+
+      parseHeaderInfo() {
+        var _$exec$, _$exec$2, _$exec$3, _$exec$4, _$exec$5, _$exec$6, _$exec$7;
+
+        if (!this.header) return null;
+        let abs = {
+          built: (_$exec$ = /Built On:(.+)/.exec(this.header)[1]) === null || _$exec$ === void 0 ? void 0 : _$exec$.trim(),
+          author: (_$exec$2 = /Author:(.+)/.exec(this.header)[1]) === null || _$exec$2 === void 0 ? void 0 : _$exec$2.trim(),
+          build: (_$exec$3 = /Build:(.+)/.exec(this.header)[1]) === null || _$exec$3 === void 0 ? void 0 : _$exec$3.trim(),
+          version: (_$exec$4 = /Version:(.+)/.exec(this.header)[1]) === null || _$exec$4 === void 0 ? void 0 : _$exec$4.trim(),
+          branch: (_$exec$5 = /Branch:(.+)/.exec(this.header)[1]) === null || _$exec$5 === void 0 ? void 0 : _$exec$5.trim(),
+          commit: (_$exec$6 = /Commit:(.+)/.exec(this.header)[1]) === null || _$exec$6 === void 0 ? void 0 : _$exec$6.trim(),
+          local: (_$exec$7 = /Local File:(.+)/.exec(this.header)[1]) === null || _$exec$7 === void 0 ? void 0 : _$exec$7.trim()
+        };
+        return abs;
+      }
+
+      async printRemoteInfo(env) {
+        let remote = await Preset.getByName(env, this.name);
+        await remote.downloadCode();
+        let i = remote.parseHeaderInfo();
+        log(chalk`
+            ENV: {red ${env}}
+            Built on {blue ${i.built}} by {green ${i.author}}
+            From ${i.build || "(unknown)"} on ${i.branch} ({yellow ${i.commit}})
+        `.replace(/^[ \t]+/gim, "").trim());
+      }
+
+      async getInfo(envs) {
+        await this.printDepends();
+
+        for (let env of envs.split(",")) {
+          await this.printRemoteInfo(env);
+        }
+      }
+
+      async printDepends(indent = 0, locals = null, seen = {}) {
+        let includeRegex = /@include "(.+)"/gim;
+        let includes = this.code.split("\n").map(x => includeRegex.exec(x)).filter(x => x).map(x => x[1]);
+
+        if (!locals) {
+          locals = new Collection((await loadLocals("silo-presets", Preset)));
+        }
+
+        log(Array(indent + 1).join(" ") + "- " + this.name);
+
+        for (let include of includes) {
+          if (seen[include]) {
+            log(Array(indent + 1).join(" ") + "  - (seen) " + include);
+          } else {
+            seen[include] = true;
+            await locals.findByName(include).printDepends(indent + 2, locals, seen);
+          }
+        }
       }
 
     }

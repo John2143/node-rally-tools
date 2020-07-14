@@ -221,6 +221,19 @@ let presetsub = {
         argv.command = argv.command || "diff";
         await spawn(argv.command, [file, temp], {stdio: "inherit"});
     },
+    async $info(args){
+        if(!this.files){
+            throw new AbortError("No files provided to diff (use --file argument)");
+        }
+
+        let file = this.files[0];
+        let preset = new Preset({path: file, remote: false});
+        if(!preset.name){
+            throw new AbortError(chalk`No preset header found. Cannot get name.`);
+        }
+
+        await preset.getInfo(args.env);
+    },
     async unknown(arg, args){
         log(chalk`Unknown action {red ${arg}} try '{white rally help preset}'`);
     },

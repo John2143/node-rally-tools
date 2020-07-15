@@ -145,7 +145,7 @@ export async function loadLocals(path, Class){
 
 export async function selectLocal(path, typeName, Class, canSelectNone = true){
     addAutoCompletePrompt();
-    let objs = loadLocals(path, Class);
+    let objs = await loadLocals(path, Class);
     let objsMap = objs.map(x => ({
         name: x.chalkPrint(true),
         value: x,

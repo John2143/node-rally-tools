@@ -940,7 +940,7 @@ async function loadLocals(path$1, Class) {
 }
 async function selectLocal(path, typeName, Class, canSelectNone = true) {
   addAutoCompletePrompt();
-  let objs = loadLocals(path, Class);
+  let objs = await loadLocals(path, Class);
   let objsMap = objs.map(x => ({
     name: x.chalkPrint(true),
     value: x
@@ -2909,7 +2909,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   sleep: sleep
 });
 
-var version = "2.1.1";
+var version = "2.1.2";
 
 var baseCode = {
   SdviContentMover: `{

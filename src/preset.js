@@ -520,11 +520,21 @@ class Preset extends RallyBase{
 
     async printDepends(indent=0, locals=null, seen={}){
         let includeRegex = /@include "(.+)"/gim;
-        let includes = this.code
-            .split("\n")
-            .map(x => includeRegex.exec(x))
-            .filter(x => x)
-            .map(x => x[1]);
+        //let includeRegex = /@include/g;
+
+        let includes = [];
+
+        let inc;
+        while(inc = includeRegex.exec(this.code)){
+            includes.push(inc[1]);
+        }
+
+        //let includes = this.code
+            //.split("\n")
+            //.map(x => includeRegex.exec(x))
+            //.filter(x => x)
+            //.map(x => x[1]);
+        //log(includes);
 
         if(!locals){
             locals = new Collection(await loadLocals("silo-presets", Preset));

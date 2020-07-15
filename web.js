@@ -704,10 +704,9 @@
 
     const inquirer = importLazy("inquirer");
     const readdir = importLazy("recursive-readdir");
-    async function loadLocals(path, Class) {
+    async function loadLocals(path$1, Class) {
       let basePath = exports.configObject.repodir;
-      let f = await readdir(basePath);
-      let objs = f.filter(name => name.includes(path)).map(name => new Class({
+      let objs = (await readdir(basePath)).filter(name => name.includes(path$1)).filter(name => !path.basename(name).startsWith(".")).map(name => new Class({
         path: name
       }));
       return objs;
@@ -1820,8 +1819,20 @@
       }
 
       async printDepends(indent = 0, locals = null, seen = {}) {
-        let includeRegex = /@include "(.+)"/gim;
-        let includes = this.code.split("\n").map(x => includeRegex.exec(x)).filter(x => x).map(x => x[1]);
+        let includeRegex = /@include "(.+)"/gim; //let includeRegex = /@include/g;
+
+        let includes = [];
+        let inc;
+
+        while (inc = includeRegex.exec(this.code)) {
+          includes.push(inc[1]);
+        } //let includes = this.code
+        //.split("\n")
+        //.map(x => includeRegex.exec(x))
+        //.filter(x => x)
+        //.map(x => x[1]);
+        //log(includes);
+
 
         if (!locals) {
           locals = new Collection((await loadLocals("silo-presets", Preset)));

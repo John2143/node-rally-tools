@@ -1,5 +1,5 @@
 import {configObject} from "./config.js";
-import {join} from "path";
+import {join, basename} from "path";
 import Preset from "./preset.js";
 import Rule from "./rule.js";
 export const inquirer = importLazy("inquirer");
@@ -136,8 +136,10 @@ export async function selectProvider(providers, autoDefault = false){
 
 export async function loadLocals(path, Class){
     let basePath = configObject.repodir;
-    let f = await readdir(basePath);
-    let objs = f.filter(name => name.includes(path)).map(name => new Class({path: name}));
+    let objs = (await readdir(basePath))
+        .filter(name => name.includes(path))
+        .filter(name => !basename(name).startsWith("."))
+        .map(name => new Class({path: name}));
     return objs;
 }
 

@@ -1776,6 +1776,22 @@
           commit: (_$exec$6 = /Commit:(.+)/.exec(this.header)[1]) === null || _$exec$6 === void 0 ? void 0 : _$exec$6.trim(),
           local: (_$exec$7 = /Local File:(.+)/.exec(this.header)[1]) === null || _$exec$7 === void 0 ? void 0 : _$exec$7.trim()
         };
+        let tryFormats = [[true, "ddd MMM DD HH:mm:ss YYYY"], [false, "ddd YYYY/MM/DD LTS"]];
+
+        for (let [isUTC, format] of tryFormats) {
+          let date;
+
+          if (isUTC) {
+            date = moment.utc(abs.built, format);
+          } else {
+            date = moment(abs.built, format);
+          }
+
+          if (!date.isValid()) continue;
+          abs.offset = date.fromNow();
+          break;
+        }
+
         return abs;
       }
 
@@ -1783,11 +1799,16 @@
         let remote = await Preset.getByName(env, this.name);
         await remote.downloadCode();
         let i = remote.parseHeaderInfo();
-        log(chalk`
-            ENV: {red ${env}}
-            Built on {blue ${i.built}} by {green ${i.author}}
-            From ${i.build || "(unknown)"} on ${i.branch} ({yellow ${i.commit}})
-        `.replace(/^[ \t]+/gim, "").trim());
+
+        if (i) {
+          log(chalk`
+                ENV: {red ${env}}, updated {yellow ~${i.offset}}
+                Built on {blue ${i.built}} by {green ${i.author}}
+                From ${i.build || "(unknown)"} on ${i.branch} ({yellow ${i.commit}})
+            `.replace(/^[ \t]+/gim, "").trim());
+        } else {
+          log(chalk`No header on {red ${env}}`);
+        }
       }
 
       async getInfo(envs) {

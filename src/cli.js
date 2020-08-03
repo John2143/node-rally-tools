@@ -320,7 +320,6 @@ async function categorizeString(str, defaultSubproject=undefined){
     if(str.startsWith('"')){
         str = str.slice(1, -1);
     }
-    let match
     if(match = /^(\w)-(\w{1,10})-(\d{1,10}):/.exec(str)){
         if(match[1] === "P"){
             let ret = await Preset.getById(match[2], match[3]);
@@ -731,7 +730,8 @@ let cli = {
     @arg(`~`,  `--file-uri`,   chalk`File s3 uri. Can use multiple uri's for the same label (used with addfile)`)
     @arg(`~`,  `--metadata`,   chalk`Metadata to use with patchMetadata. Can be string, or {white @path/to/file} for a file. Data must contain a top level key Metadata, or Workflow. Metadata will be pached into METADATA. Workflow will be patched into WORKFLOW_METADATA(not currently available)`)
     @arg(`~`,  `--priority`,   chalk`set the priority of all launched jobs`)
-    @arg(`~`,  `--new-name`,    chalk`set the new name`)
+    @arg(`~`,  `--new-name`,   chalk`set the new name`)
+    @arg(`~`,  `--target-env`, chalk`migrate to the env (when using migrate)`)
     async asset(args){
         function uuid(args){
             const digits = 16;
@@ -840,6 +840,8 @@ let cli = {
                 if(arg == "show") log(asset);
             }else if(arg === "metadata" || arg === "md"){
                 log(await asset.getMetadata());
+            }else if(arg === "migrate"){
+                await asset.migrate(args["target-env"]);
             }else if(arg === "patchMetadata"){
                 let initData = arrayify(args["metadata"], launchArg);
                 if(initData && initData.startsWith("@")){
@@ -857,7 +859,7 @@ let cli = {
                 log(chalk`Rename: {green ${oldName}} -> {green ${newName}}`);
             }
         }
-        if(configObject.rawOutput) return asset;
+        if(configObject.rawOutput && !configObject.script) return asset;
     },
 
     async checkSegments(args){
@@ -1238,6 +1240,10 @@ async function $main(){
         global.write = ()=>{};
     }
 
+    if(argv["script"]){
+        configObject.script = true;
+    }
+
     if(argv["ignore-missing"]){
         configObject.ignoreMissing = true;
     }
@@ -1310,6 +1316,7 @@ async function main(...args){
         await $main(...args);
     }catch(e){
         errorLog(e.stack);
+        process.exit(1);
     }
 }
 

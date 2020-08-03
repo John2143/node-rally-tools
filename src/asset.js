@@ -1,5 +1,6 @@
 import {cached, defineAssoc} from "./decorators.js";
 import {lib, Collection, RallyBase, sleep} from "./rally-tools.js";
+import {configObject} from "./config.js";
 import File from "./file.js";
 import Provider from "./providers.js";
 
@@ -301,6 +302,94 @@ class Asset extends RallyBase{
         this.name = newName;
 
         return req;
+    }
+
+    async migrate(targetEnv){
+        configObject.globalProgress = false;
+        log(`Creating paired file in ${targetEnv}`);
+
+        //Fetch metadata in parallel, we await it later
+        let _mdPromise = this.getMetadata();
+
+        let targetAsset = await Asset.getByName(targetEnv, this.name);
+        if(targetAsset){
+            log(`Asset already exists ${targetAsset.chalkPrint()}`);
+            //if(configObject.script) process.exit(10);
+        }else{
+            targetAsset = await Asset.createNew(this.name, targetEnv);
+            log(`Asset created ${targetAsset.chalkPrint()}`);
+        }
+
+        //wait for metadata to be ready before patching
+        await _mdPromise;
+        log("Adding asset metadata");
+        await targetAsset.patchMetadata(this.md);
+
+        //FIXME
+        //Currently, WORKFLOW_METADATA cannot be patched via api: we need to
+        //start a ephemeral eval to upload it
+        log("Adding asset workflow metadata");
+        let md = JSON.stringify(JSON.stringify(this.md.Workflow));
+        let fakePreset = {
+            code: `WORKFLOW_METADATA = json.loads(${md})`
+        }
+        await targetAsset.startEphemeralEvaluateIdeal(fakePreset);
+
+        let fileCreations = [];
+        for(let file of await this.getFiles()){
+            //Check for any valid copy-able instances
+            for(let inst of file.instancesList){
+                //We need to skip internal files
+                if(inst.storageLocationName === "Rally Platform Bucket") continue;
+
+                log(`Adding file: ${file.chalkPrint()}`);
+                fileCreations.push(targetAsset.addFile(file, inst));
+            }
+        }
+        await Promise.all(fileCreations);
+
+        if(configObject.script) console.log(this.name);
+    }
+
+    async addFile(file, inst, tagList = []){
+        let newInst = {
+            uri: File.rslURL(inst),
+            name: inst.name,
+            size: inst.size,
+            lastModified: inst.lastModified,
+            storageLocationName: inst.storageLocationName,
+        };
+
+        let request = lib.makeAPIRequest({
+            env: this.remote, path: `/files`, method: "POST",
+
+            payload: {
+                data: {
+                    type: "files",
+                    attributes: {
+                        label: file.label,
+                        tagList,
+                        instances: {
+                            "1": newInst,
+                        }
+                    },
+                    relationships: {
+                        asset: {
+                            data: {
+                                id: this.id,
+                                type: "assets"
+                            },
+                        },
+                    },
+                }
+            }
+        });
+
+        try{
+            await request;
+        }catch(e){
+            log(chalk`{red Failed file: ${file.chalkPrint()}}`)
+        }
     }
 }
 

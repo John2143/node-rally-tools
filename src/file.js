@@ -13,7 +13,7 @@ class File extends RallyBase{
     chalkPrint(pad=false){
         let id = String("F-" + (this.remote && this.remote + "-" + this.id || "LOCAL"))
         if(pad) id = id.padStart(15);
-        return chalk`{green ${id}}: {blue ${this.data.attributes ? this.name : "(lite asset)"}}`;
+        return chalk`{green ${id}}: {blue ${this.data.attributes ? this.name : "(lite file)"}} {red ${this.sizeHR}}`;
     }
 
     canBeDownloaded(){
@@ -41,6 +41,40 @@ class File extends RallyBase{
 
     get sizeGB(){
         return Math.round(this.size / 1024 / 1024 / 1024 * 10) / 10;
+    }
+
+    get sizeHR(){
+        let units = ["B", "K", "M", "G", "T"];
+
+        let unitIdx = 0;
+
+        let size = this.size;
+        while(size > 1000){
+            size /= 1024;
+            unitIdx++;
+        }
+
+        if(size > 100){
+            size = Math.round(size);
+        }else{
+            size = Math.round(size * 10) / 10;
+        }
+
+        return size + units[unitIdx];
+    }
+
+    get instancesList() {
+        let instances = [];
+        for(let [key, val] of Object.entries(this.instances)){
+            let n = {id: key};
+            Object.assign(n, val);
+            instances.push(n);
+        }
+        return instances;
+    }
+
+    static rslURL(instance){
+        return `rsl://${instance.storageLocationName}/${instance.name}`;
     }
 }
 

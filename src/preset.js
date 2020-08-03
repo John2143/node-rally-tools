@@ -547,7 +547,12 @@ class Preset extends RallyBase{
                 log(Array(indent + 1).join(" ") + "  - (seen) " + include);
             }else{
                 seen[include] = true
-                await locals.findByName(include).printDepends(indent + 2, locals, seen);
+                let file = await locals.findByName(include);
+                if(file){
+                    await file.printDepends(indent + 2, locals, seen);
+                }else{
+                    log(Array(indent + 1).join(" ") + "  - (miss) " + include);
+                }
             }
         }
     }

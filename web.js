@@ -126,7 +126,7 @@
 
     global.write = (...text) => process.stdout.write(...text);
 
-    global.elog = (...text) => console.log(...text);
+    global.elog = (...text) => console.error(...text);
 
     global.ewrite = (...text) => process.stderr.write(...text);
 
@@ -788,7 +788,7 @@
       chalkPrint(pad = false) {
         let id = String("F-" + (this.remote && this.remote + "-" + this.id || "LOCAL"));
         if (pad) id = id.padStart(15);
-        return chalk`{green ${id}}: {blue ${this.data.attributes ? this.name : "(lite asset)"}}`;
+        return chalk`{green ${id}}: {blue ${this.data.attributes ? this.name : "(lite file)"}} {red ${this.sizeHR}}`;
       }
 
       canBeDownloaded() {
@@ -820,6 +820,43 @@
 
       get sizeGB() {
         return Math.round(this.size / 1024 / 1024 / 1024 * 10) / 10;
+      }
+
+      get sizeHR() {
+        let units = ["B", "K", "M", "G", "T"];
+        let unitIdx = 0;
+        let size = this.size;
+
+        while (size > 1000) {
+          size /= 1024;
+          unitIdx++;
+        }
+
+        if (size > 100) {
+          size = Math.round(size);
+        } else {
+          size = Math.round(size * 10) / 10;
+        }
+
+        return size + units[unitIdx];
+      }
+
+      get instancesList() {
+        let instances = [];
+
+        for (let [key, val] of Object.entries(this.instances)) {
+          let n = {
+            id: key
+          };
+          Object.assign(n, val);
+          instances.push(n);
+        }
+
+        return instances;
+      }
+
+      static rslURL(instance) {
+        return `rsl://${instance.storageLocationName}/${instance.name}`;
       }
 
     }
@@ -1186,6 +1223,91 @@
         });
         this.name = newName;
         return req;
+      }
+
+      async migrate(targetEnv) {
+        exports.configObject.globalProgress = false;
+        log(`Creating paired file in ${targetEnv}`); //Fetch metadata in parallel, we await it later
+
+        let _mdPromise = this.getMetadata();
+
+        let targetAsset = await Asset.getByName(targetEnv, this.name);
+
+        if (targetAsset) {
+          log(`Asset already exists ${targetAsset.chalkPrint()}`); //if(configObject.script) process.exit(10);
+        } else {
+          targetAsset = await Asset.createNew(this.name, targetEnv);
+          log(`Asset created ${targetAsset.chalkPrint()}`);
+        } //wait for metadata to be ready before patching
+
+
+        await _mdPromise;
+        log("Adding asset metadata");
+        await targetAsset.patchMetadata(this.md); //FIXME
+        //Currently, WORKFLOW_METADATA cannot be patched via api: we need to
+        //start a ephemeral eval to upload it
+
+        log("Adding asset workflow metadata");
+        let md = JSON.stringify(JSON.stringify(this.md.Workflow));
+        let fakePreset = {
+          code: `WORKFLOW_METADATA = json.loads(${md})`
+        };
+        await targetAsset.startEphemeralEvaluateIdeal(fakePreset);
+        let fileCreations = [];
+
+        for (let file of await this.getFiles()) {
+          //Check for any valid copy-able instances
+          for (let inst of file.instancesList) {
+            //We need to skip internal files
+            if (inst.storageLocationName === "Rally Platform Bucket") continue;
+            log(`Adding file: ${file.chalkPrint()}`);
+            fileCreations.push(targetAsset.addFile(file, inst));
+          }
+        }
+
+        await Promise.all(fileCreations);
+        if (exports.configObject.script) console.log(this.name);
+      }
+
+      async addFile(file, inst, tagList = []) {
+        let newInst = {
+          uri: File.rslURL(inst),
+          name: inst.name,
+          size: inst.size,
+          lastModified: inst.lastModified,
+          storageLocationName: inst.storageLocationName
+        };
+        let request = lib.makeAPIRequest({
+          env: this.remote,
+          path: `/files`,
+          method: "POST",
+          payload: {
+            data: {
+              type: "files",
+              attributes: {
+                label: file.label,
+                tagList,
+                instances: {
+                  "1": newInst
+                }
+              },
+              relationships: {
+                asset: {
+                  data: {
+                    id: this.id,
+                    type: "assets"
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        try {
+          await request;
+        } catch (e) {
+          log(chalk`{red Failed file: ${file.chalkPrint()}}`);
+        }
       }
 
     }
@@ -1845,7 +1967,13 @@
             log(Array(indent + 1).join(" ") + "  - (seen) " + include);
           } else {
             seen[include] = true;
-            await locals.findByName(include).printDepends(indent + 2, locals, seen);
+            let file = await locals.findByName(include);
+
+            if (file) {
+              await file.printDepends(indent + 2, locals, seen);
+            } else {
+              log(Array(indent + 1).join(" ") + "  - (miss) " + include);
+            }
           }
         }
       }

@@ -6,7 +6,7 @@ import rp from "request-promise";
 global.chalk = chalk;
 global.log      = (...text) => console.log(...text);
 global.write    = (...text) => process.stdout.write(...text);
-global.elog     = (...text) => console.log(...text);
+global.elog     = (...text) => console.error(...text);
 global.ewrite   = (...text) => process.stderr.write(...text);
 global.errorLog = (...text) => log(...text.map(chalk.red));
 

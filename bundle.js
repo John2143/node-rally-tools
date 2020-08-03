@@ -1608,7 +1608,6 @@ class Asset extends RallyBase {
       if (configObject.script) console.log(inst.uri, newFile.instancesList[0].uri);
     } catch (e) {
       log(chalk`{red Failed file: ${file.chalkPrint()}}`);
-      log(e);
     }
   }
 
@@ -3043,7 +3042,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   sleep: sleep
 });
 
-var version = "2.2.1";
+var version = "2.2.2";
 
 var baseCode = {
   SdviContentMover: `{

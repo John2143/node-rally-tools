@@ -1312,7 +1312,6 @@
           if (exports.configObject.script) console.log(inst.uri, newFile.instancesList[0].uri);
         } catch (e) {
           log(chalk`{red Failed file: ${file.chalkPrint()}}`);
-          log(e);
         }
       }
 

@@ -347,8 +347,6 @@ class Asset extends RallyBase{
             }
         }
         await Promise.all(fileCreations);
-
-        if(configObject.script) console.log(this.name);
     }
 
     async addFile(file, inst, tagList = []){
@@ -384,6 +382,8 @@ class Asset extends RallyBase{
                 }
             }
         });
+
+        if(configObject.script) console.log(inst.uri, newInst.uri);
 
         try{
             await request;

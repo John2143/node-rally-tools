@@ -1266,7 +1266,6 @@
         }
 
         await Promise.all(fileCreations);
-        if (exports.configObject.script) console.log(this.name);
       }
 
       async addFile(file, inst, tagList = []) {
@@ -1302,6 +1301,7 @@
             }
           }
         });
+        if (exports.configObject.script) console.log(inst.uri, newInst.uri);
 
         try {
           await request;

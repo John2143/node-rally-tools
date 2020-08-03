@@ -1301,6 +1301,7 @@ async function $main(){
         }catch(e){
             if(e instanceof AbortError){
                 log(chalk`{red CLI Aborted}: ${e.message}`);
+                process.exit(1);
             }else{
                 throw e;
             }
@@ -1308,6 +1309,8 @@ async function $main(){
     }else{
         await noCommand();
     }
+
+    process.exit(0);
 }
 
 async function main(...args){

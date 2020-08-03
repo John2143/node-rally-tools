@@ -1562,7 +1562,6 @@ class Asset extends RallyBase {
     }
 
     await Promise.all(fileCreations);
-    if (configObject.script) console.log(this.name);
   }
 
   async addFile(file, inst, tagList = []) {
@@ -1598,6 +1597,7 @@ class Asset extends RallyBase {
         }
       }
     });
+    if (configObject.script) console.log(inst.uri, newInst.uri);
 
     try {
       await request;
@@ -3037,7 +3037,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   sleep: sleep
 });
 
-var version = "2.1.3";
+var version = "2.2.0";
 
 var baseCode = {
   SdviContentMover: `{
@@ -4528,6 +4528,7 @@ async function $main() {
     } catch (e) {
       if (e instanceof AbortError) {
         log(chalk`{red CLI Aborted}: ${e.message}`);
+        process.exit(1);
       } else {
         throw e;
       }
@@ -4535,6 +4536,8 @@ async function $main() {
   } else {
     await noCommand();
   }
+
+  process.exit(0);
 }
 
 async function main(...args) {

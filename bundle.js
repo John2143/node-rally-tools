@@ -1597,12 +1597,18 @@ class Asset extends RallyBase {
         }
       }
     });
-    if (configObject.script) console.log(inst.uri, newInst.uri);
 
     try {
-      await request;
+      let fileData = await request;
+      let newFile = new File({
+        data: fileData.data,
+        remote: this.remote,
+        parent: this
+      });
+      if (configObject.script) console.log(inst.uri, newFile.instancesList[0].uri);
     } catch (e) {
       log(chalk`{red Failed file: ${file.chalkPrint()}}`);
+      log(e);
     }
   }
 
@@ -3037,7 +3043,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   sleep: sleep
 });
 
-var version = "2.2.0";
+var version = "2.2.1";
 
 var baseCode = {
   SdviContentMover: `{

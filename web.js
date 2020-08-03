@@ -1301,12 +1301,18 @@
             }
           }
         });
-        if (exports.configObject.script) console.log(inst.uri, newInst.uri);
 
         try {
-          await request;
+          let fileData = await request;
+          let newFile = new File({
+            data: fileData.data,
+            remote: this.remote,
+            parent: this
+          });
+          if (exports.configObject.script) console.log(inst.uri, newFile.instancesList[0].uri);
         } catch (e) {
           log(chalk`{red Failed file: ${file.chalkPrint()}}`);
+          log(e);
         }
       }
 

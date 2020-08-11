@@ -1557,14 +1557,14 @@ class Asset extends RallyBase {
         //We need to skip internal files
         if (inst.storageLocationName === "Rally Platform Bucket") continue;
         log(`Adding file: ${file.chalkPrint()}`);
-        fileCreations.push(targetAsset.addFile(file, inst));
+        fileCreations.push(targetAsset.addFileInstance(file, inst));
       }
     }
 
     await Promise.all(fileCreations);
   }
 
-  async addFile(file, inst, tagList = []) {
+  async addFileInstance(file, inst, tagList = []) {
     let newInst = {
       uri: File.rslURL(inst),
       name: inst.name,
@@ -3042,7 +3042,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   sleep: sleep
 });
 
-var version = "2.2.2";
+var version = "2.2.3";
 
 var baseCode = {
   SdviContentMover: `{

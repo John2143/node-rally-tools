@@ -912,20 +912,16 @@
       }
 
       async patchMetadata(metadata) {
-        if (metadata.Workflow && false) {
-          let req = await lib.makeAPIRequest({
-            env: this.remote,
-            path: `/movies/${this.id}/metadata/Workflow`,
-            method: "PATCH",
-            payload: {
-              "data": {
-                "type": "metadata",
-                "attributes": {
-                  "metadata": metadata.Workflow
-                }
-              }
-            }
-          });
+        if (metadata.Workflow) {
+          //FIXME
+          //Currently, WORKFLOW_METADATA cannot be patched via api: we need to
+          //start a ephemeral eval to upload it
+          let md = JSON.stringify(JSON.stringify(metadata.Workflow));
+          let fakePreset = {
+            code: `WORKFLOW_METADATA.update(json.loads(${md}))`
+          };
+          await this.startEphemeralEvaluateIdeal(fakePreset);
+          log("WFMD Patched using ephemeralEval");
         }
 
         if (metadata.Metadata) {
@@ -942,6 +938,7 @@
               }
             }
           });
+          log("MD Patched");
         }
       }
 
@@ -1243,16 +1240,7 @@
 
         await _mdPromise;
         log("Adding asset metadata");
-        await targetAsset.patchMetadata(this.md); //FIXME
-        //Currently, WORKFLOW_METADATA cannot be patched via api: we need to
-        //start a ephemeral eval to upload it
-
-        log("Adding asset workflow metadata");
-        let md = JSON.stringify(JSON.stringify(this.md.Workflow));
-        let fakePreset = {
-          code: `WORKFLOW_METADATA = json.loads(${md})`
-        };
-        await targetAsset.startEphemeralEvaluateIdeal(fakePreset);
+        await targetAsset.patchMetadata(this.md);
         let fileCreations = [];
 
         for (let file of await this.getFiles()) {

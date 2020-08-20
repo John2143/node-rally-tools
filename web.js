@@ -1121,7 +1121,7 @@
         return req;
       }
 
-      async startEphemeralEvaluateIdeal(preset, dynamicPresetData) {
+      async startEphemeralEvaluateIdeal(preset, dynamicPresetData, isBinary = false) {
         let res;
         const env = this.remote;
         let provider = await Provider.getByName(this.remote, "SdviEvaluate");
@@ -1137,7 +1137,9 @@
                 category: provider.category,
                 providerTypeName: provider.name,
                 rallyConfiguration: {},
-                providerData: Buffer.from(preset.code, "binary").toString("base64"),
+                //we need to strip invalid utf8 characters from the
+                //buffer before we encode it or the sdvi backend dies
+                providerData: Buffer.from(preset.code, isBinary && "binary" || "utf8").toString("base64"),
                 dynamicPresetData
               },
               type: "jobs",

@@ -857,6 +857,14 @@ let cli = {
                 let oldName = asset.name;
                 await asset.rename(newName);
                 log(chalk`Rename: {green ${oldName}} -> {green ${newName}}`);
+            }else if(arg === "downloadfile" || arg === "downloadFile") {
+                let label = arrayify(args["file-label"], fileArg)
+                if(!label){
+                    throw new AbortError("No label supplied");
+                }
+                fileArg++;
+                await asset.downloadFile(label, args["to-folder"]);
+            }else if(arg === "deletefile" || arg === "deleteFile" || arg === "removefile" || arg === "removeFile") {
             }
         }
         if(configObject.rawOutput && !configObject.script) return asset;

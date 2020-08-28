@@ -345,7 +345,7 @@ class Preset extends RallyBase{
 
         //binary presets
         if(providerName == "Vantage"){
-            code = code.toString("base64");
+            code = Buffer.from(code).toString("base64");
             headers["Content-Transfer-Encoding"] = "base64";
         }
 

@@ -4,6 +4,9 @@ import {configObject} from "./config.js";
 import File from "./file.js";
 import Provider from "./providers.js";
 
+import path from "path";
+import fs from "fs";
+
 class Asset extends RallyBase{
     constructor({data, remote, included, lite}){
         super();
@@ -93,14 +96,16 @@ class Asset extends RallyBase{
         });
     }
 
-    async getFiles(){
+    async getFiles(refresh = false){
+        if(this._files && !refresh) return this._files;
+
         let req = await lib.indexPathFast({
             env: this.remote, path: `/assets/${this.id}/files`,
             method: "GET",
         });
 
         //return req;
-        return new Collection(req.map(x => new File({data: x, remote: this.remote, parent: this})));
+        return this._files = new Collection(req.map(x => new File({data: x, remote: this.remote, parent: this})));
     }
 
     async addFile(label, fileuris){
@@ -380,6 +385,21 @@ class Asset extends RallyBase{
             if(configObject.script) console.log(inst.uri, newFile.instancesList[0].uri);
         }catch(e){
             log(chalk`{red Failed file: ${file.chalkPrint()}}`)
+        }
+    }
+
+    async downloadFile(label, destFolder){
+        let files = await this.getFiles();
+
+        let file = files.findByName(label)
+
+        let c = await file.getContent();
+
+        if(destFolder){
+            let filePath = path.join(destFolder, file.instancesList[0].name);
+            fs.writeFileSync(filePath, c);
+        }else{
+            console.log(c);
         }
     }
 }

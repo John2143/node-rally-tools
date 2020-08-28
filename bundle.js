@@ -1282,14 +1282,15 @@ class Asset extends RallyBase {
     });
   }
 
-  async getFiles() {
+  async getFiles(refresh = false) {
+    if (this._files && !refresh) return this._files;
     let req = await lib.indexPathFast({
       env: this.remote,
       path: `/assets/${this.id}/files`,
       method: "GET"
     }); //return req;
 
-    return new Collection(req.map(x => new File({
+    return this._files = new Collection(req.map(x => new File({
       data: x,
       remote: this.remote,
       parent: this
@@ -1598,6 +1599,19 @@ class Asset extends RallyBase {
       if (configObject.script) console.log(inst.uri, newFile.instancesList[0].uri);
     } catch (e) {
       log(chalk`{red Failed file: ${file.chalkPrint()}}`);
+    }
+  }
+
+  async downloadFile(label, destFolder) {
+    let files = await this.getFiles();
+    let file = files.findByName(label);
+    let c = await file.getContent();
+
+    if (destFolder) {
+      let filePath = path__default.join(destFolder, file.instancesList[0].name);
+      fs__default.writeFileSync(filePath, c);
+    } else {
+      console.log(c);
     }
   }
 
@@ -2030,7 +2044,7 @@ class Preset extends RallyBase {
 
 
     if (providerName == "Vantage") {
-      code = code.toString("base64");
+      code = Buffer.from(code).toString("base64");
       headers["Content-Transfer-Encoding"] = "base64";
     }
 
@@ -3032,7 +3046,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   sleep: sleep
 });
 
-var version = "2.4.0";
+var version = "2.4.1";
 
 var baseCode = {
   SdviContentMover: `{
@@ -4028,6 +4042,15 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
         let oldName = asset.name;
         await asset.rename(newName);
         log(chalk`Rename: {green ${oldName}} -> {green ${newName}}`);
+      } else if (arg === "downloadfile" || arg === "downloadFile") {
+        let label = arrayify(args["file-label"], fileArg);
+
+        if (!label) {
+          throw new AbortError("No label supplied");
+        }
+
+        fileArg++;
+        await asset.downloadFile(label, args["to-folder"]);
       }
     }
 

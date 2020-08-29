@@ -160,7 +160,7 @@ class Preset extends RallyBase{
                 continue;
             }
 
-            log(chalk`Starting job {green ${this.name}} on ${asset.chalkPrint(false)}... `);
+            log(chalk`\nStarting job {green ${this.name}} on ${asset.chalkPrint(false)}... `);
             await asset.startEvaluate(remote.id);
         }
     }
@@ -397,7 +397,7 @@ class Preset extends RallyBase{
             }
         }
 
-        write(chalk`Uploading preset {green ${this.name}} to {green ${env}}: `);
+        write(chalk`\nUploading preset {green ${this.name}} to {green ${env}}: `);
 
         if(this.immutable){
             log(chalk`{magenta IMMUTABLE}. Nothing to do.`);
@@ -436,13 +436,13 @@ class Preset extends RallyBase{
             }
 
             await this.acclimatize(env);
-            write("Posting to create preset... ");
+            write("\nPosting to create preset... ");
             let res = await lib.makeAPIRequest({
                 env, path: `/presets`, method: "POST",
                 payload: metadata, timeout: 5000,
             });
             let id = res.data.id;
-            write(chalk`Created id {green ${id}}... Uploading Code... `);
+            write(chalk`\nCreated id {green ${id}}... Uploading Code... `);
             await this.uploadPresetData(env, id);
         }
         if(this.test[0] && shouldTest){

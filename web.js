@@ -906,7 +906,7 @@
         if (this.meta.metadata && !forceRefresh) return this.meta.metadata;
         let req = await lib.makeAPIRequest({
           env: this.remote,
-          path: `/movies/${this.id}/metadata`
+          path: `/movies/${this.id}/metadata?page=1p100`
         });
         return this.meta.metadata = Asset.normalizeMetadata(req.data);
       }
@@ -1319,6 +1319,15 @@
         }
       }
 
+      async deleteFile(label) {
+        let files = await this.getFiles();
+        let file = files.findByName(label);
+        if (!file) return false;
+        await file.delete(false); //mode=forget
+
+        return true;
+      }
+
     }
 
     defineAssoc(Asset, "id", "data.id");
@@ -1579,11 +1588,11 @@
         writeFileSync(this.localpath, this.code);
       }
 
-      async uploadRemote(env) {
-        await this.uploadCodeToEnv(env, true);
+      async uploadRemote(env, shouldTest = true) {
+        await this.uploadCodeToEnv(env, true, shouldTest);
       }
 
-      async save(env) {
+      async save(env, shouldTest = true) {
         this.saved = true;
 
         if (!this.isGeneric) {
@@ -1596,7 +1605,7 @@
           log(chalk`Saving preset {green ${this.name}} to {blue ${lib.envName(env)}}.`);
           await this.saveLocal();
         } else {
-          await this.uploadRemote(env);
+          await this.uploadRemote(env, shouldTest);
         }
       }
 
@@ -2707,8 +2716,18 @@ ${eLine.line}`);
       //Dummy test access
       async testAccess(env) {
         if (lib.isLocalEnv(env)) {
-          //TODO
-          return true;
+          let repodir = exports.configObject.repodir;
+
+          if (repodir) {
+            try {
+              fs__default.lstatSync(repodir).isDirectory();
+              return true;
+            } catch (e) {
+              return false;
+            }
+          } else {
+            throw new UnconfiguredEnvError();
+          }
         }
 
         let result = await lib.makeAPIRequest({

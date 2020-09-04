@@ -718,9 +718,9 @@ let cli = {
         log(chalk`Created file {green ${configFile}}.`);
     },
 
-    @helpText(`create/modify asset`)
+    @helpText(`create/modify asset or files inside asset`)
     @usage("rally asset [action] [action...]")
-    @param("action", chalk`Options are create, delete, launch, addfile, metadata, show, patchMetadata, and launchEvalute. You can supply multiple actions to chain them`)
+    @param("action", chalk`Actions are create, delete, launch, addfile, metadata, show, patchMetadata, and launchEvalute, deleteFile, downloadFile. You can supply multiple actions to chain them`)
     @arg(`-i`, `--id`,         chalk`MOVIE_ID of asset to select`)
     @arg(`-n`, `--name`,       chalk`MOVIE_NAME of asset. with {white create}, '{white #}' will be replaced with a uuid. Default is '{white TEST_#}'`)
     @arg(`~`,  `--anon`,       chalk`Supply this if no asset is needed (used to lauch anonymous workflows)`)
@@ -732,6 +732,7 @@ let cli = {
     @arg(`~`,  `--priority`,   chalk`set the priority of all launched jobs`)
     @arg(`~`,  `--new-name`,   chalk`set the new name`)
     @arg(`~`,  `--target-env`, chalk`migrate to the env (when using migrate)`)
+    @arg(`~`,  `--to-folder`,  chalk`Folder to download to when using downloadFile. If no folder is given, writes to stdout.`)
     async asset(args){
         function uuid(args){
             const digits = 16;
@@ -776,6 +777,9 @@ let cli = {
                 if(initData && initData.startsWith("@")){
                     log(chalk`Reading init data from {white ${initData.slice(1)}}`);
                     initData = readFileSync(initData.slice(1), "utf-8");
+                }else if(initData && initData === "-"){
+                    log(chalk`Reading init data from {grey stdin}}`);
+                    initData = readFileSync(0, "utf-8");
                 }
 
                 let jobName = arrayify(args["job-name"], launchArg);
@@ -797,6 +801,9 @@ let cli = {
                 if(initData && initData.startsWith("@")){
                     log(chalk`Reading init data from {white ${initData.slice(1)}}`);
                     initData = readFileSync(initData.slice(1), "utf-8");
+                }else if(initData && initData === "-"){
+                    log(chalk`Reading init data from {grey stdin}}`);
+                    initData = readFileSync(0, "utf-8");
                 }
 
                 let jobName = arrayify(args["job-name"], launchArg);
@@ -865,6 +872,17 @@ let cli = {
                 fileArg++;
                 await asset.downloadFile(label, args["to-folder"]);
             }else if(arg === "deletefile" || arg === "deleteFile" || arg === "removefile" || arg === "removeFile") {
+                let label = arrayify(args["file-label"], fileArg)
+                if(!label){
+                    throw new AbortError("No label supplied");
+                }
+                fileArg++;
+                let result = await asset.deleteFile(label);
+                if(!result) {
+                    log(`Failed to delete file ${label}`);
+                }
+            }else{
+                log(`No usage found for ${arg}`);
             }
         }
         if(configObject.rawOutput && !configObject.script) return asset;
@@ -1157,10 +1175,7 @@ async function unknownCommand(cmd){
 }
 
 async function noCommand(){
-    write(chalk`
-Rally Tools {yellow v${packageVersion} (alpha)} CLI
-by John Schmidt <John_Schmidt@discovery.com>
-`);
+    write(chalk`Rally Tools {yellow v${packageVersion}} CLI\n`);
 
     //Prompt users to setup one time config.
     if(!configObject.hasConfig){
@@ -1202,7 +1217,7 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
             }else if(e.name == "RequestError"){
                 resultStr = chalk`{red Low level error (check internet): ${e.error.errno}}`;
             }else{
-                throw e;
+                resultStr = chalk`{red Internal Error: (oh no!)}`;
             }
         }
 

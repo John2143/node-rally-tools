@@ -30,7 +30,7 @@ class Asset extends RallyBase{
     async getMetadata(forceRefresh = false){
         if(this.meta.metadata && !forceRefresh) return this.meta.metadata;
         let req = await lib.makeAPIRequest({
-            env: this.remote, path: `/movies/${this.id}/metadata`,
+            env: this.remote, path: `/movies/${this.id}/metadata?page=1p100`,
         });
 
         return this.meta.metadata = Asset.normalizeMetadata(req.data);
@@ -401,6 +401,13 @@ class Asset extends RallyBase{
         }else{
             console.log(c);
         }
+    }
+    async deleteFile(label){
+        let files = await this.getFiles();
+        let file = files.findByName(label);
+        if(!file) return false;
+        await file.delete(false);//mode=forget
+        return true;
     }
 }
 

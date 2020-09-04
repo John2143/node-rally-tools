@@ -55,6 +55,19 @@ Options:
 
 ## Usage
 
+To get started, run `rally` in any command prompt or terminal. If your config
+is setup, you will see environment data for each of your setup api keys. It
+will look like this:
+
+```
+Rally Tools vx.y.z CLI
+   LOCAL: OK
+   UAT: 200 OK
+   DEV: Unconfigured
+   PROD: 200 OK
+   QA: 401 (Unauthorized)
+```
+
 Use `rally help` or `rally help [command]` to see all public commands and basic
 documentation.
 
@@ -100,18 +113,48 @@ See all providers. `rally provider list`. `--raw` available.
 
 This command allows you to create and launch workflows on assets.
 
+See `rally help asset` for a quick reference help menu.
+
 The first part of the command will be getting an asset context. You can either:
  - Use an asset id (ex. discovery.sdvi.com/content/[id]).
   - add the `--id [id]` argument
-  - `rally asset --id 12345 launch ...`
+  - ex. `rally asset -e PROD --id 12345 launch ...`
  - Use an asset name
   - add the `--name [asset name]` argument
-  - `rally asset --name 1232345_004_TCCS_123456_2 launch ...`
+  - ex. `rally asset -e UAT --name 1232345_004_TCCS_123456_2 launch ...`
  - Create a new asset
   - add the argument "create"
   - supply a name using --name
   - `#` will be replaces with a random number.
-  - `rally asset create --name "TEST_FILE_#" launch`
+  - ex. `rally asset create --name "TEST_FILE_#" -e UAT launch ...`
+ - Use an anonymous context. (not supported by all commands)
+  - add the `--anon` argument
+  - ex. `rally asset --anon -e PROD launch ...`
+
+Once you have your target asset, you can run any of the following commands:
+
+`launch`, `launchEvaluate`:
+
+Launch a rule or evaluate on an asset. Works in anon contexts. Requires flag
+`--job-name`.  Optional flag `--init-data` can supply data to the step in json
+format. It can load the json from a file, or receive it as a string, or read
+from stdin.
+
+`--priority` is planned as a flag, but rally currently does not support dynamic
+priority on started jobs.
+
+Launching as an evaluate means that no next steps will be ran.
+
+ie.
+- from file: `--init-data @filename.json`
+- from text: `--init-data '{"some": "json", "here": "yep"}`
+- from stdin: `--init-data -`
+
+Example:
+`rally asset ... launch --job-name "00 john sandbox" --init-data '{"transcode": "XDCAM"}'
+`rally asset ... launchEvaluate --job-name "00 john sandbox" --init-data '{"transcode": "XDCAM"}'
+
+(Other docs WIP)
 
 #### `rally supply`
 
@@ -149,9 +192,16 @@ rule, preset, or notification.
 Although you can only deploy supply chains, there are many ways to construct
 the deployment you want.
 
-The first, and easiest way you'll probably encounter is through `rally supply
-calc [starting rule] [ending rule]`. This does the heavy lifting of parsing
-rules, finding notifications, linking the presets, creating metadata, etc.
+There is another way to do deployments that has been deprecated:
+
+
+calc automatically generated links between rules and preset at a time where our
+git repos did not have all available presets. This is left here as a guide for
+older scripts, but may not work correctly on new versions:
+
+`rally supply calc [starting rule] [ending rule]` does the heavy lifting
+of parsing rules, finding notifications, linking the presets, creating
+metadata, etc.
 
 Using the E2 Supply chain as an example...
 
@@ -282,7 +332,8 @@ Create a new supply chain and print it
 
 #### Header Parsing
 
-Rally tools supports a standard header format. Preset name
+There are two types of headers in standard rally usage. The first is the rally
+docstring. It looks like this:
 
 ```
 '''
@@ -294,9 +345,15 @@ autotest: id: (id of movie to test)
 '''
 ```
 
-This can also exist using any other comment symbol except `-` directly
-preceding a key. For this reason, `-` can be used to disable autotests
-temporarily.
+This docstring contains into about what the name of the preset on the
+enviornment should be and what tests should be run on upload. The docstring is
+parsed by rally tools on upload. It does not need to be at the top of the file,
+and can use either single-quotes `'`, double-qoutes `"`.  Using `#` for the
+docstring is discouraged.
+
+This header is automatically generated when using `rally preset create`.
+
+`-` can be used to disable autotests temporarily.
 
 ```
 # name: ok
@@ -304,6 +361,56 @@ temporarily.
 // name: also works
 -autotest: will not run
 -- autotest: this will run
+```
+
+
+The second type of header is the deployment info header. On any upload from
+rally tools, we will look for a file named `bin/header.sh`. This will be
+inserted at the start of each python upload using info about deployment time,
+git info, and uploader name.
+
+On any automatic download, this header will be automatically stripped. You
+should never see this type of header in git locally. Here is an example header format:
+
+```
+# Built On: Wed 2020/01/02 12:53:13pm
+# Author: John Schmidt <john@john2143.com>
+# Tag: releases/23
+# Build: 
+# Version: .
+# Branch: staging
+# Commit: 20ab14bc6d16a19e60962efbe213a33fc21bafb7
+# Local File: YEP/silo-presets/COC.py
+###############################################################
+```
+
+The deployment info header can be read with `rally preset info`. It is used
+like a rally preset upload command, where you supply the local file to be read
+from multiple environments.
+
+It will print dependencies and then show all the build info. Heres an example output:
+
+```
+$ rally preset info --file "YEP/silo-presets/COC.py" --e UAT,PROD
+
+- COC
+  - Some Checkin Library
+    - cool client lib
+      - Silo Constants
+      - client lib helpers
+    - lib/common_vars
+    - Other Library
+    - Third Library
+      - (seen) Other Library
+      - (seen) lib/common_vars
+  - (miss) Some Missing Preset
+
+ENV: UAT, updated ~8 hours ago
+Built on Wed 2020/09/02 04:10:39pm by John Schmidt <john@john2143.com>
+From (unknown) on feature-1234 (20ab14bc6d16a19e60962efbe213a33fc21bafb7)
+ENV: PROD, updated ~8 days ago
+Built on Wed Aug 26 13:11:33 UTC 2020 by Other Dev <someone_else@yep.com>
+From 124 on staging (20ab14bc6d16a19e60962efbe213a33fc21bafb7)
 ```
 
 #### Atom integration
@@ -318,6 +425,39 @@ folders)
 
 This is still early in testing and does not support features like diffs and
 inline live test results
+
+#### Vim integration
+
+Anyone else use vim? Just me? Heres my config:
+
+all the file arguments are `^R%` where ^R is the CTRL-R sequence
+(register-insert-command mode). Use `CTRL-V` in insert mode to enter
+insert-escape mode, then press `CTRL-R` to type that sequence.
+
+```
+nnoremap <leader><leader>u :!rally preset upload --file "%" -e UAT<cr>
+nnoremap <leader><leader>U :!rally preset upload --file "%" -e PROD --no-protect<cr>
+nnoremap <leader>u :!rally supply make --file "%" --to UAT<cr>
+nnoremap <leader>i :!rally supply make --file "%" --to QA<cr>
+nnoremap <leader>U :!rally supply make --file "%" --to PROD --no-protect<cr>
+nnoremap <leader>k :!rally preset info --file "%" --e UAT,PROD<cr>
+nnoremap <leader>d :call Rallydiff("")<cr>
+nnoremap <leader>D :call Rallydiff("-e PROD")<cr>
+nnoremap <leader>c :call Rallydiff("-e QA")<cr>
+nnoremap <leader>C :call Rallydiff("-e DEV")<cr>
+nnoremap D :diffoff<cr>
+nnoremap <leader><leader>Q :%!node ~/node-rally-tools/util/addMIOSupport.js<cr>
+nnoremap <leader><leader>N :%!node ~/node-rally-tools/util/addDynamicNext.js<cr>
+
+set splitright
+
+function! Rallydiff(extra)
+    let file = system("rally preset diff --only-new --file '" . bufname("%") . "' --raw " . a:extra)
+    execute "silent vs" . file
+    execute "silent windo diffthis"
+    "echo file
+endfunction
+```
 
 
 ## Troubleshooting

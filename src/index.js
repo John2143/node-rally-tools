@@ -1,6 +1,6 @@
 require("source-map-support").install();
 
-import {lib} from "./rally-tools.js";
+import {lib, UnconfiguredEnvError} from "./rally-tools.js";
 import {cached} from "./decorators.js";
 
 export {default as SupplyChain} from "./supply-chain.js";
@@ -13,6 +13,9 @@ export {default as User} from "./user.js";
 export {default as Tag} from "./tag.js";
 //TODO fix export from index
 export {default as Trace} from "./trace.js";
+
+import fs from "fs";
+import {configObject} from "./config.js";
 
 export * from "./config.js";
 
@@ -35,8 +38,17 @@ export const rallyFunctions = {
     //Dummy test access
     async testAccess(env){
         if(lib.isLocalEnv(env)){
-            //TODO
-            return true;
+            let repodir = configObject.repodir;
+            if(repodir){
+                try{
+                    fs.lstatSync(repodir).isDirectory();
+                    return true;
+                }catch(e){
+                    return false;
+                }
+            }else{
+                throw new UnconfiguredEnvError();
+            }
         }
         let result = await lib.makeAPIRequest({env, path: "/providers?page=1p1", fullResponse: true, timeout: 1000});
         return result.statusCode;

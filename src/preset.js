@@ -189,10 +189,10 @@ class Preset extends RallyBase{
     async saveLocalFile(){
         writeFileSync(this.localpath, this.code);
     }
-    async uploadRemote(env){
-        await this.uploadCodeToEnv(env, true);
+    async uploadRemote(env, shouldTest = true){
+        await this.uploadCodeToEnv(env, true, shouldTest);
     }
-    async save(env){
+    async save(env, shouldTest = true){
         this.saved = true;
         if(!this.isGeneric){
             await this.resolve();
@@ -203,7 +203,7 @@ class Preset extends RallyBase{
             log(chalk`Saving preset {green ${this.name}} to {blue ${lib.envName(env)}}.`)
             await this.saveLocal();
         }else{
-            await this.uploadRemote(env);
+            await this.uploadRemote(env, shouldTest);
         }
     }
 

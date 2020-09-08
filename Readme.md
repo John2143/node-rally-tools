@@ -1,7 +1,10 @@
 # Rally Tools
 
+This documentation is currently WIP.
+Some sentences may randomly end and sections may be poorly organized.
+
 This repository provides multiple helpful tools for working within the SDVI
-Rally enviornment. Some features are:
+Rally environment. Some features are:
 
  - Preset uploader
  - Rule uploader
@@ -9,19 +12,19 @@ Rally enviornment. Some features are:
  - Remote diff checker
  - Code sync checker
 
-## Installation
+# Installation
 
  - `npm install -g rally-tools`
  - `rally` (to check if it works)
  - `rally config`
 
-## Library usage
+# Library usage
 
 Most classes and functions are exposed through src/index.js. This means when
 you want to create a node plugin that uses this library, you should just use
     `import {Preset, Rule, rallyFunctions, ...etc} from "rally-tools"`.
 
-## Development
+# Development
 
  - Clone this repo
  - Run `npm install`
@@ -31,7 +34,7 @@ you want to create a node plugin that uses this library, you should just use
  - Commit your changes and run `npm version <minor|patch>` to increment the
    version
 
-## Config
+# Config
 
 Pass the `--config` option to read/write a different config file location. If
 including as a module, then you need to call
@@ -51,9 +54,9 @@ Options:
  - api: Your api keys and urls
  - repodir: The directory of your repository. Should have 3 folders:
    `silo-presets`, `silo-rules`, `silo-metadata`.
- - defaultEnv: Your development enviornment, usually DEV.
+ - defaultEnv: Your development environment, usually DEV.
 
-## Usage
+# Usage
 
 To get started, run `rally` in any command prompt or terminal. If your config
 is setup, you will see environment data for each of your setup api keys. It
@@ -81,7 +84,7 @@ arguments, a command line UI will be given. If you wish to script this, the flag
 `--provider`, `--ext`, and `--name` can be given. 
 
 The basic download usage is `rally preset list`, which lists all presets.
-Giving the `--resolve` flag will internall resolve the dynamic references in an
+Giving the `--resolve` flag will internal resolve the dynamic references in an
 object.  You can then add these to the output using `--attach`. Ex. `rally
 preset list -e PROD --resolve --attach`
 
@@ -117,23 +120,23 @@ See `rally help asset` for a quick reference help menu.
 
 The first part of the command will be getting an asset context. You can either:
  - Use an asset id (ex. discovery.sdvi.com/content/[id]).
-  - add the `--id [id]` argument
-  - ex. `rally asset -e PROD --id 12345 launch ...`
+   - add the `--id [id]` argument
+   - ex. `rally asset -e PROD --id 12345 launch ...`
  - Use an asset name
-  - add the `--name [asset name]` argument
-  - ex. `rally asset -e UAT --name 1232345_004_TCCS_123456_2 launch ...`
+   - add the `--name [asset name]` argument
+   - ex. `rally asset -e UAT --name 1232345_004_TCCS_123456_2 launch ...`
  - Create a new asset
-  - add the argument "create"
-  - supply a name using --name
-  - `#` will be replaces with a random number.
-  - ex. `rally asset create --name "TEST_FILE_#" -e UAT launch ...`
+   - add the argument "create"
+   - supply a name using --name
+   - `#` will be replaces with a random number.
+   - ex. `rally asset create --name "TEST_FILE_#" -e UAT launch ...`
  - Use an anonymous context. (not supported by all commands)
-  - add the `--anon` argument
-  - ex. `rally asset --anon -e PROD launch ...`
+   - add the `--anon` argument
+   - ex. `rally asset --anon -e PROD launch ...`
 
 Once you have your target asset, you can run any of the following commands:
 
-`launch`, `launchEvaluate`:
+#### `launch`, `launchEvaluate`:
 
 Launch a rule or evaluate on an asset. Works in anon contexts. Requires flag
 `--job-name`.  Optional flag `--init-data` can supply data to the step in json
@@ -154,8 +157,6 @@ Example:
 `rally asset ... launch --job-name "00 john sandbox" --init-data '{"transcode": "XDCAM"}'
 `rally asset ... launchEvaluate --job-name "00 john sandbox" --init-data '{"transcode": "XDCAM"}'
 
-(Other docs WIP)
-
 #### `rally supply`
 
 This is probably the most complex command mechanically.
@@ -171,29 +172,115 @@ Then, using other flags you can do something with this chain.
 
 #### `rally conifg`
 
-This command manages the "~/.rallyconfig" file, so that you dont need to edit
+This command manages the "~/.rallyconfig" file, so that you don't need to edit
 it manually. `rally config` simply creates a new config walking through all the
 options.
 
 `rally config [key]` gives the config interactor for a single key. `rally
 config chalk` would bring up y/n menu for color. `rally config api` would bring
-up the configuration for all all the enviornments, but `rally config api.DEV`
+up the configuration for all all the environments, but `rally config api.DEV`
 would let you modify just the DEV credentials.
 
 `rally config --raw` prints out the current config *including configs changed
 by command line options*
 
-#### Deployments
+#### `metadata`:
+
+This command prints metadata.
+
+This will have two top level keys:
+
+- `Workflow` contains the workflow metadata
+- `Metadata` contains the supply chain metadata
+- `AnalyzeInfo` contains a random analyze artifact. Usually, this will be the
+  main file, but it is highly recommend to no rely on this data being accurate.
+
+The default print will use the internal node debug print. For full json, add
+the `--raw` argument.
+
+# Deployments
 
 Deployments using this tool are based around supply chains. At their core,
 supply chains are simply a group of rally objects, where an object is either a
 rule, preset, or notification.
 
 Although you can only deploy supply chains, there are many ways to construct
-the deployment you want.
+the deployment you want. The first, recommended way is using `rally supply make`.
+
+`make` takes a list of identifiers and constructs a supply chain. Identifiers come
+in two forms:
+
+- Remote types
+  - These point to a unique preset or rule on some remote environment.
+  - `R-UAT-283` would mean rule id 283 on uat.
+  - ex: `P-UAT-283: Something python`, `R-DEV-617: Some rule`
+- Local types
+  - These point to a local file, relative to your repodir or absolute to your system
+  - `./some/file/path`
+  - `/user/someone/rally_repodir/some/file/path`
+  - Displayed as `P-LOCAL: Something`
+
+You can take take list of local or remote identifiers to create a supply chain
+using `rally supply make`. Each file can be given by `-f`, or by using `-` to
+specify stdin. A shorthand for `rally supply make -` is `rally @`. This is the
+most used development command.
+
+Lets say you edited these 3 objects in DEV.
+
+```
+$ cat > changes.txt
+ P-DEV-283: NL - EST - Util Library
+ P-DEV-285: NL P1000 - MP - Non Linear Media Preparation Workflow
+ R-DEV-617: NL R1000 - MP - Non Linear Media Preparation Workflow
+
+$ cat changes.txt | rally @
+Reading from stdin
+Required notifications: 
+Required rules: 1
+ R-DEV-617: NL R1000 - MP - Non Linear Media Preparation Workflow
+Required presets: 2
+ P-DEV-283: NL - EST - Util Library
+ P-DEV-285: NL P1000 - MP - Non Linear Media Preparation Workflow
+```
+
+Rally tools by default will print out the current loaded supply chain object
+when using make. To do something else, you supply any number of post actions
+
+There are 3 available post actions:
+
+- `--to`
+  - This is the bread and butter deployment action. `--to DEV` would deploy the
+    current supply chain onto DEV, adding or creating
+
+
+Now you can treat this like any other supply chain, and deploy it. Remote to
+remote, or remote to local. However, this tool is built to integrate directly
+with git on your local filesystem.
+
+If you edited those 3 files locally, then commited to git, you should be able
+to see the diff with the git command `git diff HEAD HEAD^`. We are only
+interested in the names, so lets get those.
+
+Quick note: The shorthand for `rally supply make -` is `rally @`.
+
+```
+$ git diff HEAD HEAD^ --name-only
+silo-presets/NL - EST - Util Library
+silo-presets/NL P1000 - MP - Non Linear Media Preparation Workflow
+silo-rules/NL R1000 - MP - Non Linear Media Preparation Workflow
+
+$ #Passing those to make will produce a supply chain based on LOCAL
+$ git diff HEAD HEAD^ --name-only | rally @
+Reading from stdin
+Required notifications: 
+Required rules: 1
+ R-LOCAL: NL R1000 - MP - Non Linear Media Preparation Workflow
+Required presets: 2
+ P-LOCAL: NL - EST - Util Library
+ P-LOCAL: NL P1000 - MP - Non Linear Media Preparation Workflow
+```
 
 There is another way to do deployments that has been deprecated:
-
 
 calc automatically generated links between rules and preset at a time where our
 git repos did not have all available presets. This is left here as a guide for
@@ -244,54 +331,6 @@ However, calc is limited by the fact that it is very rigid. Its best use is the
 inital setup of an environment, or to mass move supply chains. To fix this,
 lets move to `rally supply make`
 
-`make` takes a list of identifiers and constructs a supply chain. Identifiers
-are passed in by the `this.files` array. From the command line this can be
-given by suppling -f arguments or reading from stdin.
-
-Lets say you edited these 3 objects in DEV.
-
-```
-$ cat > changes.txt
- P-DEV-283: NL - EST - Util Library
- P-DEV-285: NL P1000 - MP - Non Linear Media Preparation Workflow
- R-DEV-617: NL R1000 - MP - Non Linear Media Preparation Workflow
-
-$ cat changes.txt | rally supply make -
-Reading from stdin
-Required notifications: 
-Required rules: 1
- R-DEV-617: NL R1000 - MP - Non Linear Media Preparation Workflow
-Required presets: 2
- P-DEV-283: NL - EST - Util Library
- P-DEV-285: NL P1000 - MP - Non Linear Media Preparation Workflow
-```
-
-Now you can treat this like any other supply chain, and deploy it. Remote to
-remote, or remote to local. However, this tool is built to integrate directly
-with git on your local filesystem.
-
-If you edited those 3 files locally, then commited to git, you should be able
-to see the diff with the git command `git diff HEAD HEAD^`. We are only
-interested in the names, so lets get those.
-
-Quick note: The shorthand for `rally supply make -` is `rally @`.
-
-```
-$ git diff HEAD HEAD^ --name-only
-silo-presets/NL - EST - Util Library
-silo-presets/NL P1000 - MP - Non Linear Media Preparation Workflow
-silo-rules/NL R1000 - MP - Non Linear Media Preparation Workflow
-
-$ #Passing those to make will produce a supply chain based on LOCAL
-$ git diff HEAD HEAD^ --name-only | rally @
-Reading from stdin
-Required notifications: 
-Required rules: 1
- R-LOCAL: NL R1000 - MP - Non Linear Media Preparation Workflow
-Required presets: 2
- P-LOCAL: NL - EST - Util Library
- P-LOCAL: NL P1000 - MP - Non Linear Media Preparation Workflow
-```
 
 To give a generic approach, in order to deploy all the changes between 2
 commits, run `git diff featureCommit baseCommit --name-only | rally @
@@ -300,7 +339,7 @@ deployed, who deployed it or when. All this should be tracked through git.
 Therefore, tagging releases or using a release branch would allow for basic
 version control.
 
-#### Automated deployments
+## Automated deployments
 
 Automated deployments should be constructed telling rally tools the list of
 changed presets and rules. Silo constants, notification presets, and silo
@@ -315,7 +354,7 @@ This will need to be run on a computer with a .rallyconfig in the home
 directory, otherwise the config should be given by the --config flag to the
 rally command.
 
-#### Examples
+# Examples
 Heres some other examples of common usage:
 
 Upload a preset
@@ -330,7 +369,7 @@ Clone some ffmpeg jobs you want to edit (`vipe` optional)
 Create a new supply chain and print it
 `rally supply calc ORHIVE`
 
-#### Header Parsing
+# Header Parsing
 
 There are two types of headers in standard rally usage. The first is the rally
 docstring. It looks like this:
@@ -460,7 +499,7 @@ endfunction
 ```
 
 
-## Troubleshooting
+# Troubleshooting
 
 #### Cannot acclimatize shelled preset
 

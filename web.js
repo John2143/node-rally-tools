@@ -1155,21 +1155,26 @@
             }
           }
         });
-        write(" Waiting for finish...");
+        write(" Waiting for finish...\n");
+        let dots = 0;
 
         for (;;) {
           res = await lib.makeAPIRequest({
             env,
             path_full: evalInfo.data.links.self
           });
-          write(".");
+          write(`\r${res.data.attributes.state}${".".repeat(dots++)}         `);
+
+          if (dots === 5) {
+            dots = 1;
+          }
 
           if (res.data.attributes.state == "Complete") {
             write(chalk`{green  Done}...\n`);
             break;
           }
 
-          await sleep(300);
+          await sleep(500);
         }
 
         return;
@@ -1666,7 +1671,7 @@
       }
 
       parseCodeForName() {
-        const name_regex = /name\s?:\s([\w\d. \/]+)[\r\s\n]*?/;
+        const name_regex = /name\s?:\s*?([\w\d. \/]+).*$/;
         const match = name_regex.exec(this.code);
         if (match) return match[1];
       }
@@ -2627,7 +2632,6 @@
 ${eLine.line}`);
     }
     async function getInfo(env, jobid) {
-      log(env, jobid);
       let trace = lib.makeAPIRequest({
         env,
         path: `/jobs/${jobid}/artifacts/trace`

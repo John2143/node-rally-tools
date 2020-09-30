@@ -80,7 +80,7 @@ export async function $repodir(propArray){
     return await inquirer.prompt([{
         type: "input",
         name: `repodir`,
-        message: `Where is your rally repository?`,
+        message: `Where is your rally repository (empty for N/A)?`,
         default: process.env["rally_repo_path"],
     }]);
 }

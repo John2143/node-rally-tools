@@ -74,7 +74,6 @@ ${eLine.line}`)
 }
 
 export async function getInfo(env, jobid){
-    log(env, jobid);
     let trace = lib.makeAPIRequest({
         env, path: `/jobs/${jobid}/artifacts/trace`,
     }).catch(x => null);

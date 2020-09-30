@@ -770,18 +770,25 @@ let cli = {
 
         let arrayify = (obj, i) => Array.isArray(obj) ? obj[i] : (i == 0 ? obj : undefined);
 
-        while(arg = args._.shift()){
-
-            if(arg === "launch"){
-                let initData = arrayify(args["init-data"], launchArg);
-                if(initData && initData.startsWith("@")){
-                    log(chalk`Reading init data from {white ${initData.slice(1)}}`);
-                    initData = readFileSync(initData.slice(1), "utf-8");
-                }else if(initData && initData === "-"){
-                    log(chalk`Reading init data from {grey stdin}}`);
+        function getInitData(args, launchArg){
+            let initData = arrayify(args["init-data"], launchArg);
+            if(initData && initData.startsWith("@")){
+                let initDataFile = initData.slice(1);
+                if(initDataFile === "-"){
+                    log(chalk`Reading init data from {grey stdin}`);
                     initData = readFileSync(0, "utf-8");
+                }else{
+                    log(chalk`Reading init data from {white ${initData.slice(1)}}`);
+                    initData = readFileSync(initDataFile, "utf-8");
                 }
+            }
 
+            return initData
+        }
+
+        while(arg = args._.shift()){
+            if(arg === "launch"){
+                let initData = getInitData(args, launchArg);
                 let jobName = arrayify(args["job-name"], launchArg);
                 let p = await Rule.getByName(env, jobName);
                 if(!p){
@@ -797,16 +804,9 @@ let cli = {
                 }
                 launchArg++;
             }else if(arg === "launchEvaluate"){
-                let initData = arrayify(args["init-data"], launchArg);
-                if(initData && initData.startsWith("@")){
-                    log(chalk`Reading init data from {white ${initData.slice(1)}}`);
-                    initData = readFileSync(initData.slice(1), "utf-8");
-                }else if(initData && initData === "-"){
-                    log(chalk`Reading init data from {grey stdin}}`);
-                    initData = readFileSync(0, "utf-8");
-                }
-
+                let initData = getInitData(args, launchArg);
                 let jobName = arrayify(args["job-name"], launchArg);
+
                 let jobData;
                 let ephemeralEval = false;
                 let p;
@@ -824,6 +824,7 @@ let cli = {
 
 
                 if(ephemeralEval){
+                    throw new AbortError("could not start");
                     await Asset.startEphemeralEvaluateIdeal(env, p.id, initData)
                 }else{
                     await asset.startEvaluate(p.id, initData)
@@ -1197,7 +1198,6 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
         //Test access. Returns HTTP response code
         let resultStr;
         try{
-
             let result = await prom;
 
             //Create a colored display and response

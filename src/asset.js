@@ -246,17 +246,20 @@ class Asset extends RallyBase{
             }
         });
 
-        write(" Waiting for finish...");
+        write(" Waiting for finish...\n");
+        let dots = 0;
         for(;;){
             res = await lib.makeAPIRequest({
                 env, path_full: evalInfo.data.links.self
             });
-            write(".");
+            write(`\r${res.data.attributes.state}${".".repeat(dots++)}         `);
+            if(dots === 5){ dots = 1; }
+
             if(res.data.attributes.state == "Complete"){
                 write(chalk`{green  Done}...\n`);
                 break;
             }
-            await sleep(300);
+            await sleep(500);
         }
 
         return;

@@ -7,19 +7,24 @@ const importLazy = require("import-lazy")(require);
 
 'use strict';
 
-function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
-
-var argparse = _interopDefault(require('minimist'));
-var chalk$1 = _interopDefault(require('chalk'));
+var argparse = require('minimist');
+var chalk$1 = require('chalk');
 var os = require('os');
 var fs = require('fs');
-var fs__default = _interopDefault(fs);
 var child_process = require('child_process');
 var perf_hooks = require('perf_hooks');
-var rp = _interopDefault(require('request-promise'));
+var rp = require('request-promise');
 var path = require('path');
-var path__default = _interopDefault(path);
-var moment = _interopDefault(require('moment'));
+var moment = require('moment');
+
+function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
+
+var argparse__default = /*#__PURE__*/_interopDefaultLegacy(argparse);
+var chalk__default = /*#__PURE__*/_interopDefaultLegacy(chalk$1);
+var fs__default = /*#__PURE__*/_interopDefaultLegacy(fs);
+var rp__default = /*#__PURE__*/_interopDefaultLegacy(rp);
+var path__default = /*#__PURE__*/_interopDefaultLegacy(path);
+var moment__default = /*#__PURE__*/_interopDefaultLegacy(moment);
 
 function _applyDecoratedDescriptor(target, property, decorators, descriptor, context) {
   var desc = {};
@@ -204,7 +209,7 @@ function spawn(options, ...args) {
   });
 }
 
-global.chalk = chalk$1;
+global.chalk = chalk__default['default'];
 
 global.log = (...text) => console.log(...text);
 
@@ -214,7 +219,7 @@ global.elog = (...text) => console.error(...text);
 
 global.ewrite = (...text) => process.stderr.write(...text);
 
-global.errorLog = (...text) => log(...text.map(chalk$1.red));
+global.errorLog = (...text) => log(...text.map(chalk__default['default'].red));
 
 class lib {
   //This function takes 2 required arguemnts:
@@ -316,10 +321,10 @@ class lib {
     let response;
 
     try {
-      response = await rp(requestOptions);
+      response = await rp__default['default'](requestOptions);
 
       if (configObject.vverbose || configObject.vvverbose) {
-        log(chalk$1`${method} @ ${response.request.uri.href}`);
+        log(chalk__default['default']`${method} @ ${response.request.uri.href}`);
       }
     } catch (e) {
       if ((e === null || e === void 0 ? void 0 : e.cause.code) === "ESOCKETTIMEDOUT") {
@@ -557,7 +562,7 @@ class AbortError extends Error {
 }
 class APIError extends Error {
   constructor(response, opts, body) {
-    super(chalk$1`
+    super(chalk__default['default']`
 {reset Request returned} {yellow ${response === null || response === void 0 ? void 0 : response.statusCode}}{
 {green ${JSON.stringify(opts, null, 4)}}
 {green ${body}}
@@ -621,7 +626,7 @@ class Collection {
       if (d) {
         log(d.chalkPrint(true));
       } else {
-        log(chalk$1`{red (None)}`);
+        log(chalk__default['default']`{red (None)}`);
       }
     }
   }
@@ -1613,8 +1618,8 @@ class Asset extends RallyBase {
     let c = await file.getContent();
 
     if (destFolder) {
-      let filePath = path__default.join(destFolder, file.instancesList[0].name);
-      fs__default.writeFileSync(filePath, c);
+      let filePath = path__default['default'].join(destFolder, file.instancesList[0].name);
+      fs__default['default'].writeFileSync(filePath, c);
     } else {
       console.log(c);
     }
@@ -1663,23 +1668,23 @@ function pathTransform(path) {
   return path;
 }
 function readFileSync(path, options) {
-  return fs__default.readFileSync(pathTransform(path), options);
+  return fs__default['default'].readFileSync(pathTransform(path), options);
 } //Create writefilesync, with ability to create directory if it doesnt exist
 
 function writeFileSync(path$1, data, options, dircreated = false) {
   path$1 = pathTransform(path$1);
 
   try {
-    return fs__default.writeFileSync(path$1, data, options);
+    return fs__default['default'].writeFileSync(path$1, data, options);
   } catch (e) {
     if (dircreated) throw e;
     let directory = path.dirname(path$1);
 
     try {
-      fs__default.statSync(directory);
+      fs__default['default'].statSync(directory);
       throw e;
     } catch (nodir) {
-      fs__default.mkdirSync(directory);
+      fs__default['default'].mkdirSync(directory);
       return writeFileSync(path$1, data, options, true);
     }
   }
@@ -1981,7 +1986,7 @@ class Preset extends RallyBase {
   }
 
   static getLocalPath(name, ext, subproject) {
-    return path__default.join(configObject.repodir, subproject || "", "silo-presets", name + "." + ext);
+    return path__default['default'].join(configObject.repodir, subproject || "", "silo-presets", name + "." + ext);
   }
 
   get localpath() {
@@ -2018,7 +2023,7 @@ class Preset extends RallyBase {
       return this.path.replace("silo-presets", "silo-metadata").replace(new RegExp(this.ext + "$"), "json");
     }
 
-    return path__default.join(configObject.repodir, this.subproject || "", "silo-metadata", this.name + ".json");
+    return path__default['default'].join(configObject.repodir, this.subproject || "", "silo-metadata", this.name + ".json");
   }
 
   get immutable() {
@@ -2048,7 +2053,7 @@ class Preset extends RallyBase {
           stdout: headerText
         } = await spawn({
           noecho: true
-        }, "sh", [path__default.join(configObject.repodir, `bin/header.sh`), moment(Date.now()).format("ddd YYYY/MM/DD hh:mm:ssa"), localpath]);
+        }, "sh", [path__default['default'].join(configObject.repodir, `bin/header.sh`), moment__default['default'](Date.now()).format("ddd YYYY/MM/DD hh:mm:ssa"), localpath]);
         code = headerText + code;
         write(chalk`header ok, `);
       } catch (e) {
@@ -2222,9 +2227,9 @@ class Preset extends RallyBase {
       let date;
 
       if (isUTC) {
-        date = moment.utc(abs.built, format);
+        date = moment__default['default'].utc(abs.built, format);
       } else {
-        date = moment(abs.built, format);
+        date = moment__default['default'](abs.built, format);
       }
 
       if (!date.isValid()) continue;
@@ -2977,7 +2982,7 @@ async function parseTrace(env, jobid) {
   let errorList = [];
 
   for (let errLine of errorLines) {
-    lineNumber = /^[\w ]+:(\d+):/g.exec(errLine);
+    lineNumber = /^(?:[\d\.]+ )?[\w ]+:(\d+):/g.exec(errLine);
 
     if (lineNumber && lineNumber[1]) {
       errorList.push((await findLineInFile(renderedPreset, lineNumber[1])));
@@ -3020,7 +3025,7 @@ const rallyFunctions = {
 
       if (repodir) {
         try {
-          fs__default.lstatSync(repodir).isDirectory();
+          fs__default['default'].lstatSync(repodir).isDirectory();
           return true;
         } catch (e) {
           return false;
@@ -3151,7 +3156,7 @@ def evalMain(context):
 var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _dec10, _dec11, _dec12, _dec13, _dec14, _dec15, _dec16, _dec17, _dec18, _dec19, _dec20, _dec21, _dec22, _dec23, _dec24, _dec25, _dec26, _dec27, _dec28, _dec29, _dec30, _dec31, _dec32, _dec33, _dec34, _dec35, _dec36, _dec37, _dec38, _dec39, _dec40, _dec41, _dec42, _dec43, _dec44, _dec45, _dec46, _dec47, _dec48, _dec49, _dec50, _dec51, _dec52, _dec53, _dec54, _dec55, _dec56, _dec57, _dec58, _obj;
 
 require("source-map-support").install();
-let argv = argparse(process.argv.slice(2), {
+let argv = argparse__default['default'](process.argv.slice(2), {
   string: ["file", "env"],
   //boolean: ["no-protect"],
   boolean: ["anon"],
@@ -4338,7 +4343,7 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
     for (let event of r.data) {
       var _event$user;
 
-      let evtime = moment(event.createdAt);
+      let evtime = moment__default['default'](event.createdAt);
       let date = evtime.format("ddd YYYY/MM/DD hh:mm:ssa");
       let timedist = evtime.fromNow();
       log(chalk`${date} {yellow ${timedist}} {green ${(_event$user = event.user) === null || _event$user === void 0 ? void 0 : _event$user.name}} ${event.event}`);

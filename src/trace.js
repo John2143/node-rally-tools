@@ -119,7 +119,7 @@ export async function parseTrace(env, jobid){
     let errorList = [];
     for(let errLine of errorLines){
 
-        lineNumber = /^[\w ]+:(\d+):/g.exec(errLine);
+        lineNumber = /^(?:[\d\.]+ )?[\w ]+:(\d+):/g.exec(errLine);
         if(lineNumber && lineNumber[1]){
             errorList.push(await findLineInFile(renderedPreset, lineNumber[1]));
         }else{

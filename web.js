@@ -1,14 +1,16 @@
 (function (global, factory) {
     typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('chalk'), require('os'), require('fs'), require('child_process'), require('perf_hooks'), require('request-promise'), require('path'), require('moment')) :
     typeof define === 'function' && define.amd ? define(['exports', 'chalk', 'os', 'fs', 'child_process', 'perf_hooks', 'request-promise', 'path', 'moment'], factory) :
-    (global = global || self, factory(global.RallyTools = {}, global.chalk$1, global.os, global.fs, global.child_process, global.perf_hooks, global.rp, global.path, global.moment));
+    (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.RallyTools = {}, global.chalk$1, global.os, global.fs, global.child_process, global.perf_hooks, global.rp, global.path, global.moment));
 }(this, (function (exports, chalk$1, os, fs, child_process, perf_hooks, rp, path, moment) { 'use strict';
 
-    chalk$1 = chalk$1 && Object.prototype.hasOwnProperty.call(chalk$1, 'default') ? chalk$1['default'] : chalk$1;
-    var fs__default = 'default' in fs ? fs['default'] : fs;
-    rp = rp && Object.prototype.hasOwnProperty.call(rp, 'default') ? rp['default'] : rp;
-    var path__default = 'default' in path ? path['default'] : path;
-    moment = moment && Object.prototype.hasOwnProperty.call(moment, 'default') ? moment['default'] : moment;
+    function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
+
+    var chalk__default = /*#__PURE__*/_interopDefaultLegacy(chalk$1);
+    var fs__default = /*#__PURE__*/_interopDefaultLegacy(fs);
+    var rp__default = /*#__PURE__*/_interopDefaultLegacy(rp);
+    var path__default = /*#__PURE__*/_interopDefaultLegacy(path);
+    var moment__default = /*#__PURE__*/_interopDefaultLegacy(moment);
 
     exports.configFile = null;
 
@@ -120,7 +122,7 @@
       });
     }
 
-    global.chalk = chalk$1;
+    global.chalk = chalk__default['default'];
 
     global.log = (...text) => console.log(...text);
 
@@ -130,7 +132,7 @@
 
     global.ewrite = (...text) => process.stderr.write(...text);
 
-    global.errorLog = (...text) => log(...text.map(chalk$1.red));
+    global.errorLog = (...text) => log(...text.map(chalk__default['default'].red));
 
     class lib {
       //This function takes 2 required arguemnts:
@@ -232,10 +234,10 @@
         let response;
 
         try {
-          response = await rp(requestOptions);
+          response = await rp__default['default'](requestOptions);
 
           if (exports.configObject.vverbose || exports.configObject.vvverbose) {
-            log(chalk$1`${method} @ ${response.request.uri.href}`);
+            log(chalk__default['default']`${method} @ ${response.request.uri.href}`);
           }
         } catch (e) {
           if ((e === null || e === void 0 ? void 0 : e.cause.code) === "ESOCKETTIMEDOUT") {
@@ -473,7 +475,7 @@
     }
     class APIError extends Error {
       constructor(response, opts, body) {
-        super(chalk$1`
+        super(chalk__default['default']`
 {reset Request returned} {yellow ${response === null || response === void 0 ? void 0 : response.statusCode}}{
 {green ${JSON.stringify(opts, null, 4)}}
 {green ${body}}
@@ -537,7 +539,7 @@
           if (d) {
             log(d.chalkPrint(true));
           } else {
-            log(chalk$1`{red (None)}`);
+            log(chalk__default['default']`{red (None)}`);
           }
         }
       }
@@ -1317,8 +1319,8 @@
         let c = await file.getContent();
 
         if (destFolder) {
-          let filePath = path__default.join(destFolder, file.instancesList[0].name);
-          fs__default.writeFileSync(filePath, c);
+          let filePath = path__default['default'].join(destFolder, file.instancesList[0].name);
+          fs__default['default'].writeFileSync(filePath, c);
         } else {
           console.log(c);
         }
@@ -1367,23 +1369,23 @@
       return path;
     }
     function readFileSync(path, options) {
-      return fs__default.readFileSync(pathTransform(path), options);
+      return fs__default['default'].readFileSync(pathTransform(path), options);
     } //Create writefilesync, with ability to create directory if it doesnt exist
 
     function writeFileSync(path$1, data, options, dircreated = false) {
       path$1 = pathTransform(path$1);
 
       try {
-        return fs__default.writeFileSync(path$1, data, options);
+        return fs__default['default'].writeFileSync(path$1, data, options);
       } catch (e) {
         if (dircreated) throw e;
         let directory = path.dirname(path$1);
 
         try {
-          fs__default.statSync(directory);
+          fs__default['default'].statSync(directory);
           throw e;
         } catch (nodir) {
-          fs__default.mkdirSync(directory);
+          fs__default['default'].mkdirSync(directory);
           return writeFileSync(path$1, data, options, true);
         }
       }
@@ -1685,7 +1687,7 @@
       }
 
       static getLocalPath(name, ext, subproject) {
-        return path__default.join(exports.configObject.repodir, subproject || "", "silo-presets", name + "." + ext);
+        return path__default['default'].join(exports.configObject.repodir, subproject || "", "silo-presets", name + "." + ext);
       }
 
       get localpath() {
@@ -1722,7 +1724,7 @@
           return this.path.replace("silo-presets", "silo-metadata").replace(new RegExp(this.ext + "$"), "json");
         }
 
-        return path__default.join(exports.configObject.repodir, this.subproject || "", "silo-metadata", this.name + ".json");
+        return path__default['default'].join(exports.configObject.repodir, this.subproject || "", "silo-metadata", this.name + ".json");
       }
 
       get immutable() {
@@ -1752,7 +1754,7 @@
               stdout: headerText
             } = await spawn({
               noecho: true
-            }, "sh", [path__default.join(exports.configObject.repodir, `bin/header.sh`), moment(Date.now()).format("ddd YYYY/MM/DD hh:mm:ssa"), localpath]);
+            }, "sh", [path__default['default'].join(exports.configObject.repodir, `bin/header.sh`), moment__default['default'](Date.now()).format("ddd YYYY/MM/DD hh:mm:ssa"), localpath]);
             code = headerText + code;
             write(chalk`header ok, `);
           } catch (e) {
@@ -1926,9 +1928,9 @@
           let date;
 
           if (isUTC) {
-            date = moment.utc(abs.built, format);
+            date = moment__default['default'].utc(abs.built, format);
           } else {
-            date = moment(abs.built, format);
+            date = moment__default['default'](abs.built, format);
           }
 
           if (!date.isValid()) continue;
@@ -2681,7 +2683,7 @@ ${eLine.line}`);
       let errorList = [];
 
       for (let errLine of errorLines) {
-        lineNumber = /^[\w ]+:(\d+):/g.exec(errLine);
+        lineNumber = /^(?:[\d\.]+ )?[\w ]+:(\d+):/g.exec(errLine);
 
         if (lineNumber && lineNumber[1]) {
           errorList.push((await findLineInFile(renderedPreset, lineNumber[1])));
@@ -2724,7 +2726,7 @@ ${eLine.line}`);
 
           if (repodir) {
             try {
-              fs__default.lstatSync(repodir).isDirectory();
+              fs__default['default'].lstatSync(repodir).isDirectory();
               return true;
             } catch (e) {
               return false;

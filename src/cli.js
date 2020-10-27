@@ -735,6 +735,7 @@ let cli = {
     @arg(`~`,  `--to-folder`,  chalk`Folder to download to when using downloadFile. If no folder is given, writes to stdout.`)
     @arg(`~`,  `--artifact`,   chalk`This is the artifact to grep on. Defaults to trace. Values are "trace", "preset", "result", "error", "output"`)
     @arg(`~`,  `--on`,         chalk`alias for artifact`)
+    @arg(`~`,  `--name-only`,  chalk`Only show preset name and number of matches when greping`)
     //@arg(`~`,  `--any`,        chalk`allows grep to grep for any preset/provider, not just sdviEval`)
     async asset(args){
         function uuid(args){

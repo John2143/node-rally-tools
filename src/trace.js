@@ -94,7 +94,7 @@ export async function getInfo(env, jobid){
     return {trace, renderedPreset, result, output, error}
 }
 
-export const tracelineRegex = /^(?:[\d\.]+) ([\w ]+):(\d+): (.+)/;
+export const tracelineRegex = /^(?:[\d.]+) ([\w ]+):(\d+): (.+)/;
 export function parseTraceLine(line){
     let info = tracelineRegex.exec(line);
 

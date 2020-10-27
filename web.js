@@ -1178,7 +1178,7 @@ ${eLine.line}`);
       error
     };
   }
-  const tracelineRegex = /^(?:[\d\.]+) ([\w ]+):(\d+): (.+)/;
+  const tracelineRegex = /^(?:[\d.]+) ([\w ]+):(\d+): (.+)/;
   function parseTraceLine(line) {
     let info = tracelineRegex.exec(line);
 

@@ -3,6 +3,8 @@ import {lib, Collection, RallyBase, sleep} from "./rally-tools.js";
 import {configObject} from "./config.js";
 import File from "./file.js";
 import Provider from "./providers.js";
+import Preset from "./preset.js";
+import {getArtifact, parseTraceLine} from "./trace.js";
 
 import path from "path";
 import fs from "fs";
@@ -319,12 +321,14 @@ class Asset extends RallyBase{
         //Fetch metadata in parallel, we await it later
         let _mdPromise = this.getMetadata();
 
-        let targetAsset = await Asset.getByName(targetEnv, this.name);
+        let name = "DNAP_John_Test";
+
+        let targetAsset = await Asset.getByName(targetEnv, name);
         if(targetAsset){
             log(`Asset already exists ${targetAsset.chalkPrint()}`);
             //if(configObject.script) process.exit(10);
         }else{
-            targetAsset = await Asset.createNew(this.name, targetEnv);
+            targetAsset = await Asset.createNew(name, targetEnv);
             log(`Asset created ${targetAsset.chalkPrint()}`);
         }
 
@@ -411,6 +415,68 @@ class Asset extends RallyBase{
         if(!file) return false;
         await file.delete(false);//mode=forget
         return true;
+    }
+
+    async grep(text, {artifact = "trace", nameOnly = false, ordering = null}){
+        async function* reorderPromises(p){
+            ////yield in order we got it
+            //yield* p[Symbol.iterator]();
+            ////yield in order of first to finish
+            //yield* unordered(p);
+
+            //yield in chronological order
+            let k = await Promise.all(p);
+            yield* k.sort((
+                [e1, _a],
+                [e2, _b]
+            ) => {
+                return e1.attributes.completedAt - e2.attributes.completedAt;
+            });
+        }
+
+
+        elog("Reading jobs...");
+        let r = await lib.indexPathFast({
+            env: this.remote, path: "/jobs",
+            qs: {
+                filter: `movieId=${this.id}`
+            }
+        });
+
+        elog("Getting job artifacts...");
+
+        function highlight(line, text){
+            let parts = line.split(text);
+            return parts.join(chalk`{blue ${text}}`);
+        }
+
+        function parseLine(x){
+            if(artifact === "trace"){
+                return parseTraceLine(x);
+            }else{
+                //fake the output from parseTraceLine to make it look right
+                return {content: x};
+            }
+        }
+
+        //let evals = r.filter(x => x.attributes.providerTypeName === "SdviEvaluate");
+        let evals = r;
+        let zipped = evals.map(async x => [x, await getArtifact(this.remote, artifact, x.id)]);
+        for await(let [e, trace] of reorderPromises(zipped)){
+            if(!trace) continue;
+
+            let lines = trace.split("\n").map(parseLine);
+            let matching = lines.filter(x => x.content.includes(text));
+            if(matching.length > 0){
+                let preset = await Preset.getById(this.remote, e.relationships.preset.data.id);
+                if(nameOnly){
+                    log(chalk`{red ${preset.name}} ${e.id} {blue ${matching.length}} matche(s)`);
+                }else{
+                    log(chalk`{red ${preset.name}} ${e.id}`);
+                    log(matching.map(x => `  ${highlight(x.content, text)}`).join("\n"));
+                }
+            }
+        }
     }
 }
 

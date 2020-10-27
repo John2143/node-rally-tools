@@ -26,6 +26,185 @@ var rp__default = /*#__PURE__*/_interopDefaultLegacy(rp);
 var path__default = /*#__PURE__*/_interopDefaultLegacy(path);
 var moment__default = /*#__PURE__*/_interopDefaultLegacy(moment);
 
+function _asyncIterator(iterable) {
+  var method;
+
+  if (typeof Symbol === "function") {
+    if (Symbol.asyncIterator) {
+      method = iterable[Symbol.asyncIterator];
+      if (method != null) return method.call(iterable);
+    }
+
+    if (Symbol.iterator) {
+      method = iterable[Symbol.iterator];
+      if (method != null) return method.call(iterable);
+    }
+  }
+
+  throw new TypeError("Object is not async iterable");
+}
+
+function _AwaitValue(value) {
+  this.wrapped = value;
+}
+
+function _AsyncGenerator(gen) {
+  var front, back;
+
+  function send(key, arg) {
+    return new Promise(function (resolve, reject) {
+      var request = {
+        key: key,
+        arg: arg,
+        resolve: resolve,
+        reject: reject,
+        next: null
+      };
+
+      if (back) {
+        back = back.next = request;
+      } else {
+        front = back = request;
+        resume(key, arg);
+      }
+    });
+  }
+
+  function resume(key, arg) {
+    try {
+      var result = gen[key](arg);
+      var value = result.value;
+      var wrappedAwait = value instanceof _AwaitValue;
+      Promise.resolve(wrappedAwait ? value.wrapped : value).then(function (arg) {
+        if (wrappedAwait) {
+          resume("next", arg);
+          return;
+        }
+
+        settle(result.done ? "return" : "normal", arg);
+      }, function (err) {
+        resume("throw", err);
+      });
+    } catch (err) {
+      settle("throw", err);
+    }
+  }
+
+  function settle(type, value) {
+    switch (type) {
+      case "return":
+        front.resolve({
+          value: value,
+          done: true
+        });
+        break;
+
+      case "throw":
+        front.reject(value);
+        break;
+
+      default:
+        front.resolve({
+          value: value,
+          done: false
+        });
+        break;
+    }
+
+    front = front.next;
+
+    if (front) {
+      resume(front.key, front.arg);
+    } else {
+      back = null;
+    }
+  }
+
+  this._invoke = send;
+
+  if (typeof gen.return !== "function") {
+    this.return = undefined;
+  }
+}
+
+if (typeof Symbol === "function" && Symbol.asyncIterator) {
+  _AsyncGenerator.prototype[Symbol.asyncIterator] = function () {
+    return this;
+  };
+}
+
+_AsyncGenerator.prototype.next = function (arg) {
+  return this._invoke("next", arg);
+};
+
+_AsyncGenerator.prototype.throw = function (arg) {
+  return this._invoke("throw", arg);
+};
+
+_AsyncGenerator.prototype.return = function (arg) {
+  return this._invoke("return", arg);
+};
+
+function _wrapAsyncGenerator(fn) {
+  return function () {
+    return new _AsyncGenerator(fn.apply(this, arguments));
+  };
+}
+
+function _awaitAsyncGenerator(value) {
+  return new _AwaitValue(value);
+}
+
+function _asyncGeneratorDelegate(inner, awaitWrap) {
+  var iter = {},
+      waiting = false;
+
+  function pump(key, value) {
+    waiting = true;
+    value = new Promise(function (resolve) {
+      resolve(inner[key](value));
+    });
+    return {
+      done: false,
+      value: awaitWrap(value)
+    };
+  }
+
+  if (typeof Symbol === "function" && Symbol.iterator) {
+    iter[Symbol.iterator] = function () {
+      return this;
+    };
+  }
+
+  iter.next = function (value) {
+    if (waiting) {
+      waiting = false;
+      return value;
+    }
+
+    return pump("next", value);
+  };
+
+  if (typeof inner.throw === "function") {
+    iter.throw = function (value) {
+      if (waiting) {
+        waiting = false;
+        throw value;
+      }
+
+      return pump("throw", value);
+    };
+  }
+
+  if (typeof inner.return === "function") {
+    iter.return = function (value) {
+      return pump("return", value);
+    };
+  }
+
+  return iter;
+}
+
 function _applyDecoratedDescriptor(target, property, decorators, descriptor, context) {
   var desc = {};
   Object['ke' + 'ys'](descriptor).forEach(function (key) {
@@ -790,6 +969,37 @@ class RallyBase {
 function sleep(time = 1000) {
   return new Promise(resolve => setTimeout(resolve, time));
 }
+function* zip(...items) {
+  let iters = items.map(x => x[Symbol.iterator]());
+
+  for (;;) {
+    let r = [];
+
+    for (let i of iters) {
+      let next = i.next();
+      if (next.done) return;
+      r.push(next.value);
+    }
+
+    yield r;
+  }
+}
+function unordered(_x) {
+  return _unordered.apply(this, arguments);
+}
+
+function _unordered() {
+  _unordered = _wrapAsyncGenerator(function* (proms) {
+    let encapsulatedPromises = proms.map(async (x, i) => [i, await x]);
+
+    while (encapsulatedPromises.length > 0) {
+      let [ind, result] = yield _awaitAsyncGenerator(Promise.race(encapsulatedPromises.filter(x => x)));
+      yield result;
+      encapsulatedPromises[ind] = undefined;
+    }
+  });
+  return _unordered.apply(this, arguments);
+}
 
 const inquirer = importLazy("inquirer");
 const readdir = importLazy("recursive-readdir");
@@ -1173,6 +1383,159 @@ defineAssoc(File, "tags", "data.attributes.tagList");
 defineAssoc(File, "instances", "data.attributes.instances");
 File.endpoint = null;
 
+async function findLineInFile(renderedPreset, lineNumber) {
+  let trueFileLine = lineNumber;
+  let linedRenderedPreset = renderedPreset.split("\n").slice(2, -2);
+  renderedPreset = renderedPreset.split("\n").slice(2, -2).join("\n");
+  let includeLocation = renderedPreset.split("\n").filter(x => x.includes("@include"));
+  let endIncludeNumber = -1,
+      addTabDepth = 2;
+  let lineBeforeIncludeStatement = '';
+  let withinInclude = true;
+
+  if (lineNumber > linedRenderedPreset.indexOf(includeLocation[includeLocation.length - 1])) {
+    addTabDepth = 0;
+    withinInclude = false;
+  }
+
+  for (let index = includeLocation.length - 1; index >= 0; index--) {
+    let currIncludeIndex = linedRenderedPreset.indexOf(includeLocation[index]);
+    let tabDepth = includeLocation[index].split("  ").length;
+
+    if (lineNumber > currIncludeIndex) {
+      if (includeLocation[index].split(" ").filter(Boolean)[1] != "ERROR:") {
+        if (lineBeforeIncludeStatement.split("  ").length == tabDepth && withinInclude) {
+          trueFileLine = trueFileLine - currIncludeIndex;
+          break;
+        } else if (lineBeforeIncludeStatement.split("  ").length + addTabDepth == tabDepth && endIncludeNumber == -1) {
+          endIncludeNumber = currIncludeIndex;
+        } else if (lineBeforeIncludeStatement.split("  ").length + addTabDepth == tabDepth) {
+          trueFileLine = trueFileLine - (endIncludeNumber - currIncludeIndex);
+          endIncludeNumber = -1;
+        }
+      }
+    } else {
+      lineBeforeIncludeStatement = includeLocation[index];
+    }
+  }
+
+  let funcLine = "";
+
+  for (let line of linedRenderedPreset.slice(0, lineNumber).reverse()) {
+    let match = /def (\w+)/.exec(line);
+
+    if (match) {
+      funcLine = match[1];
+      break;
+    }
+  }
+
+  let includeFilename;
+
+  if (lineBeforeIncludeStatement != "") {
+    includeFilename = lineBeforeIncludeStatement.slice(1).trim().slice(14, -1);
+  } else {
+    includeFilename = null;
+  }
+
+  if (includeLocation.length !== 0) {
+    trueFileLine -= 1;
+    lineNumber -= 1;
+  }
+
+  return {
+    lineNumber: trueFileLine,
+    includeFilename,
+    line: linedRenderedPreset[lineNumber],
+    funcLine
+  };
+}
+function printOutLine(eLine) {
+  return log(chalk`{blue ${eLine.includeFilename || "Main"}}:{green ${eLine.lineNumber}} in ${eLine.funcLine}
+${eLine.line}`);
+}
+async function getArtifact(env, artifact, jobid) {
+  let path = `/jobs/${jobid}/artifacts/${artifact}`;
+  let art = lib.makeAPIRequest({
+    env,
+    path
+  }).catch(_ => null);
+  return await art;
+}
+async function getInfo(env, jobid) {
+  let trace = getArtifact(env, "trace", jobid);
+  let renderedPreset = getArtifact(env, "preset", jobid);
+  let result = getArtifact(env, "result", jobid);
+  let error = getArtifact(env, "error", jobid);
+  let output = getArtifact(env, "output", jobid);
+  [trace, renderedPreset, result, output, error] = await Promise.all([trace, renderedPreset, result, output, error]);
+  return {
+    trace,
+    renderedPreset,
+    result,
+    output,
+    error
+  };
+}
+const tracelineRegex = /^(?:[\d\.]+) ([\w ]+):(\d+): (.+)/;
+function parseTraceLine(line) {
+  let info = tracelineRegex.exec(line);
+
+  if (!info) {
+    return {
+      full: line,
+      parsed: false,
+      content: line
+    };
+  }
+
+  return {
+    absoluteTime: info[0],
+    presetName: info[1],
+    lineNumber: info[2],
+    text: info[3],
+    content: info[3],
+    full: line,
+    parsed: true
+  };
+}
+async function parseTrace(env, jobid) {
+  let {
+    trace,
+    renderedPreset
+  } = await getInfo(env, jobid);
+  let errorLines = [];
+  let shouldBreak = 0;
+
+  for (let tr of trace.split("\n\n").reverse()) {
+    errorLines.push(tr);
+    shouldBreak--;
+    if (tr.includes("Exception")) shouldBreak = 1;
+    if (tr.includes("raised")) shouldBreak = 1;
+    if (!shouldBreak) break;
+  }
+
+  let errorList = [];
+
+  for (let errLine of errorLines) {
+    let info = parseTraceLine(errLine);
+
+    if (!info.parsed) {
+      errorList.push((await findLineInFile(renderedPreset, info.lineNumber)));
+    } else {
+      errorList.push(errLine);
+    }
+  }
+
+  return errorList;
+}
+const Trace = {
+  parseTrace,
+  printOutLine,
+  getInfo,
+  findLineInFile
+};
+
 class Asset extends RallyBase {
   constructor({
     data,
@@ -1537,12 +1900,13 @@ class Asset extends RallyBase {
 
     let _mdPromise = this.getMetadata();
 
-    let targetAsset = await Asset.getByName(targetEnv, this.name);
+    let name = "DNAP_John_Test";
+    let targetAsset = await Asset.getByName(targetEnv, name);
 
     if (targetAsset) {
       log(`Asset already exists ${targetAsset.chalkPrint()}`); //if(configObject.script) process.exit(10);
     } else {
-      targetAsset = await Asset.createNew(this.name, targetEnv);
+      targetAsset = await Asset.createNew(name, targetEnv);
       log(`Asset created ${targetAsset.chalkPrint()}`);
     } //wait for metadata to be ready before patching
 
@@ -1632,6 +1996,98 @@ class Asset extends RallyBase {
     await file.delete(false); //mode=forget
 
     return true;
+  }
+
+  async grep(text, {
+    artifact = "trace",
+    nameOnly = false,
+    ordering = null
+  }) {
+    function reorderPromises(_x) {
+      return _reorderPromises.apply(this, arguments);
+    }
+
+    function _reorderPromises() {
+      _reorderPromises = _wrapAsyncGenerator(function* (p) {
+        ////yield in order we got it
+        //yield* p[Symbol.iterator]();
+        ////yield in order of first to finish
+        //yield* unordered(p);
+        //yield in chronological order
+        let k = yield _awaitAsyncGenerator(Promise.all(p));
+        yield* _asyncGeneratorDelegate(_asyncIterator(k.sort(([e1, _a], [e2, _b]) => {
+          return e1.attributes.completedAt - e2.attributes.completedAt;
+        })), _awaitAsyncGenerator);
+      });
+      return _reorderPromises.apply(this, arguments);
+    }
+
+    elog("Reading jobs...");
+    let r = await lib.indexPathFast({
+      env: this.remote,
+      path: "/jobs",
+      qs: {
+        filter: `movieId=${this.id}`
+      }
+    });
+    elog("Getting job artifacts...");
+
+    function highlight(line, text) {
+      let parts = line.split(text);
+      return parts.join(chalk`{blue ${text}}`);
+    }
+
+    function parseLine(x) {
+      if (artifact === "trace") {
+        return parseTraceLine(x);
+      } else {
+        //fake the output from parseTraceLine to make it look right
+        return {
+          content: x
+        };
+      }
+    } //let evals = r.filter(x => x.attributes.providerTypeName === "SdviEvaluate");
+
+
+    let evals = r;
+    let zipped = evals.map(async x => [x, await getArtifact(this.remote, artifact, x.id)]);
+    var _iteratorNormalCompletion = true;
+    var _didIteratorError = false;
+
+    var _iteratorError;
+
+    try {
+      for (var _iterator = _asyncIterator(reorderPromises(zipped)), _step, _value; _step = await _iterator.next(), _iteratorNormalCompletion = _step.done, _value = await _step.value, !_iteratorNormalCompletion; _iteratorNormalCompletion = true) {
+        let [e, trace] = _value;
+        if (!trace) continue;
+        let lines = trace.split("\n").map(parseLine);
+        let matching = lines.filter(x => x.content.includes(text));
+
+        if (matching.length > 0) {
+          let preset = await Preset.getById(this.remote, e.relationships.preset.data.id);
+
+          if (nameOnly) {
+            log(chalk`{red ${preset.name}} ${e.id} {blue ${matching.length}} matche(s)`);
+          } else {
+            log(chalk`{red ${preset.name}} ${e.id}`);
+            log(matching.map(x => `  ${highlight(x.content, text)}`).join("\n"));
+          }
+        }
+      }
+    } catch (err) {
+      _didIteratorError = true;
+      _iteratorError = err;
+    } finally {
+      try {
+        if (!_iteratorNormalCompletion && _iterator.return != null) {
+          await _iterator.return();
+        }
+      } finally {
+        if (_didIteratorError) {
+          throw _iteratorError;
+        }
+      }
+    }
   }
 
 }
@@ -2861,145 +3317,6 @@ defineAssoc(Tag, "curated", "data.attributes.curated");
 defineAssoc(Tag, "remote", "meta.remote");
 Tag.endpoint = "tagNames";
 
-async function findLineInFile(renderedPreset, lineNumber) {
-  let trueFileLine = lineNumber;
-  let linedRenderedPreset = renderedPreset.split("\n").slice(2, -2);
-  renderedPreset = renderedPreset.split("\n").slice(2, -2).join("\n");
-  let includeLocation = renderedPreset.split("\n").filter(x => x.includes("@include"));
-  let endIncludeNumber = -1,
-      addTabDepth = 2;
-  let lineBeforeIncludeStatement = '';
-  let withinInclude = true;
-
-  if (lineNumber > linedRenderedPreset.indexOf(includeLocation[includeLocation.length - 1])) {
-    addTabDepth = 0;
-    withinInclude = false;
-  }
-
-  for (let index = includeLocation.length - 1; index >= 0; index--) {
-    let currIncludeIndex = linedRenderedPreset.indexOf(includeLocation[index]);
-    let tabDepth = includeLocation[index].split("  ").length;
-
-    if (lineNumber > currIncludeIndex) {
-      if (includeLocation[index].split(" ").filter(Boolean)[1] != "ERROR:") {
-        if (lineBeforeIncludeStatement.split("  ").length == tabDepth && withinInclude) {
-          trueFileLine = trueFileLine - currIncludeIndex;
-          break;
-        } else if (lineBeforeIncludeStatement.split("  ").length + addTabDepth == tabDepth && endIncludeNumber == -1) {
-          endIncludeNumber = currIncludeIndex;
-        } else if (lineBeforeIncludeStatement.split("  ").length + addTabDepth == tabDepth) {
-          trueFileLine = trueFileLine - (endIncludeNumber - currIncludeIndex);
-          endIncludeNumber = -1;
-        }
-      }
-    } else {
-      lineBeforeIncludeStatement = includeLocation[index];
-    }
-  }
-
-  let funcLine = "";
-
-  for (let line of linedRenderedPreset.slice(0, lineNumber).reverse()) {
-    let match = /def (\w+)/.exec(line);
-
-    if (match) {
-      funcLine = match[1];
-      break;
-    }
-  }
-
-  let includeFilename;
-
-  if (lineBeforeIncludeStatement != "") {
-    includeFilename = lineBeforeIncludeStatement.slice(1).trim().slice(14, -1);
-  } else {
-    includeFilename = null;
-  }
-
-  if (includeLocation.length !== 0) {
-    trueFileLine -= 1;
-    lineNumber -= 1;
-  }
-
-  return {
-    lineNumber: trueFileLine,
-    includeFilename,
-    line: linedRenderedPreset[lineNumber],
-    funcLine
-  };
-}
-function printOutLine(eLine) {
-  return log(chalk`{blue ${eLine.includeFilename || "Main"}}:{green ${eLine.lineNumber}} in ${eLine.funcLine}
-${eLine.line}`);
-}
-async function getInfo(env, jobid) {
-  let trace = lib.makeAPIRequest({
-    env,
-    path: `/jobs/${jobid}/artifacts/trace`
-  }).catch(x => null);
-  let renderedPreset = lib.makeAPIRequest({
-    env,
-    path: `/jobs/${jobid}/artifacts/preset`
-  }).catch(x => null);
-  let result = lib.makeAPIRequest({
-    env,
-    path: `/jobs/${jobid}/artifacts/result`
-  }).catch(x => null);
-  let error = lib.makeAPIRequest({
-    env,
-    path: `/jobs/${jobid}/artifacts/error`
-  }).catch(x => null);
-  let output = lib.makeAPIRequest({
-    env,
-    path: `/jobs/${jobid}/artifacts/output`
-  }).catch(x => null);
-  [trace, renderedPreset, result, output, error] = await Promise.all([trace, renderedPreset, result, output, error]);
-  return {
-    trace,
-    renderedPreset,
-    result,
-    output,
-    error
-  };
-}
-async function parseTrace(env, jobid) {
-  let {
-    trace,
-    renderedPreset
-  } = await getInfo(env, jobid);
-  let lineNumber = -1;
-  let errorLines = [];
-  let shouldBreak = 0;
-
-  for (let tr of trace.split("\n\n").reverse()) {
-    errorLines.push(tr);
-    shouldBreak--;
-    if (tr.includes("Exception")) shouldBreak = 1;
-    if (tr.includes("raised")) shouldBreak = 1;
-    if (!shouldBreak) break;
-  }
-
-  let errorList = [];
-
-  for (let errLine of errorLines) {
-    lineNumber = /^(?:[\d\.]+ )?[\w ]+:(\d+):/g.exec(errLine);
-
-    if (lineNumber && lineNumber[1]) {
-      errorList.push((await findLineInFile(renderedPreset, lineNumber[1])));
-    } else {
-      errorList.push(errLine);
-    }
-  }
-
-  return errorList;
-}
-const Trace = {
-  parseTrace,
-  printOutLine,
-  getInfo,
-  findLineInFile
-};
-
 require("source-map-support").install();
 const rallyFunctions = {
   async bestPagintation() {
@@ -3071,10 +3388,12 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   FileTooLargeError: FileTooLargeError,
   Collection: Collection,
   RallyBase: RallyBase,
-  sleep: sleep
+  sleep: sleep,
+  zip: zip,
+  unordered: unordered
 });
 
-var version = "2.5.0";
+var version = "2.5.1";
 
 var baseCode = {
   SdviContentMover: `{
@@ -3153,7 +3472,7 @@ def evalMain(context):
     # code here`
 };
 
-var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _dec10, _dec11, _dec12, _dec13, _dec14, _dec15, _dec16, _dec17, _dec18, _dec19, _dec20, _dec21, _dec22, _dec23, _dec24, _dec25, _dec26, _dec27, _dec28, _dec29, _dec30, _dec31, _dec32, _dec33, _dec34, _dec35, _dec36, _dec37, _dec38, _dec39, _dec40, _dec41, _dec42, _dec43, _dec44, _dec45, _dec46, _dec47, _dec48, _dec49, _dec50, _dec51, _dec52, _dec53, _dec54, _dec55, _dec56, _dec57, _dec58, _obj;
+var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _dec10, _dec11, _dec12, _dec13, _dec14, _dec15, _dec16, _dec17, _dec18, _dec19, _dec20, _dec21, _dec22, _dec23, _dec24, _dec25, _dec26, _dec27, _dec28, _dec29, _dec30, _dec31, _dec32, _dec33, _dec34, _dec35, _dec36, _dec37, _dec38, _dec39, _dec40, _dec41, _dec42, _dec43, _dec44, _dec45, _dec46, _dec47, _dec48, _dec49, _dec50, _dec51, _dec52, _dec53, _dec54, _dec55, _dec56, _dec57, _dec58, _dec59, _dec60, _obj;
 
 require("source-map-support").install();
 let argv = argparse__default['default'](process.argv.slice(2), {
@@ -3285,7 +3604,7 @@ let presetsub = {
   },
 
   async $list(args) {
-    log("Loading...");
+    elog("Loading...");
     let presets = await Preset.getAll(this.env);
 
     if (args.resolve) {
@@ -3429,7 +3748,7 @@ let rulesub = {
   },
 
   async $list(args) {
-    log("Loading...");
+    elog("Loading...");
     let rules = await Rule.getAll(this.env);
     if (configObject.rawOutput) return rules;
     log(chalk`{yellow ${rules.length}} rules on {green ${this.env}}.`);
@@ -3581,7 +3900,7 @@ let tagsub = {
   },
 
   async $list(args) {
-    log("Loading...");
+    elog("Loading...");
     let tags = await Tag.getAll(this.env);
     if (configObject.rawOutput) return tags;
     log(chalk`{yellow ${tags.length}} tags on {green ${this.env}}.`);
@@ -3766,7 +4085,7 @@ function subCommand(object) {
   };
 }
 
-let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [subhelp]`), _dec3 = param("subhelp", "The name of the command to see help for"), _dec4 = helpText("Rally tools jupyter interface. Requires jupyter to be installed."), _dec5 = usage("rally jupyter build [in] [out]"), _dec6 = param("in/out", "input and output file for jupyter. By default main.ipyrb and main.py"), _dec7 = helpText(`Preset related actions`), _dec8 = usage(`rally preset [action] --env <enviornment> --file [file1] --file [file2] ...`), _dec9 = param("action", "The action to perform. Can be upload, diff, list, deleteRemote"), _dec10 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec11 = arg("-f", "--file", "A file to act on"), _dec12 = arg("~", "--command", "If the action is diff, this is the command to run instead of diff"), _dec13 = helpText(`Rule related actions`), _dec14 = usage(`rally rule [action] --env [enviornment]`), _dec15 = param("action", "The action to perform. Only list is supported right now"), _dec16 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec17 = helpText(`supply chain related actions`), _dec18 = usage(`rally supply [action] [identifier] --env [enviornment] [post actions]`), _dec19 = param("action", "The action to perform. Can be calc or make."), _dec20 = param("identifier", "If the action is calc, then this identifier should be the first rule in the chain. If this is make, then supply '-' to read from stdin"), _dec21 = param("post actions", "The action to perform on the created supply chain. See commands below"), _dec22 = arg("-e", "--env", "(calc only) environment to do the calculation on"), _dec23 = arg("~", "--diff", "(post action) Use as `--diff [env]`. List all files with differences on the given env."), _dec24 = arg("~", "--to", "(post action) Use as `--to [env]`. Upload all objects."), _dec25 = arg("~", "--delete", "(post action) Use as `--delete [env]`. The reverse of uploading. Only presets are supported right now."), _dec26 = helpText(`tags stuff`), _dec27 = usage(`rally tags [action]`), _dec28 = param("action", "The action to perform. Can be list or create."), _dec29 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec30 = helpText(`print out some trace info`), _dec31 = usage(`rally trace -e [env] [jobid]`), _dec32 = param("jobid", "a job id like b86d7d90-f0a5-4622-8754-486ca8e9ecbd"), _dec33 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec34 = helpText(`List all available providers, or find one by name/id`), _dec35 = usage(`rally providers [identifier] --env [env] --raw`), _dec36 = param("identifier", "Either the name or id of the provider"), _dec37 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec38 = arg("~", "--raw", "Raw output of command. If [identifier] is given, then print editorConfig too"), _dec39 = helpText(`Change config for rally tools`), _dec40 = usage("rally config [key] --set [value] --raw"), _dec41 = param("key", chalk`Key you want to edit. For example, {green chalk} or {green api.DEV}`), _dec42 = arg("~", "--set", "If this value is given, no interactive prompt will launch and the config option will change."), _dec43 = arg("~", "--raw", "Raw output of json config"), _dec44 = helpText(`create/modify asset or files inside asset`), _dec45 = usage("rally asset [action] [action...]"), _dec46 = param("action", chalk`Actions are create, delete, launch, addfile, metadata, show, patchMetadata, and launchEvalute, deleteFile, downloadFile. You can supply multiple actions to chain them`), _dec47 = arg(`-i`, `--id`, chalk`MOVIE_ID of asset to select`), _dec48 = arg(`-n`, `--name`, chalk`MOVIE_NAME of asset. with {white create}, '{white #}' will be replaced with a uuid. Default is '{white TEST_#}'`), _dec49 = arg(`~`, `--anon`, chalk`Supply this if no asset is needed (used to lauch anonymous workflows)`), _dec50 = arg(`-j`, `--job-name`, chalk`Job name to start (used with launch and launchEvalute)`), _dec51 = arg(`~`, `--init-data`, chalk`Init data to use when launching job. can be string, or {white @path/to/file} for a file`), _dec52 = arg(`~`, `--file-label`, chalk`File label (used with addfile)`), _dec53 = arg(`~`, `--file-uri`, chalk`File s3 uri. Can use multiple uri's for the same label (used with addfile)`), _dec54 = arg(`~`, `--metadata`, chalk`Metadata to use with patchMetadata. Can be string, or {white @path/to/file} for a file. Data must contain a top level key Metadata, or Workflow. Metadata will be pached into METADATA. Workflow will be patched into WORKFLOW_METADATA(not currently available)`), _dec55 = arg(`~`, `--priority`, chalk`set the priority of all launched jobs`), _dec56 = arg(`~`, `--new-name`, chalk`set the new name`), _dec57 = arg(`~`, `--target-env`, chalk`migrate to the env (when using migrate)`), _dec58 = arg(`~`, `--to-folder`, chalk`Folder to download to when using downloadFile. If no folder is given, writes to stdout.`), (_obj = {
+let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [subhelp]`), _dec3 = param("subhelp", "The name of the command to see help for"), _dec4 = helpText("Rally tools jupyter interface. Requires jupyter to be installed."), _dec5 = usage("rally jupyter build [in] [out]"), _dec6 = param("in/out", "input and output file for jupyter. By default main.ipyrb and main.py"), _dec7 = helpText(`Preset related actions`), _dec8 = usage(`rally preset [action] --env <enviornment> --file [file1] --file [file2] ...`), _dec9 = param("action", "The action to perform. Can be upload, diff, list, deleteRemote"), _dec10 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec11 = arg("-f", "--file", "A file to act on"), _dec12 = arg("~", "--command", "If the action is diff, this is the command to run instead of diff"), _dec13 = helpText(`Rule related actions`), _dec14 = usage(`rally rule [action] --env [enviornment]`), _dec15 = param("action", "The action to perform. Only list is supported right now"), _dec16 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec17 = helpText(`supply chain related actions`), _dec18 = usage(`rally supply [action] [identifier] --env [enviornment] [post actions]`), _dec19 = param("action", "The action to perform. Can be calc or make."), _dec20 = param("identifier", "If the action is calc, then this identifier should be the first rule in the chain. If this is make, then supply '-' to read from stdin"), _dec21 = param("post actions", "The action to perform on the created supply chain. See commands below"), _dec22 = arg("-e", "--env", "(calc only) environment to do the calculation on"), _dec23 = arg("~", "--diff", "(post action) Use as `--diff [env]`. List all files with differences on the given env."), _dec24 = arg("~", "--to", "(post action) Use as `--to [env]`. Upload all objects."), _dec25 = arg("~", "--delete", "(post action) Use as `--delete [env]`. The reverse of uploading. Only presets are supported right now."), _dec26 = helpText(`tags stuff`), _dec27 = usage(`rally tags [action]`), _dec28 = param("action", "The action to perform. Can be list or create."), _dec29 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec30 = helpText(`print out some trace info`), _dec31 = usage(`rally trace -e [env] [jobid]`), _dec32 = param("jobid", "a job id like b86d7d90-f0a5-4622-8754-486ca8e9ecbd"), _dec33 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec34 = helpText(`List all available providers, or find one by name/id`), _dec35 = usage(`rally providers [identifier] --env [env] --raw`), _dec36 = param("identifier", "Either the name or id of the provider"), _dec37 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec38 = arg("~", "--raw", "Raw output of command. If [identifier] is given, then print editorConfig too"), _dec39 = helpText(`Change config for rally tools`), _dec40 = usage("rally config [key] --set [value] --raw"), _dec41 = param("key", chalk`Key you want to edit. For example, {green chalk} or {green api.DEV}`), _dec42 = arg("~", "--set", "If this value is given, no interactive prompt will launch and the config option will change."), _dec43 = arg("~", "--raw", "Raw output of json config"), _dec44 = helpText(`create/modify asset or files inside asset`), _dec45 = usage("rally asset [action] [action...]"), _dec46 = param("action", chalk`Actions are create, delete, launch, addfile, metadata, show, patchMetadata, and launchEvalute, deleteFile, downloadFile. You can supply multiple actions to chain them`), _dec47 = arg(`-i`, `--id`, chalk`MOVIE_ID of asset to select`), _dec48 = arg(`-n`, `--name`, chalk`MOVIE_NAME of asset. with {white create}, '{white #}' will be replaced with a uuid. Default is '{white TEST_#}'`), _dec49 = arg(`~`, `--anon`, chalk`Supply this if no asset is needed (used to lauch anonymous workflows)`), _dec50 = arg(`-j`, `--job-name`, chalk`Job name to start (used with launch and launchEvalute)`), _dec51 = arg(`~`, `--init-data`, chalk`Init data to use when launching job. can be string, or {white @path/to/file} for a file`), _dec52 = arg(`~`, `--file-label`, chalk`File label (used with addfile)`), _dec53 = arg(`~`, `--file-uri`, chalk`File s3 uri. Can use multiple uri's for the same label (used with addfile)`), _dec54 = arg(`~`, `--metadata`, chalk`Metadata to use with patchMetadata. Can be string, or {white @path/to/file} for a file. Data must contain a top level key Metadata, or Workflow. Metadata will be pached into METADATA. Workflow will be patched into WORKFLOW_METADATA(not currently available)`), _dec55 = arg(`~`, `--priority`, chalk`set the priority of all launched jobs`), _dec56 = arg(`~`, `--new-name`, chalk`set the new name`), _dec57 = arg(`~`, `--target-env`, chalk`migrate to the env (when using migrate)`), _dec58 = arg(`~`, `--to-folder`, chalk`Folder to download to when using downloadFile. If no folder is given, writes to stdout.`), _dec59 = arg(`~`, `--artifact`, chalk`This is the artifact to grep on. Defaults to trace. Values are "trace", "preset", "result", "error", "output"`), _dec60 = arg(`~`, `--on`, chalk`alias for artifact`), (_obj = {
   async help(args) {
     let arg = args._.shift();
 
@@ -3929,6 +4248,7 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
     log(chalk`Created file {green ${configFile}}.`);
   },
 
+  //@arg(`~`,  `--any`,        chalk`allows grep to grep for any preset/provider, not just sdviEval`)
   async asset(args) {
     function uuid(args) {
       const digits = 16;
@@ -4098,6 +4418,12 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
         if (!result) {
           log(`Failed to delete file ${label}`);
         }
+      } else if (arg === "grep") {
+        await asset.grep(args._.pop(), {
+          artifact: args.on || args.artifact || "trace",
+          nameOnly: args["name-only"],
+          ordering: null
+        });
       } else {
         log(`No usage found for ${arg}`);
       }
@@ -4312,7 +4638,7 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
     }
 
     log(chalk`Resource ID on {blue ${args.env}} is {yellow ${resourceId}}`);
-    log(`Loading audits (this might take a while)`);
+    elog(`Loading audits (this might take a while)`);
     const numRows = 100;
     let r = await lib.makeAPIRequest({
       env: args.env,
@@ -4430,7 +4756,7 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
     return true;
   }
 
-}, (_applyDecoratedDescriptor(_obj, "help", [_dec, _dec2, _dec3], Object.getOwnPropertyDescriptor(_obj, "help"), _obj), _applyDecoratedDescriptor(_obj, "jupyter", [_dec4, _dec5, _dec6], Object.getOwnPropertyDescriptor(_obj, "jupyter"), _obj), _applyDecoratedDescriptor(_obj, "preset", [_dec7, _dec8, _dec9, _dec10, _dec11, _dec12], Object.getOwnPropertyDescriptor(_obj, "preset"), _obj), _applyDecoratedDescriptor(_obj, "rule", [_dec13, _dec14, _dec15, _dec16], Object.getOwnPropertyDescriptor(_obj, "rule"), _obj), _applyDecoratedDescriptor(_obj, "supply", [_dec17, _dec18, _dec19, _dec20, _dec21, _dec22, _dec23, _dec24, _dec25], Object.getOwnPropertyDescriptor(_obj, "supply"), _obj), _applyDecoratedDescriptor(_obj, "tag", [_dec26, _dec27, _dec28, _dec29], Object.getOwnPropertyDescriptor(_obj, "tag"), _obj), _applyDecoratedDescriptor(_obj, "trace", [_dec30, _dec31, _dec32, _dec33], Object.getOwnPropertyDescriptor(_obj, "trace"), _obj), _applyDecoratedDescriptor(_obj, "providers", [_dec34, _dec35, _dec36, _dec37, _dec38], Object.getOwnPropertyDescriptor(_obj, "providers"), _obj), _applyDecoratedDescriptor(_obj, "config", [_dec39, _dec40, _dec41, _dec42, _dec43], Object.getOwnPropertyDescriptor(_obj, "config"), _obj), _applyDecoratedDescriptor(_obj, "asset", [_dec44, _dec45, _dec46, _dec47, _dec48, _dec49, _dec50, _dec51, _dec52, _dec53, _dec54, _dec55, _dec56, _dec57, _dec58], Object.getOwnPropertyDescriptor(_obj, "asset"), _obj)), _obj));
+}, (_applyDecoratedDescriptor(_obj, "help", [_dec, _dec2, _dec3], Object.getOwnPropertyDescriptor(_obj, "help"), _obj), _applyDecoratedDescriptor(_obj, "jupyter", [_dec4, _dec5, _dec6], Object.getOwnPropertyDescriptor(_obj, "jupyter"), _obj), _applyDecoratedDescriptor(_obj, "preset", [_dec7, _dec8, _dec9, _dec10, _dec11, _dec12], Object.getOwnPropertyDescriptor(_obj, "preset"), _obj), _applyDecoratedDescriptor(_obj, "rule", [_dec13, _dec14, _dec15, _dec16], Object.getOwnPropertyDescriptor(_obj, "rule"), _obj), _applyDecoratedDescriptor(_obj, "supply", [_dec17, _dec18, _dec19, _dec20, _dec21, _dec22, _dec23, _dec24, _dec25], Object.getOwnPropertyDescriptor(_obj, "supply"), _obj), _applyDecoratedDescriptor(_obj, "tag", [_dec26, _dec27, _dec28, _dec29], Object.getOwnPropertyDescriptor(_obj, "tag"), _obj), _applyDecoratedDescriptor(_obj, "trace", [_dec30, _dec31, _dec32, _dec33], Object.getOwnPropertyDescriptor(_obj, "trace"), _obj), _applyDecoratedDescriptor(_obj, "providers", [_dec34, _dec35, _dec36, _dec37, _dec38], Object.getOwnPropertyDescriptor(_obj, "providers"), _obj), _applyDecoratedDescriptor(_obj, "config", [_dec39, _dec40, _dec41, _dec42, _dec43], Object.getOwnPropertyDescriptor(_obj, "config"), _obj), _applyDecoratedDescriptor(_obj, "asset", [_dec44, _dec45, _dec46, _dec47, _dec48, _dec49, _dec50, _dec51, _dec52, _dec53, _dec54, _dec55, _dec56, _dec57, _dec58, _dec59, _dec60], Object.getOwnPropertyDescriptor(_obj, "asset"), _obj)), _obj));
 
 async function unknownCommand(cmd) {
   log(chalk`Unknown command {red ${cmd}}.`);
@@ -4547,7 +4873,7 @@ async function $main() {
     configObject.skipHeader = true;
   }
 
-  configObject.globalProgress = !argv["hide-progress"]; //Default enviornment should normally be from config, but it can be
+  configObject.globalProgress = argv["show-progress"] || false; //Default enviornment should normally be from config, but it can be
   //overridden by the -e/--env flag
 
   if (configObject.defaultEnv) {

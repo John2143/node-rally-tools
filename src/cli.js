@@ -134,7 +134,7 @@ let presetsub = {
         if(!args["only-metadata"]) preset.saveLocalFile();
     },
     async $list(args){
-        log("Loading...");
+        elog("Loading...");
         let presets = await Preset.getAll(this.env);
         if(args.resolve){
             Provider.getAll(this.env);
@@ -245,7 +245,7 @@ let rulesub = {
         if(!this.env) throw new AbortError("No env supplied");
     },
     async $list(args){
-        log("Loading...");
+        elog("Loading...");
         let rules = await Rule.getAll(this.env);
         if(configObject.rawOutput) return rules;
 
@@ -351,7 +351,7 @@ let tagsub = {
         if(!this.env) throw new AbortError("No env supplied");
     },
     async $list(args){
-        log("Loading...");
+        elog("Loading...");
         let tags = await Tag.getAll(this.env);
         if(configObject.rawOutput) return tags;
 
@@ -733,6 +733,9 @@ let cli = {
     @arg(`~`,  `--new-name`,   chalk`set the new name`)
     @arg(`~`,  `--target-env`, chalk`migrate to the env (when using migrate)`)
     @arg(`~`,  `--to-folder`,  chalk`Folder to download to when using downloadFile. If no folder is given, writes to stdout.`)
+    @arg(`~`,  `--artifact`,   chalk`This is the artifact to grep on. Defaults to trace. Values are "trace", "preset", "result", "error", "output"`)
+    @arg(`~`,  `--on`,         chalk`alias for artifact`)
+    //@arg(`~`,  `--any`,        chalk`allows grep to grep for any preset/provider, not just sdviEval`)
     async asset(args){
         function uuid(args){
             const digits = 16;
@@ -882,6 +885,12 @@ let cli = {
                 if(!result) {
                     log(`Failed to delete file ${label}`);
                 }
+            }else if(arg === "grep") {
+                await asset.grep(args._.pop(), {
+                    artifact: args.on || args.artifact || "trace",
+                    nameOnly: args["name-only"],
+                    ordering: null,
+                });
             }else{
                 log(`No usage found for ${arg}`);
             }
@@ -1065,7 +1074,7 @@ let cli = {
         }
 
         log(chalk`Resource ID on {blue ${args.env}} is {yellow ${resourceId}}`);
-        log(`Loading audits (this might take a while)`);
+        elog(`Loading audits (this might take a while)`);
         const numRows = 100;
         let r = await allIndexBundle.lib.makeAPIRequest({
             env: args.env,
@@ -1279,7 +1288,7 @@ async function $main(){
         configObject.skipHeader = true;
     }
 
-    configObject.globalProgress = !argv["hide-progress"];
+    configObject.globalProgress = argv["show-progress"] || false;
 
     //Default enviornment should normally be from config, but it can be
     //overridden by the -e/--env flag

@@ -498,3 +498,27 @@ export class RallyBase{
 export function sleep(time = 1000){
     return new Promise(resolve => setTimeout(resolve, time));
 }
+
+export function* zip(...items){
+    let iters = items.map(x => x[Symbol.iterator]());
+
+    for(;;){
+        let r = [];
+        for(let i of iters){
+            let next = i.next()
+            if(next.done) return;
+            r.push(next.value);
+        }
+        yield r;
+    }
+}
+
+export async function* unordered(proms){
+    let encapsulatedPromises = proms.map(async (x, i) => [i, await x]);
+    while(encapsulatedPromises.length > 0){
+        let [ind, result] = await Promise.race(encapsulatedPromises.filter(x => x));
+        yield result;
+
+        encapsulatedPromises[ind] = undefined;
+    }
+}

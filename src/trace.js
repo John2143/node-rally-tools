@@ -73,30 +73,48 @@ export function printOutLine(eLine){
 ${eLine.line}`)
 }
 
+export async function getArtifact(env, artifact, jobid){
+    let path = `/jobs/${jobid}/artifacts/${artifact}`;
+    let art = lib.makeAPIRequest({
+        env, path,
+    }).catch(_ => null);
+
+    return await art;
+}
+
 export async function getInfo(env, jobid){
-    let trace = lib.makeAPIRequest({
-        env, path: `/jobs/${jobid}/artifacts/trace`,
-    }).catch(x => null);
-
-    let renderedPreset = lib.makeAPIRequest({
-        env, path: `/jobs/${jobid}/artifacts/preset`,
-    }).catch(x => null);
-
-    let result = lib.makeAPIRequest({
-        env, path: `/jobs/${jobid}/artifacts/result`,
-    }).catch(x => null);
-
-    let error = lib.makeAPIRequest({
-        env, path: `/jobs/${jobid}/artifacts/error`,
-    }).catch(x => null);
-
-    let output = lib.makeAPIRequest({
-        env, path: `/jobs/${jobid}/artifacts/output`,
-    }).catch(x => null);
+    let trace          = getArtifact(env, "trace", jobid);
+    let renderedPreset = getArtifact(env, "preset", jobid);
+    let result         = getArtifact(env, "result", jobid);
+    let error          = getArtifact(env, "error", jobid);
+    let output         = getArtifact(env, "output", jobid);
 
     [trace, renderedPreset, result, output, error] = await Promise.all([trace, renderedPreset, result, output, error]);
 
     return {trace, renderedPreset, result, output, error}
+}
+
+export const tracelineRegex = /^(?:[\d\.]+) ([\w ]+):(\d+): (.+)/;
+export function parseTraceLine(line){
+    let info = tracelineRegex.exec(line);
+
+    if(!info) {
+        return {
+            full: line,
+            parsed: false,
+            content: line,
+        };
+    }
+
+    return {
+        absoluteTime: info[0],
+        presetName: info[1],
+        lineNumber: info[2],
+        text: info[3],
+        content: info[3],
+        full: line,
+        parsed: true,
+    }
 }
 
 export async function parseTrace(env, jobid){
@@ -119,9 +137,9 @@ export async function parseTrace(env, jobid){
     let errorList = [];
     for(let errLine of errorLines){
 
-        lineNumber = /^(?:[\d\.]+ )?[\w ]+:(\d+):/g.exec(errLine);
-        if(lineNumber && lineNumber[1]){
-            errorList.push(await findLineInFile(renderedPreset, lineNumber[1]));
+        let info = parseTraceLine(errLine);
+        if(!info.parsed){
+            errorList.push(await findLineInFile(renderedPreset, info.lineNumber));
         }else{
             errorList.push(errLine);
         }

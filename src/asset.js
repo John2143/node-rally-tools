@@ -471,6 +471,8 @@ class Asset extends RallyBase{
                 let preset = await Preset.getById(this.remote, e.relationships.preset.data.id);
                 if(nameOnly){
                     log(chalk`{red ${preset.name}} ${e.id} {blue ${matching.length}} matche(s)`);
+                }else if(configObject.rawOutput){
+                    console.log(matching.map(x => chalk`{red ${preset.name}}:${highlight(x.content, text)}`).join("\n"));
                 }else{
                     log(chalk`{red ${preset.name}} ${e.id}`);
                     log(matching.map(x => `  ${highlight(x.content, text)}`).join("\n"));

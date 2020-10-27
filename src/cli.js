@@ -720,7 +720,7 @@ let cli = {
 
     @helpText(`create/modify asset or files inside asset`)
     @usage("rally asset [action] [action...]")
-    @param("action", chalk`Actions are create, delete, launch, addfile, metadata, show, patchMetadata, and launchEvalute, deleteFile, downloadFile. You can supply multiple actions to chain them`)
+    @param("action", chalk`Actions are create, delete, launch, addfile, metadata, show, patchMetadata, and launchEvalute, deleteFile, downloadFile, grep. You can supply multiple actions to chain them.`)
     @arg(`-i`, `--id`,         chalk`MOVIE_ID of asset to select`)
     @arg(`-n`, `--name`,       chalk`MOVIE_NAME of asset. with {white create}, '{white #}' will be replaced with a uuid. Default is '{white TEST_#}'`)
     @arg(`~`,  `--anon`,       chalk`Supply this if no asset is needed (used to lauch anonymous workflows)`)

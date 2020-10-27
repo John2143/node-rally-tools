@@ -1769,6 +1769,8 @@ ${eLine.line}`);
 
             if (nameOnly) {
               log(chalk`{red ${preset.name}} ${e.id} {blue ${matching.length}} matche(s)`);
+            } else if (exports.configObject.rawOutput) {
+              console.log(matching.map(x => chalk`{red ${preset.name}}:${highlight(x.content, text)}`).join("\n"));
             } else {
               log(chalk`{red ${preset.name}} ${e.id}`);
               log(matching.map(x => `  ${highlight(x.content, text)}`).join("\n"));

@@ -1793,6 +1793,18 @@ ${eLine.line}`);
       }
     }
 
+    async analyze() {
+      await lib.makeAPIRequest({
+        env: this.remote,
+        path: "/v1.0/analysis",
+        method: "POST",
+        payload: {
+          "movieId": this.id,
+          "latestVersion": true
+        }
+      });
+    }
+
   }
 
   defineAssoc(Asset, "id", "data.id");

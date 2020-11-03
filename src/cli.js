@@ -718,9 +718,15 @@ let cli = {
         log(chalk`Created file {green ${configFile}}.`);
     },
 
+    async silo(){
+        let s = new Silo("UAT");
+
+        await s.grep();
+    },
+
     @helpText(`create/modify asset or files inside asset`)
     @usage("rally asset [action] [action...]")
-    @param("action", chalk`Actions are create, delete, launch, addfile, metadata, show, patchMetadata, and launchEvalute, deleteFile, downloadFile, grep. You can supply multiple actions to chain them.`)
+    @param("action", chalk`Actions are create, delete, launch, addfile, metadata, show, patchMetadata, and launchEvalute, deleteFile, downloadFile, grep, analyze. You can supply multiple actions to chain them.`)
     @arg(`-i`, `--id`,         chalk`MOVIE_ID of asset to select`)
     @arg(`-n`, `--name`,       chalk`MOVIE_NAME of asset. with {white create}, '{white #}' will be replaced with a uuid. Default is '{white TEST_#}'`)
     @arg(`~`,  `--anon`,       chalk`Supply this if no asset is needed (used to lauch anonymous workflows)`)
@@ -851,7 +857,7 @@ let cli = {
                 if(asset.lite) asset = await Asset.getById(env, asset.id);
                 if(arg == "show") log(asset);
             }else if(arg === "metadata" || arg === "md"){
-                log(await asset.getMetadata());
+                log(await asset.getMetadata(true));
             }else if(arg === "migrate"){
                 await asset.migrate(args["target-env"]);
             }else if(arg === "patchMetadata"){
@@ -892,6 +898,8 @@ let cli = {
                     nameOnly: args["name-only"],
                     ordering: null,
                 });
+            }else if(arg === "analyze") {
+                await asset.analyze();
             }else{
                 log(`No usage found for ${arg}`);
             }

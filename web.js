@@ -1,16 +1,14 @@
 (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('chalk'), require('os'), require('fs'), require('child_process'), require('perf_hooks'), require('request-promise'), require('path'), require('moment')) :
-  typeof define === 'function' && define.amd ? define(['exports', 'chalk', 'os', 'fs', 'child_process', 'perf_hooks', 'request-promise', 'path', 'moment'], factory) :
-  (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.RallyTools = {}, global.chalk$1, global.os, global.fs, global.child_process, global.perf_hooks, global.rp, global.path, global.moment));
-}(this, (function (exports, chalk$1, os, fs, child_process, perf_hooks, rp, path, moment) { 'use strict';
+  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('os'), require('fs'), require('child_process'), require('perf_hooks'), require('chalk'), require('request-promise'), require('path'), require('moment')) :
+  typeof define === 'function' && define.amd ? define(['exports', 'os', 'fs', 'child_process', 'perf_hooks', 'chalk', 'request-promise', 'path', 'moment'], factory) :
+  (factory((global.RallyTools = {}),global.os,global.fs,global.child_process,global.perf_hooks,global.chalk$1,global.rp,global.path,global.moment));
+}(this, (function (exports,os,fs,child_process,perf_hooks,chalk$1,rp,path,moment) { 'use strict';
 
-  function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
-
-  var chalk__default = /*#__PURE__*/_interopDefaultLegacy(chalk$1);
-  var fs__default = /*#__PURE__*/_interopDefaultLegacy(fs);
-  var rp__default = /*#__PURE__*/_interopDefaultLegacy(rp);
-  var path__default = /*#__PURE__*/_interopDefaultLegacy(path);
-  var moment__default = /*#__PURE__*/_interopDefaultLegacy(moment);
+  var fs__default = 'default' in fs ? fs['default'] : fs;
+  chalk$1 = chalk$1 && chalk$1.hasOwnProperty('default') ? chalk$1['default'] : chalk$1;
+  rp = rp && rp.hasOwnProperty('default') ? rp['default'] : rp;
+  var path__default = 'default' in path ? path['default'] : path;
+  moment = moment && moment.hasOwnProperty('default') ? moment['default'] : moment;
 
   function _asyncIterator(iterable) {
     var method;
@@ -231,10 +229,10 @@
   //these are the help entries for each command
   //function retuns obj.a.b.c
 
-  function deepAccess(obj, path) {
+  function deepAccess(obj, path$$1) {
     let o = obj;
 
-    for (let key of path) {
+    for (let key of path$$1) {
       if (!o) return [];
       o = o[key];
     }
@@ -244,16 +242,16 @@
   //corresponds to an object in this.data
 
 
-  function defineAssoc(classname, shortname, path) {
-    path = path.split(".");
-    let lastKey = path.pop();
+  function defineAssoc(classname, shortname, path$$1) {
+    path$$1 = path$$1.split(".");
+    let lastKey = path$$1.pop();
     Object.defineProperty(classname.prototype, shortname, {
       get() {
-        return deepAccess(this, path)[lastKey];
+        return deepAccess(this, path$$1)[lastKey];
       },
 
       set(val) {
-        deepAccess(this, path)[lastKey] = val;
+        deepAccess(this, path$$1)[lastKey] = val;
       }
 
     });
@@ -301,7 +299,7 @@
     });
   }
 
-  global.chalk = chalk__default['default'];
+  global.chalk = chalk$1;
 
   global.log = (...text) => console.log(...text);
 
@@ -311,7 +309,7 @@
 
   global.ewrite = (...text) => process.stderr.write(...text);
 
-  global.errorLog = (...text) => log(...text.map(chalk__default['default'].red));
+  global.errorLog = (...text) => log(...text.map(chalk$1.red));
 
   class lib {
     //This function takes 2 required arguemnts:
@@ -334,7 +332,7 @@
     //  not just the returned data.
     static async makeAPIRequest({
       env,
-      path,
+      path: path$$1,
       path_full,
       fullPath,
       payload,
@@ -365,11 +363,11 @@
       let rally_api_key = config.key;
       let rally_api = config.url;
 
-      if (path && path.startsWith("/v1.0/")) {
+      if (path$$1 && path$$1.startsWith("/v1.0/")) {
         rally_api = rally_api.replace("/api/v2", "/api");
       }
 
-      path = path_full || rally_api + path;
+      path$$1 = path_full || rally_api + path$$1;
 
       if (payload) {
         body = JSON.stringify(payload, null, 4);
@@ -387,7 +385,7 @@
       };
 
       if (exports.configObject.vvverbose) {
-        log(`${method} @ ${path}`);
+        log(`${method} @ ${path$$1}`);
         log(JSON.stringify(fullHeaders, null, 4));
 
         if (body) {
@@ -401,7 +399,7 @@
         method,
         body,
         qs,
-        uri: path,
+        uri: path$$1,
         timeout,
         auth: {
           bearer: rally_api_key
@@ -413,10 +411,10 @@
       let response;
 
       try {
-        response = await rp__default['default'](requestOptions);
+        response = await rp(requestOptions);
 
         if (exports.configObject.vverbose || exports.configObject.vvverbose) {
-          log(chalk__default['default']`${method} @ ${response.request.uri.href}`);
+          log(chalk$1`${method} @ ${response.request.uri.href}`);
         }
       } catch (e) {
         if ((e === null || e === void 0 ? void 0 : e.cause.code) === "ESOCKETTIMEDOUT") {
@@ -461,15 +459,13 @@
     // - Observe: function to be called for each set of data from the api
 
 
-    static async indexPath(env, path) {
+    static async indexPath(env, path$$1) {
       let all = [];
       let opts = typeof env === "string" ? {
         env,
-        path
+        path: path$$1
       } : env;
       let json = await this.makeAPIRequest(opts);
-      let [numPages, pageSize] = this.numPages(json.links.last); //log(`num pages: ${numPages} * ${pageSize}`);
-
       all = [...json.data];
 
       while (json.links.next) {
@@ -586,10 +582,11 @@
     // - chunksize[10]: How often to break apart concurrent requests
 
 
-    static async indexPathFast(env, path) {
+    static async indexPathFast(env, path$$1) {
+      return this.indexPath(env, path$$1);
       let opts = typeof env === "string" ? {
         env,
-        path
+        path: path$$1
       } : env; //Create a copy of the options in case we need to have a special first request
 
       let start = opts.start || 1;
@@ -654,7 +651,7 @@
   }
   class APIError extends Error {
     constructor(response, opts, body) {
-      super(chalk__default['default']`
+      super(chalk$1`
 {reset Request returned} {yellow ${response === null || response === void 0 ? void 0 : response.statusCode}}{
 {green ${JSON.stringify(opts, null, 4)}}
 {green ${body}}
@@ -718,7 +715,7 @@
         if (d) {
           log(d.chalkPrint(true));
         } else {
-          log(chalk__default['default']`{red (None)}`);
+          log(chalk$1`{red (None)}`);
         }
       }
     }
@@ -916,9 +913,9 @@
 
   const inquirer = importLazy("inquirer");
   const readdir = importLazy("recursive-readdir");
-  async function loadLocals(path$1, Class) {
+  async function loadLocals(path$$1, Class) {
     let basePath = exports.configObject.repodir;
-    let objs = (await readdir(basePath)).filter(name => name.includes(path$1)).filter(name => !path.basename(name).startsWith(".")).map(name => new Class({
+    let objs = (await readdir(basePath)).filter(name => name.includes(path$$1)).filter(name => !path.basename(name).startsWith(".")).map(name => new Class({
       path: name
     }));
     return objs;
@@ -1156,10 +1153,10 @@
 ${eLine.line}`);
   }
   async function getArtifact(env, artifact, jobid) {
-    let path = `/jobs/${jobid}/artifacts/${artifact}`;
+    let path$$1 = `/jobs/${jobid}/artifacts/${artifact}`;
     let art = lib.makeAPIRequest({
       env,
-      path
+      path: path$$1
     }).catch(_ => null);
     return await art;
   }
@@ -1683,8 +1680,8 @@ ${eLine.line}`);
       let c = await file.getContent();
 
       if (destFolder) {
-        let filePath = path__default['default'].join(destFolder, file.instancesList[0].name);
-        fs__default['default'].writeFileSync(filePath, c);
+        let filePath = path__default.join(destFolder, file.instancesList[0].name);
+        fs__default.writeFileSync(filePath, c);
       } else {
         console.log(c);
       }
@@ -1822,41 +1819,41 @@ ${eLine.line}`);
 
   const colon = /:/g;
   const siloLike = /(silo\-\w+?)s?\/([^\/]+)\.([\w1234567890]+)$/g;
-  function pathTransform(path) {
-    if (path.includes(":")) {
+  function pathTransform(path$$1) {
+    if (path$$1.includes(":")) {
       //Ignore the first colon in window-like filesystems
-      path = path.slice(0, 3) + path.slice(3).replace(colon, "--");
+      path$$1 = path$$1.slice(0, 3) + path$$1.slice(3).replace(colon, "--");
     }
 
     if (exports.configObject.invertedPath) {
-      path = path.replace(siloLike, "$2-$1.$3");
+      path$$1 = path$$1.replace(siloLike, "$2-$1.$3");
     }
 
-    if (path.includes("\\342\\200\\220")) {
-      path = path.replace("\\342\\200\\220", "‐");
+    if (path$$1.includes("\\342\\200\\220")) {
+      path$$1 = path$$1.replace("\\342\\200\\220", "‐");
     }
 
-    return path;
+    return path$$1;
   }
-  function readFileSync(path, options) {
-    return fs__default['default'].readFileSync(pathTransform(path), options);
+  function readFileSync(path$$1, options) {
+    return fs__default.readFileSync(pathTransform(path$$1), options);
   } //Create writefilesync, with ability to create directory if it doesnt exist
 
-  function writeFileSync(path$1, data, options, dircreated = false) {
-    path$1 = pathTransform(path$1);
+  function writeFileSync(path$$1, data, options, dircreated = false) {
+    path$$1 = pathTransform(path$$1);
 
     try {
-      return fs__default['default'].writeFileSync(path$1, data, options);
+      return fs__default.writeFileSync(path$$1, data, options);
     } catch (e) {
       if (dircreated) throw e;
-      let directory = path.dirname(path$1);
+      let directory = path.dirname(path$$1);
 
       try {
-        fs__default['default'].statSync(directory);
+        fs__default.statSync(directory);
         throw e;
       } catch (nodir) {
-        fs__default['default'].mkdirSync(directory);
-        return writeFileSync(path$1, data, options, true);
+        fs__default.mkdirSync(directory);
+        return writeFileSync(path$$1, data, options, true);
       }
     }
   }
@@ -1865,25 +1862,25 @@ ${eLine.line}`);
 
   class Preset extends RallyBase {
     constructor({
-      path: path$1,
+      path: path$$1,
       remote,
       data,
       subProject
     } = {}) {
       // Get full path if possible
-      if (path$1) {
-        path$1 = path.resolve(path$1);
+      if (path$$1) {
+        path$$1 = path.resolve(path$$1);
 
-        if (path.dirname(path$1).includes("silo-metadata")) {
+        if (path.dirname(path$$1).includes("silo-metadata")) {
           throw new AbortError("Constructing preset from metadata file");
         }
       }
 
       super(); // Cache by path
 
-      if (path$1) {
-        if (exists[pathTransform(path$1)]) return exists[pathTransform(path$1)];
-        exists[pathTransform(path$1)] = this;
+      if (path$$1) {
+        if (exists[pathTransform(path$$1)]) return exists[pathTransform(path$$1)];
+        exists[pathTransform(path$$1)] = this;
       }
 
       this.meta = {};
@@ -1891,8 +1888,8 @@ ${eLine.line}`);
       this.remote = remote;
 
       if (lib.isLocalEnv(this.remote)) {
-        if (path$1) {
-          this.path = path$1;
+        if (path$$1) {
+          this.path = path$$1;
           let pathspl = this.path.split(".");
           this.ext = pathspl[pathspl.length - 1];
 
@@ -1915,7 +1912,7 @@ ${eLine.line}`);
             this.isGeneric = true;
             name = this.name;
           } catch (e) {
-            log(chalk`{yellow Warning}: ${path$1} does not have a readable metadata file! Looking for ${this.localmetadatapath}`);
+            log(chalk`{yellow Warning}: ${path$$1} does not have a readable metadata file! Looking for ${this.localmetadatapath}`);
             this.data = Preset.newShell(name);
             this.isGeneric = false;
           }
@@ -1936,11 +1933,11 @@ ${eLine.line}`);
     } //Given a metadata file, get its actualy file
 
 
-    static async fromMetadata(path, subproject) {
+    static async fromMetadata(path$$1, subproject) {
       let data;
 
       try {
-        data = JSON.parse(readFileSync(path));
+        data = JSON.parse(readFileSync(path$$1));
       } catch (e) {
         if (e.code === "ENOENT" && exports.configObject.ignoreMissing) {
           return null;
@@ -1954,7 +1951,7 @@ ${eLine.line}`);
 
       if (!provider) {
         log(chalk`{red The provider type {green ${providerType}} does not exist}`);
-        log(chalk`{red Skipping {green ${path}}.}`);
+        log(chalk`{red Skipping {green ${path$$1}}.}`);
         return null;
       }
 
@@ -2157,7 +2154,7 @@ ${eLine.line}`);
     }
 
     static getLocalPath(name, ext, subproject) {
-      return path__default['default'].join(exports.configObject.repodir, subproject || "", "silo-presets", name + "." + ext);
+      return path__default.join(exports.configObject.repodir, subproject || "", "silo-presets", name + "." + ext);
     }
 
     get localpath() {
@@ -2194,7 +2191,7 @@ ${eLine.line}`);
         return this.path.replace("silo-presets", "silo-metadata").replace(new RegExp(this.ext + "$"), "json");
       }
 
-      return path__default['default'].join(exports.configObject.repodir, this.subproject || "", "silo-metadata", this.name + ".json");
+      return path__default.join(exports.configObject.repodir, this.subproject || "", "silo-metadata", this.name + ".json");
     }
 
     get immutable() {
@@ -2224,7 +2221,7 @@ ${eLine.line}`);
             stdout: headerText
           } = await spawn({
             noecho: true
-          }, "sh", [path__default['default'].join(exports.configObject.repodir, `bin/header.sh`), moment__default['default'](Date.now()).format("ddd YYYY/MM/DD hh:mm:ssa"), localpath]);
+          }, "sh", [path__default.join(exports.configObject.repodir, `bin/header.sh`), moment(Date.now()).format("ddd YYYY/MM/DD hh:mm:ssa"), localpath]);
           code = headerText + code;
           write(chalk`header ok, `);
         } catch (e) {
@@ -2398,9 +2395,9 @@ ${eLine.line}`);
         let date;
 
         if (isUTC) {
-          date = moment__default['default'].utc(abs.built, format);
+          date = moment.utc(abs.built, format);
         } else {
-          date = moment__default['default'](abs.built, format);
+          date = moment(abs.built, format);
         }
 
         if (!date.isValid()) continue;
@@ -2523,19 +2520,19 @@ ${eLine.line}`);
 
   class Rule extends RallyBase {
     constructor({
-      path: path$1,
+      path: path$$1,
       data,
       remote,
       subProject
     } = {}) {
       super();
 
-      if (path$1) {
-        path$1 = path.resolve(path$1);
+      if (path$$1) {
+        path$$1 = path.resolve(path$$1);
 
         try {
-          let f = readFileSync(path$1, "utf-8");
-          data = JSON.parse(readFileSync(path$1, "utf-8"));
+          let f = readFileSync(path$$1, "utf-8");
+          data = JSON.parse(readFileSync(path$$1, "utf-8"));
         } catch (e) {
           if (e.code === "ENOENT") {
             if (exports.configObject.ignoreMissing) {
@@ -2545,7 +2542,7 @@ ${eLine.line}`);
               throw new AbortError("Could not load code of local file");
             }
           } else {
-            throw new AbortError(`Unreadable JSON in ${path$1}. ${e}`);
+            throw new AbortError(`Unreadable JSON in ${path$$1}. ${e}`);
           }
         }
       }
@@ -3057,7 +3054,7 @@ ${eLine.line}`);
 
         if (repodir) {
           try {
-            fs__default['default'].lstatSync(repodir).isDirectory();
+            fs__default.lstatSync(repodir).isDirectory();
             return true;
           } catch (e) {
             return false;
@@ -3078,30 +3075,30 @@ ${eLine.line}`);
 
   };
 
-  exports.APIError = APIError;
-  exports.AbortError = AbortError;
-  exports.Asset = Asset;
-  exports.Collection = Collection;
-  exports.FileTooLargeError = FileTooLargeError;
-  exports.Notification = Notification;
-  exports.Preset = Preset;
-  exports.ProtectedEnvError = ProtectedEnvError;
-  exports.Provider = Provider;
-  exports.RallyBase = RallyBase;
-  exports.Rule = Rule;
+  exports.rallyFunctions = rallyFunctions;
   exports.SupplyChain = SupplyChain;
+  exports.Preset = Preset;
+  exports.Rule = Rule;
+  exports.Provider = Provider;
+  exports.Notification = Notification;
+  exports.Asset = Asset;
+  exports.User = User;
   exports.Tag = Tag;
   exports.Trace = Trace;
-  exports.UnconfiguredEnvError = UnconfiguredEnvError;
-  exports.User = User;
-  exports.lib = lib;
   exports.loadConfig = loadConfig;
   exports.loadConfigFromArgs = loadConfigFromArgs;
-  exports.rallyFunctions = rallyFunctions;
   exports.setConfig = setConfig;
+  exports.lib = lib;
+  exports.AbortError = AbortError;
+  exports.APIError = APIError;
+  exports.UnconfiguredEnvError = UnconfiguredEnvError;
+  exports.ProtectedEnvError = ProtectedEnvError;
+  exports.FileTooLargeError = FileTooLargeError;
+  exports.Collection = Collection;
+  exports.RallyBase = RallyBase;
   exports.sleep = sleep;
-  exports.unordered = unordered;
   exports.zip = zip;
+  exports.unordered = unordered;
 
   Object.defineProperty(exports, '__esModule', { value: true });
 

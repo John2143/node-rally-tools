@@ -141,9 +141,6 @@ export class lib{
         let opts = typeof env === "string" ? {env, path} : env;
         let json = await this.makeAPIRequest(opts);
 
-        let [numPages, pageSize] = this.numPages(json.links.last);
-        //log(`num pages: ${numPages} * ${pageSize}`);
-
         all = [...json.data];
         while(json.links.next){
             json = await this.makeAPIRequest({...opts, path_full: json.links.next});
@@ -251,6 +248,8 @@ export class lib{
     //Additional opts, besides default indexPath opts:
     // - chunksize[10]: How often to break apart concurrent requests
     static async indexPathFast(env, path){
+        return this.indexPath(env, path);
+
         let opts = typeof env === "string" ? {env, path} : env;
         //Create a copy of the options in case we need to have a special first request
         let start = opts.start || 1;

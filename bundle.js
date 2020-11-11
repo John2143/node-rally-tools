@@ -544,51 +544,13 @@ class lib {
 
 
   static async indexPath(env, path$$1) {
-    let all = [];
     let opts = typeof env === "string" ? {
       env,
       path: path$$1
     } : env;
-    let json = await this.makeAPIRequest(opts);
-    all = [...json.data];
-
-    while (json.links.next) {
-      json = await this.makeAPIRequest({ ...opts,
-        path_full: json.links.next
-      });
-      if (opts.observe) await opts.observe(json.data);
-      all = [...all, ...json.data];
-    }
-
-    return all;
-  } //Returns number of pages and pagination size
-
-
-  static numPages(str) {
-    return /page=(\d+)p(\d+)/.exec(str).slice(1);
-  }
-
-  static arrayChunk(array, chunkSize) {
-    let newArr = [];
-
-    for (let i = 0; i < array.length; i += chunkSize) {
-      newArr.push(array.slice(i, i + chunkSize));
-    }
-
-    return newArr;
-  }
-
-  static async doPromises(promises, result = [], cb) {
-    for (let promise of promises) {
-      let res = await promise;
-      result.push(res);
-
-      if (cb) {
-        cb(res.data);
-      }
-    }
-
-    return result;
+    opts.maxParallelRequests = 1;
+    let index = new IndexObject(opts);
+    return await index.fullResults();
   }
 
   static clearProgress(size = 30) {
@@ -606,53 +568,6 @@ class lib {
     let numEmpty = size - numFilled;
     this.clearProgress(size);
     process.stderr.write(`[${"*".repeat(numFilled)}${" ".repeat(numEmpty)}] ${i} / ${max}`);
-  }
-
-  static async keepalive(func, inputData, {
-    chunksize = 20,
-    observe = async _ => _,
-    progress = configObject.globalProgress
-  } = {}) {
-    let total = inputData ? inputData.length : func.length;
-    let i = 0;
-
-    let createPromise = () => {
-      let ret;
-      if (i >= total) return [];
-
-      if (inputData) {
-        ret = [i, func(inputData[i])];
-      } else {
-        ret = [i, func[i]()];
-      }
-
-      i++;
-      return ret;
-    };
-
-    let values = [];
-    let finished = 0;
-    if (progress) process.stderr.write("\n");
-    let threads = [...this.range(chunksize)].map(async whichThread => {
-      while (true) {
-        let [i, currentPromise] = createPromise();
-        if (i == undefined) break;
-        values[i] = await observe((await currentPromise));
-        if (progress) this.drawProgress(++finished, total);
-      }
-    });
-    await Promise.all(threads);
-    if (progress) process.stderr.write("\n");
-    return values;
-  }
-
-  static *range(start, end) {
-    if (end === undefined) {
-      end = start;
-      start = 0;
-    }
-
-    while (start < end) yield start++;
   } //Index a json endpoint that returns a {links} field.
   //
   //This function is faster than indexPath because it can guess the pages it
@@ -667,52 +582,12 @@ class lib {
 
 
   static async indexPathFast(env, path$$1) {
-    return this.indexPath(env, path$$1);
     let opts = typeof env === "string" ? {
       env,
       path: path$$1
-    } : env; //Create a copy of the options in case we need to have a special first request
-
-    let start = opts.start || 1;
-    let initOpts = { ...opts
-    };
-
-    if (opts.pageSize) {
-      initOpts.qs = { ...opts.qs
-      };
-      initOpts.qs.page = `${start}p${opts.pageSize}`;
-    }
-
-    let json = await this.makeAPIRequest(initOpts);
-    if (opts.observe && opts.start !== 1) json = await opts.observe(json);
-    let baselink = json.links.first;
-
-    const linkToPage = page => baselink.replace(`page=1p`, `page=${page}p`);
-
-    let [numPages, pageSize] = this.numPages(json.links.last); //Construct an array of all the requests that are done simultanously.
-    //Assume that the content from the inital request is the first page.
-
-    let allResults = await this.keepalive(this.makeAPIRequest, [...this.range(start + 1, Number(numPages) + 1 || opts.limit + 1)].map(i => ({ ...opts,
-      path_full: linkToPage(i)
-    })), {
-      chunksize: opts.chunksize,
-      observe: opts.observe
-    });
-
-    if (start == 1) {
-      allResults.unshift(json);
-    }
-
-    this.clearProgress();
-    let all = [];
-
-    for (let result of allResults) {
-      for (let item of result.data) {
-        all.push(item);
-      }
-    }
-
-    return all;
+    } : env;
+    let index = new IndexObject(opts);
+    return await index.fullResults();
   }
 
   static isLocalEnv(env) {
@@ -993,6 +868,121 @@ function _unordered() {
     }
   });
   return _unordered.apply(this, arguments);
+}
+
+function* range(start, end) {
+  if (end === undefined) {
+    end = start;
+    start = 0;
+  }
+
+  while (start < end) yield start++;
+}
+class IndexObject {
+  //normal opts from any makeAPIRequest
+  //Note that full_response and pages won't work.
+  //
+  //if you want to start from another page, use `opts.start`
+  //opts.observe: async function(jsonData) => jsonData. Transform the data from the api
+  //opts.maxParallelRequests: number of max api requests to do at once
+  //opts.noCollect: return [] instead of the full data
+  constructor(opts) {
+    this.opts = opts;
+  }
+
+  linkToPage(page) {
+    return this.baselink.replace(`page=1p`, `page=${page}p`);
+  }
+
+  async initializeFirstRequest() {
+    //Create a copy of the options in case we need to have a special first request
+    this.start = this.opts.start || 1;
+    let initOpts = { ...this.opts
+    };
+
+    if (this.opts.pageSize) {
+      initOpts.qs = { ...this.opts.qs
+      };
+      initOpts.qs.page = `${this.start}p${this.opts.pageSize}`;
+    }
+
+    this.allResults = []; //we make 1 non-parallel request to the first page so we know how to
+    //format the next requests
+
+    let json = await lib.makeAPIRequest(initOpts);
+    if (this.opts.observe) json = await this.opts.observe(json);
+    if (!this.opts.noCollect) this.allResults.push(json);
+    this.baselink = json.links.first;
+    this.currentPageRequest = this.start;
+    this.hasHit404 = false;
+  }
+
+  getNextRequestLink() {
+    this.currentPageRequest++;
+    return [this.currentPageRequest, this.linkToPage(this.currentPageRequest)];
+  } ///promiseID is the id in `currentPromises`, so that it can be marked as
+  ///done inside the promise array. promiseID is a number from 0 to
+  ///maxparallel-1
+
+
+  async getNextRequestPromise(promiseID) {
+    let [page, path_full] = this.getNextRequestLink();
+    return [promiseID, page, await lib.makeAPIRequest({ ...this.opts,
+      path_full,
+      fullResponse: true
+    })];
+  }
+
+  cancel() {
+    this.willCancel = true;
+  }
+
+  async fullResults() {
+    await this.initializeFirstRequest();
+    let maxParallelRequests = this.opts.maxParallelRequests || this.opts.chunksize || 20;
+    let currentPromises = []; //generate the first set of requests. Everything after this will re-use these i promiseIDs
+
+    for (let i = 0; i < maxParallelRequests; i++) {
+      currentPromises.push(this.getNextRequestPromise(currentPromises.length));
+    }
+
+    for (;;) {
+      let [promiseID, page, requestResult] = await Promise.race(currentPromises.filter(x => x));
+
+      if (this.willCancel) {
+        return null;
+      }
+
+      if (requestResult.statusCode === 404) {
+        this.hasHit404 = true;
+      } else if (requestResult.statusCode === 200) {
+        let json = JSON.parse(requestResult.body);
+        if (this.opts.observe) json = await this.opts.observe(json);
+        if (!this.opts.noCollect) this.allResults.push(json);
+      } else {
+        throw new APIError(requestResult, `(unknown args) page ${page}`, null);
+      }
+
+      if (this.hasHit404) {
+        currentPromises[promiseID] = null;
+      } else {
+        currentPromises[promiseID] = this.getNextRequestPromise(promiseID);
+      }
+
+      if (currentPromises.filter(x => x).length === 0) break;
+    }
+
+    let all = [];
+
+    for (let result of this.allResults) {
+      for (let item of result.data) {
+        all.push(item);
+      }
+    }
+
+    return all;
+  }
+
 }
 
 const inquirer = importLazy("inquirer");
@@ -3396,10 +3386,12 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   RallyBase: RallyBase,
   sleep: sleep,
   zip: zip,
-  unordered: unordered
+  unordered: unordered,
+  range: range,
+  IndexObject: IndexObject
 });
 
-var version = "2.7.0";
+var version = "2.7.1";
 
 var baseCode = {
   SdviContentMover: `{

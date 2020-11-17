@@ -34,6 +34,21 @@ class Tag extends RallyBase{
             }
         }), remote: env});
     }
+    async curate(){
+        this.curated = !this.curated;
+
+        return await lib.makeAPIRequest({
+            env: this.remote, path: `/tagNames/${this.id}`, method: "PATCH",
+            payload: {
+                data: {
+                    attributes: {
+                        curated: this.curated,
+                    },
+                    type: "tagNames",
+                }
+            }
+        });
+    }
 }
 
 defineAssoc(Tag, "id", "data.id");

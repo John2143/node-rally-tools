@@ -568,6 +568,12 @@ class lib {
     let numEmpty = size - numFilled;
     this.clearProgress(size);
     process.stderr.write(`[${"*".repeat(numFilled)}${" ".repeat(numEmpty)}] ${i} / ${max}`);
+  }
+
+  static async keepalive(funcs) {
+    for (let f of funcs) {
+      await f();
+    }
   } //Index a json endpoint that returns a {links} field.
   //
   //This function is faster than indexPath because it can guess the pages it
@@ -3304,6 +3310,23 @@ class Tag extends RallyBase {
     });
   }
 
+  async curate() {
+    this.curated = !this.curated;
+    return await lib.makeAPIRequest({
+      env: this.remote,
+      path: `/tagNames/${this.id}`,
+      method: "PATCH",
+      payload: {
+        data: {
+          attributes: {
+            curated: this.curated
+          },
+          type: "tagNames"
+        }
+      }
+    });
+  }
+
 }
 
 defineAssoc(Tag, "id", "data.id");
@@ -3391,7 +3414,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   IndexObject: IndexObject
 });
 
-var version = "2.7.1";
+var version = "3.0.0";
 
 var baseCode = {
   SdviContentMover: `{
@@ -3911,6 +3934,11 @@ let tagsub = {
 
   async $create(args) {
     return Tag.create(this.env, args._.shift());
+  },
+
+  async $curate(args) {
+    let tag = await Tag.getByName(this.env, args._.shift());
+    await tag.curate();
   }
 
 };
@@ -4753,8 +4781,30 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
   },
 
   async test(args) {
-    let asset = await Asset.getByName("UAT", args.name);
-    log(asset);
+    var _iteratorNormalCompletion = true;
+    var _didIteratorError = false;
+
+    var _iteratorError;
+
+    try {
+      for (var _iterator = _asyncIterator(ParIter.keepalive().generator()), _step, _value; _step = await _iterator.next(), _iteratorNormalCompletion = _step.done, _value = await _step.value, !_iteratorNormalCompletion; _iteratorNormalCompletion = true) {
+        let object = _value;
+        log(object);
+      }
+    } catch (err) {
+      _didIteratorError = true;
+      _iteratorError = err;
+    } finally {
+      try {
+        if (!_iteratorNormalCompletion && _iterator.return != null) {
+          await _iterator.return();
+        }
+      } finally {
+        if (_didIteratorError) {
+          throw _iteratorError;
+        }
+      }
+    }
   },
 
   //Used to test startup and teardown speed.

@@ -163,6 +163,12 @@ export class lib{
         process.stderr.write(`[${"*".repeat(numFilled)}${" ".repeat(numEmpty)}] ${i} / ${max}`);
     }
 
+    static async keepalive(funcs){
+        for(let f of funcs){
+            await f();
+        }
+    }
+
 
     //Index a json endpoint that returns a {links} field.
     //

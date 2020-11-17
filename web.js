@@ -484,6 +484,12 @@
       let numEmpty = size - numFilled;
       this.clearProgress(size);
       process.stderr.write(`[${"*".repeat(numFilled)}${" ".repeat(numEmpty)}] ${i} / ${max}`);
+    }
+
+    static async keepalive(funcs) {
+      for (let f of funcs) {
+        await f();
+      }
     } //Index a json endpoint that returns a {links} field.
     //
     //This function is faster than indexPath because it can guess the pages it
@@ -3006,6 +3012,23 @@ ${eLine.line}`);
           }
         }),
         remote: env
+      });
+    }
+
+    async curate() {
+      this.curated = !this.curated;
+      return await lib.makeAPIRequest({
+        env: this.remote,
+        path: `/tagNames/${this.id}`,
+        method: "PATCH",
+        payload: {
+          data: {
+            attributes: {
+              curated: this.curated
+            },
+            type: "tagNames"
+          }
+        }
       });
     }
 

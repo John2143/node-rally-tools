@@ -6,6 +6,7 @@ import {
     rallyFunctions as funcs,
     Preset, Rule, SupplyChain, Provider, Asset, User, Tag,
     AbortError, UnconfiguredEnvError, Collection, APIError,
+    IndexObject,
 } from "./index.js";
 
 import {version as packageVersion} from "../package.json";
@@ -363,7 +364,12 @@ let tagsub = {
     },
     async $create(args){
         return Tag.create(this.env, args._.shift());
-    }
+    },
+
+    async $curate(args){
+        let tag = await Tag.getByName(this.env, args._.shift())
+        await tag.curate();
+    },
 };
 
 let supplysub = {
@@ -1180,8 +1186,9 @@ let cli = {
     },
 
     async test(args){
-        let asset = await Asset.getByName("UAT", args.name);
-        log(asset);
+        for await (let object of ParIter.keepalive().generator()){
+            log(object);
+        };
     },
 
     //Used to test startup and teardown speed.

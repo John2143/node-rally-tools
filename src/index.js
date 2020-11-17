@@ -1,6 +1,6 @@
 require("source-map-support").install();
 
-import {lib, UnconfiguredEnvError} from "./rally-tools.js";
+import {lib, UnconfiguredEnvError, IndexObject} from "./rally-tools.js";
 import {cached} from "./decorators.js";
 
 export {default as SupplyChain} from "./supply-chain.js";

@@ -1082,7 +1082,7 @@ let cli = {
             let preset = await configHelpers.selectRule({canSelectNone: false});
             let remote = await Rule.getByName(args.env, preset.name);
             if(!remote) throw new AbortError("Could not find this item on remote env");
-            filterFunc = ev => ev.resource == "Rule";
+            filterFunc = ev => (ev.resource == "Rule" || ev.resource == "WorkflowRule");
             resourceId = remote.id;
         }else{
             resourceId = await configHelpers.askInput(null, "What resourceID?");

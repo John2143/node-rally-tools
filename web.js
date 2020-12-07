@@ -881,6 +881,8 @@
           let json = JSON.parse(requestResult.body);
           if (this.opts.observe) json = await this.opts.observe(json);
           if (!this.opts.noCollect) this.allResults.push(json);
+          console.log(json.data.length);
+          if (json.data.length === 0) this.hasHit404 = true;
         } else {
           throw new APIError(requestResult, `(unknown args) page ${page}`, null);
         }

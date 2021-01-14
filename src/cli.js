@@ -1191,6 +1191,9 @@ let cli = {
         };
     },
 
+    async test2(){
+    },
+
     //Used to test startup and teardown speed.
     noop(){
         return true;

@@ -321,14 +321,12 @@ class Asset extends RallyBase{
         //Fetch metadata in parallel, we await it later
         let _mdPromise = this.getMetadata();
 
-        let name = "DNAP_John_Test";
-
-        let targetAsset = await Asset.getByName(targetEnv, name);
+        let targetAsset = await Asset.getByName(targetEnv, this.name);
         if(targetAsset){
             log(`Asset already exists ${targetAsset.chalkPrint()}`);
             //if(configObject.script) process.exit(10);
         }else{
-            targetAsset = await Asset.createNew(name, targetEnv);
+            targetAsset = await Asset.createNew(this.name, targetEnv);
             log(`Asset created ${targetAsset.chalkPrint()}`);
         }
 

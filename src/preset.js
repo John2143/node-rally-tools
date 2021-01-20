@@ -323,13 +323,13 @@ class Preset extends RallyBase{
         if(!configObject.skipHeader && (providerName === "SdviEvaluate" || providerName === "SdviEvalPro")){
             write(chalk`generate header, `);
             let repodir = configObject.repodir;
-            if(!this.path){
-                write(chalk`{red path error: internal preset path is empty}`);
-
-                throw new AbortError(`Failed to upload ${this.name}. Maybe try again with {green --skip-header}?`);
+            let localpath;
+            if(this.path){
+                localpath = this.path.replace(repodir, "");
+                if(localpath.startsWith("/")) localpath = localpath.substring(1);
+            }else{
+                localpath = "Other Silo"
             }
-            let localpath = this.path.replace(repodir, "");
-            if(localpath.startsWith("/")) localpath = localpath.substring(1);
 
             try{
                 let {stdout: headerText} = await spawn(

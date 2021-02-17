@@ -1646,6 +1646,8 @@ ${eLine.line}`);
         lastModified: inst.lastModified,
         storageLocationName: inst.storageLocationName
       };
+      let instances = {};
+      instances[String(Math.floor(Math.random() * 100000 + 1))] = newInst;
       let request = lib.makeAPIRequest({
         env: this.remote,
         path: `/files`,
@@ -1656,7 +1658,7 @@ ${eLine.line}`);
             attributes: {
               label: file.label,
               tagList,
-              instances: newInst
+              instances
             },
             relationships: {
               asset: {

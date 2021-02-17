@@ -1941,6 +1941,8 @@ class Asset extends RallyBase {
       lastModified: inst.lastModified,
       storageLocationName: inst.storageLocationName
     };
+    let instances = {};
+    instances[String(Math.floor(Math.random() * 100000 + 1))] = newInst;
     let request = lib.makeAPIRequest({
       env: this.remote,
       path: `/files`,
@@ -1951,7 +1953,7 @@ class Asset extends RallyBase {
           attributes: {
             label: file.label,
             tagList,
-            instances: newInst
+            instances
           },
           relationships: {
             asset: {
@@ -3433,7 +3435,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   IndexObject: IndexObject
 });
 
-var version = "3.2.2";
+var version = "3.2.3";
 
 var baseCode = {
   SdviContentMover: `{

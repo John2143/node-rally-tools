@@ -387,7 +387,7 @@ class Asset extends RallyBase{
                     attributes: {
                         label: file.label,
                         tagList,
-                        instances: newInst,
+                        instances,
                     },
                     relationships: {
                         asset: {

@@ -148,5 +148,5 @@ export async function parseTrace(env, jobid){
     return errorList;
 }
 
-const Trace = {parseTrace, printOutLine, getInfo, findLineInFile};
+const Trace = {parseTrace, printOutLine, getInfo, findLineInFile, getArtifact};
 export default Trace;

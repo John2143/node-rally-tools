@@ -262,7 +262,7 @@ class Preset extends RallyBase{
     }
 
     parseCodeForName(){
-        const name_regex = /name\s?:\s*?([\w\d. \/]+).*$/;
+        const name_regex = /name\s*:\s*([\w\d. \/_]+)\s*$/gim;
         const match = name_regex.exec(this.code);
         if(match) return match[1];
     }

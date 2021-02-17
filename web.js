@@ -1228,7 +1228,8 @@ ${eLine.line}`);
     parseTrace,
     printOutLine,
     getInfo,
-    findLineInFile
+    findLineInFile,
+    getArtifact
   };
 
   class Asset extends RallyBase {
@@ -1611,16 +1612,30 @@ ${eLine.line}`);
       let fileCreations = [];
 
       for (let file of await this.getFiles()) {
-        //Check for any valid copy-able instances
+        let possibleInstances = {}; //Check for any valid copy-able instances
+
         for (let inst of file.instancesList) {
           //We need to skip internal files
           if (inst.storageLocationName === "Rally Platform Bucket") continue;
           log(`Adding file: ${file.chalkPrint()}`);
-          fileCreations.push(targetAsset.addFileInstance(file, inst));
+
+          possibleInstances[inst.storageLocationName] = () => targetAsset.addFileInstance(file, inst);
+        }
+
+        if (Object.values(possibleInstances).length > 1) {
+          //prioritize archive is possible
+          if (possibleInstances["Archive"]) {
+            log("Hit archive prioritizer");
+            fileCreations.push(possibleInstances["Archive"]);
+          } else {
+            fileCreations.push(...Object.values(possibleInstances));
+          }
+        } else {
+          fileCreations.push(...Object.values(possibleInstances));
         }
       }
 
-      await Promise.all(fileCreations);
+      await Promise.all(fileCreations.map(x => x()));
     }
 
     async addFileInstance(file, inst, tagList = []) {
@@ -1641,9 +1656,7 @@ ${eLine.line}`);
             attributes: {
               label: file.label,
               tagList,
-              instances: {
-                "1": newInst
-              }
+              instances: newInst
             },
             relationships: {
               asset: {
@@ -2136,7 +2149,7 @@ ${eLine.line}`);
     }
 
     parseCodeForName() {
-      const name_regex = /name\s?:\s*?([\w\d. \/]+).*$/;
+      const name_regex = /name\s*:\s*([\w\d. \/_]+)\s*$/gim;
       const match = name_regex.exec(this.code);
       if (match) return match[1];
     }

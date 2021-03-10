@@ -3435,7 +3435,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   IndexObject: IndexObject
 });
 
-var version = "3.2.3";
+var version = "3.2.4";
 
 var baseCode = {
   SdviContentMover: `{

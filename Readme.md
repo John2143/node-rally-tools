@@ -106,7 +106,13 @@ this asset. The `--full` argument can be given to also download the `code`, too.
 
 #### `rally rule`
 
-See all rules. `rally rule list`. `--raw` available.
+This command is similar to `rally preset`, but for `Supply Chain Rules`.
+
+`rally rule create` can be used in the same fashion as `rally preset create`.
+To access the interactive rule creator, just run `rally rule create` with no
+arguments.
+
+To see all rules, use `rally rule list`. `--raw` available.
 
 #### `rally provider`
 

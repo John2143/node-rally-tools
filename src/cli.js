@@ -594,7 +594,7 @@ let cli = {
 
     @helpText(`tags stuff`)
     @usage(`rally tags [action]`)
-    @param("action", "The action to perform. Can be list or create.")
+    @param("action", "The action to perform. Can be list, create, or curate.")
     @arg("-e", "--env", "The enviornment you wish to perform the action on")
     async tag(args){
         return subCommand(tagsub)(args);

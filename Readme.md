@@ -29,7 +29,7 @@ you want to create a node plugin that uses this library, you should just use
  - Clone this repo
  - Run `npm install`
  - Run `npm link` to symlink the `rally` executable
- - Start `rollup -cw` in the background to automatically compile code
+ - Start `npx rollup -cw` or `npm run watch` in the background to automatically compile code
  - Test your changes
  - Commit your changes and run `npm version <minor|patch>` to increment the
    version

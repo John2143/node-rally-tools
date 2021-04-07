@@ -1226,11 +1226,11 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
         //Test access. Returns HTTP response code
         let resultStr;
         try{
-            let result = await prom;
+            let [result, timer] = await prom;
 
             //Create a colored display and response
             resultStr = chalk`{yellow ${result} <unknown>}`;
-            if(result === 200) resultStr = chalk`{green 200 OK}`;
+            if(result === 200) resultStr = chalk`{green 200 OK} {gray ${timer} ms}`;
             else if(result === 401) resultStr = chalk`{red 401 No Access}`;
             else if(result >= 500)  resultStr = chalk`{yellow ${result} API Down?}`;
             else if(result === true) resultStr = chalk`{green OK}`;

@@ -42,15 +42,17 @@ export const rallyFunctions = {
             if(repodir){
                 try{
                     fs.lstatSync(repodir).isDirectory();
-                    return true;
+                    return [true, 0];
                 }catch(e){
-                    return false;
+                    return [false, 0];
                 }
             }else{
                 throw new UnconfiguredEnvError();
             }
         }
-        let result = await lib.makeAPIRequest({env, path: "/providers?page=1p1", fullResponse: true, timeout: 1000});
-        return result.statusCode;
+        let start = new Date();
+        let result = await lib.makeAPIRequest({env, path: "/providers?page=1p1", fullResponse: true, timeout: 4000});
+        let timed = new Date() - start;
+        return [result.statusCode, timed];
     },
 }

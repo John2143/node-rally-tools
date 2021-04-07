@@ -3089,22 +3089,24 @@ ${eLine.line}`);
         if (repodir) {
           try {
             fs__default.lstatSync(repodir).isDirectory();
-            return true;
+            return [true, 0];
           } catch (e) {
-            return false;
+            return [false, 0];
           }
         } else {
           throw new UnconfiguredEnvError();
         }
       }
 
+      let start = new Date();
       let result = await lib.makeAPIRequest({
         env,
         path: "/providers?page=1p1",
         fullResponse: true,
-        timeout: 1000
+        timeout: 4000
       });
-      return result.statusCode;
+      let timed = new Date() - start;
+      return [result.statusCode, timed];
     }
 
   };

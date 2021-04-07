@@ -3103,7 +3103,7 @@ ${eLine.line}`);
         env,
         path: "/providers?page=1p1",
         fullResponse: true,
-        timeout: 4000
+        timeout: 2000
       });
       let timed = new Date() - start;
       return [result.statusCode, timed];

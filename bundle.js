@@ -3398,7 +3398,7 @@ const rallyFunctions = {
       env,
       path: "/providers?page=1p1",
       fullResponse: true,
-      timeout: 4000
+      timeout: 2000
     });
     let timed = new Date() - start;
     return [result.statusCode, timed];
@@ -3437,7 +3437,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   IndexObject: IndexObject
 });
 
-var version = "3.2.5";
+var version = "3.2.6";
 
 var baseCode = {
   SdviContentMover: `{
@@ -4877,14 +4877,18 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
       resultStr = chalk`{yellow ${result} <unknown>}`;
       if (result === 200) resultStr = chalk`{green 200 OK} {gray ${timer} ms}`;else if (result === 401) resultStr = chalk`{red 401 No Access}`;else if (result >= 500) resultStr = chalk`{yellow ${result} API Down?}`;else if (result === true) resultStr = chalk`{green OK}`;else if (result === false) resultStr = chalk`{red BAD}`;
     } catch (e) {
+      var _e$error;
+
       if (e instanceof UnconfiguredEnvError) {
         resultStr = chalk`{yellow Unconfigured}`;
       } else if (e instanceof APIError) {
         if (!e.response.body) {
-          resultStr = chalk`{red Timeout (?)}`;
+          resultStr = chalk`{red Timeout (???)}`;
         }
+      } else if (((_e$error = e.error) === null || _e$error === void 0 ? void 0 : _e$error.code) === "ETIMEDOUT") {
+        resultStr = chalk`{red Timeout (>2s)}`;
       } else if (e.name == "RequestError") {
-        resultStr = chalk`{red Low level error (check internet): ${e.error.errno}}`;
+        resultStr = chalk`{red Low level error (check internet): ${e.error}}`;
       } else {
         resultStr = chalk`{red Internal Error: (oh no!)}`;
       }

@@ -1240,10 +1240,12 @@ It looks like you haven't setup the config yet. Please run '{green rally config}
                 resultStr = chalk`{yellow Unconfigured}`;
             }else if(e instanceof APIError){
                 if(!e.response.body){
-                    resultStr = chalk`{red Timeout (?)}`;
+                    resultStr = chalk`{red Timeout (???)}`;
                 }
+            }else if(e.error?.code === "ETIMEDOUT"){
+                resultStr = chalk`{red Timeout (>2s)}`;
             }else if(e.name == "RequestError"){
-                resultStr = chalk`{red Low level error (check internet): ${e.error.errno}}`;
+                resultStr = chalk`{red Low level error (check internet): ${e.error}}`;
             }else{
                 resultStr = chalk`{red Internal Error: (oh no!)}`;
             }

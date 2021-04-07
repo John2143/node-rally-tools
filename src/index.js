@@ -51,7 +51,7 @@ export const rallyFunctions = {
             }
         }
         let start = new Date();
-        let result = await lib.makeAPIRequest({env, path: "/providers?page=1p1", fullResponse: true, timeout: 4000});
+        let result = await lib.makeAPIRequest({env, path: "/providers?page=1p1", fullResponse: true, timeout: 2000});
         let timed = new Date() - start;
         return [result.statusCode, timed];
     },

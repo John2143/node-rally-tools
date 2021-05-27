@@ -2616,8 +2616,6 @@ class Preset extends RallyBase {
 
     if (remote) {
       //If it exists we can replace it
-      write("replace, ");
-
       if (includeMetadata) {
         let payload = {
           data: {
@@ -2625,23 +2623,28 @@ class Preset extends RallyBase {
             type: "presets"
           }
         };
+        payload.data.relationships = this.relationships || {};
 
-        if (this.relationships.tagNames) {
-          payload.relationships = {
-            tagNames: this.relationships.tagNames
-          };
+        if (payload.data.relationships.providerType) {
+          let dt = payload.data.relationships.providerType;
+          write(chalk`replace {red PUT beta}, `);
+          let ptid = await Provider.getByName(env, dt.data.name);
+          write(chalk`resolved, `);
+          dt.data.id = ptid.data.id;
+        } else {
+          write("replace (simple), ");
         }
 
         let res = await lib.makeAPIRequest({
           env,
           path: `/presets/${remote.id}`,
-          method: "PATCH",
+          method: "PUT",
           payload,
           fullResponse: true
         });
         write(chalk`metadata {yellow ${res.statusCode}}, `);
 
-        if (res.statusCode == 500) {
+        if (res.statusCode >= 400) {
           log(chalk`skipping code upload, did not successfully upload metadata`);
           return;
         }
@@ -3437,7 +3440,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   IndexObject: IndexObject
 });
 
-var version = "3.2.6";
+var version = "3.3.0";
 
 var baseCode = {
   SdviContentMover: `{
@@ -4793,6 +4796,12 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
         }));
       }
     }]);
+  },
+
+  async gf(args) {
+    let a = await Asset.getById(args.env, args._.shift());
+    let f = await a.getFiles();
+    log(f);
   },
 
   async ["@"](args) {

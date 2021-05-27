@@ -1179,6 +1179,13 @@ let cli = {
         }]);
     },
 
+
+    async gf(args){
+        let a = await Asset.getById(args.env, args._.shift());
+        let f = await a.getFiles();
+        log(f);
+    },
+
     async ["@"](args){
         args._.unshift("-");
         args._.unshift("make");

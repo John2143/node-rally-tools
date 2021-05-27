@@ -414,19 +414,26 @@ class Preset extends RallyBase{
 
         if(remote){
             //If it exists we can replace it
-            write("replace, ");
             if(includeMetadata){
                 let payload = {data: {attributes: this.data.attributes, type: "presets"}};
-                if(this.relationships.tagNames){
-                    payload.relationships = {tagNames: this.relationships.tagNames};
+                payload.data.relationships = this.relationships || {};
+                if (payload.data.relationships.providerType) {
+                    let dt = payload.data.relationships.providerType;
+                    write(chalk`replace {red PUT beta}, `);
+                    let ptid = await Provider.getByName(env, dt.data.name);
+                    write(chalk`resolved, `);
+                    dt.data.id = ptid.data.id;
+                }else{
+                    write("replace (simple), ");
                 }
+
                 let res = await lib.makeAPIRequest({
-                    env, path: `/presets/${remote.id}`, method: "PATCH",
+                    env, path: `/presets/${remote.id}`, method: "PUT",
                     payload,
                     fullResponse: true,
                 });
                 write(chalk`metadata {yellow ${res.statusCode}}, `);
-                if(res.statusCode == 500){
+                if(res.statusCode >= 400){
                     log(chalk`skipping code upload, did not successfully upload metadata`)
                     return;
                 }

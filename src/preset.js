@@ -416,12 +416,13 @@ class Preset extends RallyBase{
             //If it exists we can replace it
             if(includeMetadata){
                 let payload = {data: {attributes: this.data.attributes, type: "presets"}};
-                payload.data.relationships = this.relationships || {};
-                if (payload.data.relationships.providerType) {
+                payload.data.relationships = {};
+                if (this.relationships.providerType) {
+                    payload.data.relationships.providerType = this.relationships.providerType;
                     let dt = payload.data.relationships.providerType;
-                    write(chalk`replace {red PUT beta}, `);
+                    write(chalk`query type, `);
                     let ptid = await Provider.getByName(env, dt.data.name);
-                    write(chalk`resolved, `);
+                    write(chalk`({gray ${ptid.name}}) ok, `);
                     dt.data.id = ptid.data.id;
                 }else{
                     write("replace (simple), ");

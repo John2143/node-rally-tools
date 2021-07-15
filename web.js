@@ -2328,13 +2328,14 @@ ${eLine.line}`);
               type: "presets"
             }
           };
-          payload.data.relationships = this.relationships || {};
+          payload.data.relationships = {};
 
-          if (payload.data.relationships.providerType) {
+          if (this.relationships.providerType) {
+            payload.data.relationships.providerType = this.relationships.providerType;
             let dt = payload.data.relationships.providerType;
-            write(chalk`replace {red PUT beta}, `);
+            write(chalk`query type, `);
             let ptid = await Provider.getByName(env, dt.data.name);
-            write(chalk`resolved, `);
+            write(chalk`({gray ${ptid.name}}) ok, `);
             dt.data.id = ptid.data.id;
           } else {
             write("replace (simple), ");

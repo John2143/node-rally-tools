@@ -928,6 +928,45 @@
     }));
     return objs;
   }
+  async function selectLocal(path$$1, typeName, Class, canSelectNone = true) {
+    addAutoCompletePrompt();
+    let objs = await loadLocals(path$$1, Class);
+    let objsMap = objs.map(x => ({
+      name: x.chalkPrint(true),
+      value: x
+    }));
+    return await selectLocalMenu(objsMap, typeName, canSelectNone);
+  }
+  async function selectLocalMenu(objs, typeName, canSelectNone = true) {
+    let none = {
+      name: chalk`      {red None}: {red None}`,
+      value: null
+    };
+    if (canSelectNone) objs.unshift(none);
+    let q = await inquirer.prompt([{
+      type: "autocomplete",
+      name: "obj",
+      message: `What ${typeName} do you want?`,
+      source: async (sofar, input) => {
+        return objs.filter(x => input ? x.name.toLowerCase().includes(input.toLowerCase()) : true);
+      }
+    }]);
+    return q.obj;
+  }
+  async function selectPreset({
+    purpose = "preset",
+    canSelectNone
+  }) {
+    return selectLocal("silo-presets", purpose, Preset, canSelectNone);
+  }
+  async function askInput(question, def) {
+    return (await inquirer.prompt([{
+      type: "input",
+      name: "ok",
+      message: question,
+      default: def
+    }])).ok;
+  }
   async function askQuestion(question) {
     return (await inquirer.prompt([{
       type: "confirm",
@@ -3146,6 +3185,7 @@ ${eLine.line}`);
 
       log(chalk`Found stage target to init: ${preset.chalkPrint(false)}`);
       exports.configObject.api[this.env].stage = preset.id;
+      exports.configObject["ownerName"] = await askInput("What is your name");
       await saveConfig(exports.configObject, {
         print: false
       });
@@ -3159,9 +3199,83 @@ ${eLine.line}`);
       for (let [branch, commit] of zip(this.stageData.stagedBranches, this.stageData.stagedCommits)) {
         log(chalk`    ${branch} {gray ${commit}}`);
       }
+
+      log(chalk`Currently Claimed Presets: ${this.stageData.claimedPresets.length}`);
+
+      for (let preset of this.stageData.claimedPresets) {
+        log(chalk`    {blue ${preset.name}} {gray ${preset.owner}}`);
+      }
     },
 
-    async $claim(args) {},
+    async $claim(args) {
+      await Promise.all([this.downloadStage(), addAutoCompletePrompt()]);
+      let q;
+      let opts = [{
+        name: "Chaim a preset",
+        value: "add"
+      }, {
+        name: "Remove a claimed preset",
+        value: "rem"
+      }, {
+        name: "Apply",
+        value: "done"
+      }, {
+        name: "Quit",
+        value: "quit"
+      }]; //slice to copy
+
+      let newClaimed = [];
+      let ownerName = exports.configObject["ownerName"];
+
+      for (;;) {
+        q = await inquirer.prompt([{
+          type: "autocomplete",
+          name: "type",
+          message: `What do you want to do?`,
+          source: this.filterwith(opts)
+        }]);
+
+        if (q.type === "add") {
+          let p = await selectPreset({});
+          if (!p) continue;
+          newClaimed.push(p);
+        } else if (q.type === "rem") {
+          let objsMap = newClaimed.map(x => ({
+            name: x.chalkPrint(true),
+            value: x
+          }));
+
+          for (let obj of this.stageData.claimedPresets) {
+            objsMap.push({
+              name: obj.name,
+              value: obj.name
+            });
+          }
+
+          let p = await selectLocalMenu(objsMap, "preset", true);
+          if (!p) continue;
+
+          if (typeof p == "string") {
+            this.stageData.claimedPresets = this.stageData.claimedPresets.filter(x => x.name != p && x.owner === ownerName);
+          } else {
+            newClaimed = newClaimed.filter(x => x !== p);
+          }
+        } else if (q.type === "done") {
+          break;
+        } else if (q.type === "quit") {
+          return;
+        }
+      }
+
+      for (let newClaim of newClaimed) {
+        this.stageData.claimedPresets.push({
+          name: newClaim.name,
+          owner: ownerName
+        });
+      }
+
+      await this.uploadStage();
+    },
 
     async getBranches() {
       let branches = await spawn({
@@ -3172,16 +3286,7 @@ ${eLine.line}`);
         log("Error in loading branches", branches);
       }
 
-      let isOnMain = false;
-      let branchList = branches.stdout.split("\n").map(x => x.trim()).filter(x => x).map(x => {
-        if (x.startsWith("* ")) {
-          x = x.slice(2);
-
-          if (x === "staging") {
-            isOnMain = true;
-          }
-        }
-
+      let branchList = branches.stdout.split("\n").map(x => x.trim()).filter(x => x.startsWith("remotes/origin")).map(x => {
         let lastSlash = x.lastIndexOf("/");
 
         if (lastSlash !== -1) {
@@ -3191,9 +3296,9 @@ ${eLine.line}`);
         return x;
       });
 
-      if (!isOnMain) {
-        log("You are not currently on the staging branch. Please save your changes change branches.");
-        return null;
+      if (!(await this.checkCurrentBranch())) {
+        log("Not currently on staging");
+        return;
       }
 
       log("Finished retreiving branches.");
@@ -3210,10 +3315,19 @@ ${eLine.line}`);
       let g = await spawn({
         noecho: true
       }, "git", args);
+      log(`git ${args.join(" ")}`);
 
       if (!oks.includes(g.exitCode)) {
         throw Error(`Failed to run git ${args}`);
       }
+
+      return [g.stdout, g.stderr];
+    },
+
+    filterwith(list) {
+      return async (sofar, input) => {
+        return list.filter(x => input ? (x.name || x).toLowerCase().includes(input.toLowerCase()) : true);
+      };
     },
 
     async $edit(args) {
@@ -3227,10 +3341,6 @@ ${eLine.line}`);
         newStagedBranches.add(branch);
         oldStagedBranches.add(branch);
       }
-
-      let filterwith = list => async (sofar, input) => {
-        return list.filter(x => input ? (x.name || x).toLowerCase().includes(input.toLowerCase()) : true);
-      };
 
       let q;
       let opts = [{
@@ -3252,7 +3362,7 @@ ${eLine.line}`);
           type: "autocomplete",
           name: "type",
           message: `What do you want to do?`,
-          source: filterwith(opts)
+          source: this.filterwith(opts)
         }]);
 
         if (q.type === "add") {
@@ -3263,7 +3373,7 @@ ${eLine.line}`);
             type: "autocomplete",
             name: "branch",
             message: `What branch do you want to add?`,
-            source: filterwith(qqs)
+            source: this.filterwith(qqs)
           }]);
 
           if (q.branch !== "None") {
@@ -3276,7 +3386,7 @@ ${eLine.line}`);
             type: "autocomplete",
             name: "branch",
             message: `What branch do you want to remove?`,
-            source: filterwith(qqs)
+            source: this.filterwith(qqs)
           }]);
 
           if (q.branch !== "None") {
@@ -3329,7 +3439,7 @@ ${eLine.line}`);
       await this.runGit([0], "checkout", "-b", "RALLYNEWSTAGE");
 
       for (let branch of newStagedBranches) {
-        await this.runGit([0], "merge", "--squash", branch);
+        let [_, merge] = await this.runGit([0, 1], "merge", "--squash", `origin/${branch}`);
         await this.runGit([0], "commit", "-m", `autostaging: commit ${branch}`);
         let hash = await spawn({
           noecho: true
@@ -3350,7 +3460,7 @@ ${eLine.line}`);
       }
     },
 
-    async doGit(newStagedBranches, oldStagedCommits) {
+    async checkCurrentBranch() {
       let expected = `On branch staging
 Your branch is up to date with 'origin/staging'.
 
@@ -3358,9 +3468,12 @@ nothing to commit, working tree clean`;
       let status = await spawn({
         noecho: true
       }, "git", ["status"]);
+      return status.stdout.trim() === expected;
+    },
 
-      if (status.stdout.trim() !== expected) {
-        log("Wrong starting branch? exiting just in case");
+    async doGit(newStagedBranches, oldStagedCommits) {
+      if (!(await this.checkCurrentBranch())) {
+        log("Not currently on staging");
         return;
       }
 

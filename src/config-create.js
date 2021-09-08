@@ -152,19 +152,23 @@ export async function selectLocal(path, typeName, Class, canSelectNone = true){
         name: x.chalkPrint(true),
         value: x,
     }));
+
+    return await selectLocalMenu(objsMap, typeName, canSelectNone);
+}
+
+export async function selectLocalMenu(objs, typeName, canSelectNone = true){
     let none = {
         name: (chalk`      {red None}: {red None}`),
         value: null,
     };
-
-    if(canSelectNone) objsMap.unshift(none);
+    if(canSelectNone) objs.unshift(none);
 
     let q = await inquirer.prompt([{
         type: "autocomplete",
         name: "obj",
         message: `What ${typeName} do you want?`,
         source: async (sofar, input) => {
-            return objsMap.filter(x => input ? x.name.toLowerCase().includes(input.toLowerCase()) : true);
+            return objs.filter(x => input ? x.name.toLowerCase().includes(input.toLowerCase()) : true);
         },
     }]);
     return q.obj;

@@ -11,6 +11,7 @@ export {default as Notification} from "./notification.js";
 export {default as Asset} from "./asset.js";
 export {default as User} from "./user.js";
 export {default as Tag} from "./tag.js";
+export {default as Stage} from "./stage.js";
 //TODO fix export from index
 export {default as Trace} from "./trace.js";
 

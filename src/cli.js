@@ -4,7 +4,7 @@ import argparse from "minimist";
 import * as allIndexBundle from "./index.js"
 import {
     rallyFunctions as funcs,
-    Preset, Rule, SupplyChain, Provider, Asset, User, Tag,
+    Preset, Rule, SupplyChain, Provider, Asset, User, Tag, Stage,
     AbortError, UnconfiguredEnvError, Collection, APIError,
     IndexObject,
 } from "./index.js";
@@ -556,6 +556,12 @@ let cli = {
         return subCommand(jupytersub)(args);
     },
 
+    @helpText("Prepare an environment to hold specific branches")
+    @usage("rally help stage")
+    async stage(args){
+        return subCommand(Stage)(args);
+    },
+
     //@helpText(`Print input args, for debugging`)
     async printArgs(args){
         log(args);
@@ -714,14 +720,7 @@ let cli = {
 
         newConfigObject.hasConfig = true;
 
-        //Create readable json and make sure the user is ok with it
-        let newConfig = JSON.stringify(newConfigObject, null, 4);
-        log(newConfig);
-
-        //-y or --set will make this not prompt
-        if(!args.y && !args.set && !await configHelpers.askQuestion("Write this config to disk?")) return;
-        writeFileSync(configFile, newConfig, {mode: 0o600});
-        log(chalk`Created file {green ${configFile}}.`);
+        await configHelpers.saveConfig(newConfigObject, {ask: !args.y && !args.set});
     },
 
     async silo(){

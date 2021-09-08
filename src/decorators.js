@@ -148,6 +148,11 @@ export function spawn(options, ...args){
         if(cp.stdout) cp.stdout.on("data", chunk => {stdout += chunk; write(chunk)});
         if(cp.stderr) cp.stderr.on("data", chunk => {stderr += chunk; write(chunk)});
 
+
+        if(options.stdin) {
+            options.stdin(cp.stdin);
+        }
+
         cp.on("error", reject);
         cp.on("close", code => {
             let end = performance.now();

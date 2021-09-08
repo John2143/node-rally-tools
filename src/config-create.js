@@ -1,9 +1,11 @@
-import {configObject} from "./config.js";
+import {configFile, configObject} from "./config.js";
 import {join, basename} from "path";
+import {writeFileSync} from "fs";
 import Preset from "./preset.js";
 import Rule from "./rule.js";
 export const inquirer = importLazy("inquirer");
 const readdir = importLazy("recursive-readdir");
+
 
 let hasAutoCompletePrompt = false;
 export function addAutoCompletePrompt(){
@@ -190,4 +192,15 @@ export async function askQuestion(question){
         name: "ok",
         message: question,
     }])).ok;
+}
+
+export async function saveConfig(newConfigObject, {ask = true, print = true} = {}){
+    //Create readable json and make sure the user is ok with it
+    let newConfig = JSON.stringify(newConfigObject, null, 4);
+    if(print) log(newConfig);
+
+    //-y or --set will make this not prompt
+    if(ask && !await askQuestion("Write config to disk?")) return;
+    writeFileSync(configFile, newConfig, {mode: 0o600});
+    log(chalk`Created file {green ${configFile}}.`);
 }

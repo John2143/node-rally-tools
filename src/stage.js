@@ -440,6 +440,21 @@ nothing to commit, working tree clean`;
 
         chain.log();
 
+        let hasClaimed = false;
+        for(let preset of chain.presets) {
+            for(let claim of this.stageData.claimedPresets){
+                if(preset.name == claim.name) {
+                    hasClaimed = true;
+                    log(chalk`{yrllow Claimed preset}: {blue ${claim.name}} (owner {green ${claim.owner}})`);
+                }
+            }
+        }
+
+        if(hasClaimed){
+            throw new AbortError("Someone has a claimed preset in the deploy");
+        }
+
+
         let ok = this.args.y || await askQuestion("Deploy now?");
         if(!ok) return;
 

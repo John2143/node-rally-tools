@@ -3724,6 +3724,8 @@ let Stage$$1 = {
       await this.uploadStage();
     } catch (e) {
       if (e instanceof AbortError) {
+        await this.runGit([0], "reset", "--hard", "HEAD");
+        await this.runGit([0], "checkout", "staging");
         throw e;
       }
 
@@ -3974,7 +3976,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   IndexObject: IndexObject
 });
 
-var version = "4.1.0";
+var version = "4.1.1";
 
 var baseCode = {
   SdviContentMover: `{

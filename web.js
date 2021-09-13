@@ -3476,6 +3476,8 @@ ${eLine.line}`);
         await this.uploadStage();
       } catch (e) {
         if (e instanceof AbortError) {
+          await this.runGit([0], "reset", "--hard", "HEAD");
+          await this.runGit([0], "checkout", "staging");
           throw e;
         }
 

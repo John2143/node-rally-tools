@@ -310,6 +310,17 @@ class Preset extends RallyBase{
     get immutable(){
         return this.name.includes("Constant") && !configObject.updateImmutable;
     }
+
+    async convertImports() { 
+    }
+
+    async convertIncludes() { 
+    }
+
+    isEval() {
+        return this.providerName === "SdviEvaluate" || this.providerName === "SdviEvalPro";
+    }
+
     async uploadPresetData(env, id){
         if(this.code.trim() === "NOUPLOAD"){
             write(chalk`code skipped {yellow :)}, `);
@@ -319,8 +330,7 @@ class Preset extends RallyBase{
         let code = this.code;
         let headers = {};
 
-        let providerName = this.relationships?.providerType?.data?.name;
-        if(!configObject.skipHeader && (providerName === "SdviEvaluate" || providerName === "SdviEvalPro")){
+        if(!configObject.skipHeader && this.isEval()){
             write(chalk`generate header, `);
             let repodir = configObject.repodir;
             let localpath;
@@ -349,7 +359,7 @@ class Preset extends RallyBase{
         }
 
         //binary presets
-        if(providerName == "Vantage"){
+        if(this.providerName == "Vantage"){
             code = Buffer.from(code).toString("base64");
             headers["Content-Transfer-Encoding"] = "base64";
         }
@@ -583,6 +593,7 @@ defineAssoc(Preset, "isGeneric", "meta.isGeneric");
 defineAssoc(Preset, "ext", "meta.ext");
 defineAssoc(Preset, "subproject", "meta.project");
 defineAssoc(Preset, "metastring", "meta.metastring");
+defineAssoc(Preset, "providerName", "relationships.providerType.data.name");
 Preset.endpoint = "presets";
 
 export default Preset;

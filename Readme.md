@@ -74,7 +74,204 @@ Rally Tools vx.y.z CLI
 Use `rally help` or `rally help [command]` to see all public commands and basic
 documentation.
 
-#### `rally preset`
+## `rally stage`
+
+This command integrates with git to control and monitor deployed features.
+
+The `stage` for an environment contains two main parts:
+ - the list of currently deployed branches and their associated commits
+ - the list of `claim`-ed presets
+
+To begin using `rally stage`, you need to know the name of your "stage preset".
+This is the preset where all the current deployment data is stored. Each team
+working independently in rally should have their own stage preset. For example,
+the stage preset for the onramp team is called `onramp`. Additionally, each
+environment has its own stage preset, but stage presets should be named the
+same in each environment for consistency. **To choose your target environment
+for any command, use the `-e` parameter, as in `-e [env name]`**. Any command
+without `-e` will use your default environment. (To change default environment,
+run `rally config defaultEnv`).
+
+### Prerequisites
+
+Viewing the stage (`rally stage info`) only requires a working install of
+rally-tools and a valid access token. Using other stage commands (`edit`,
+`claim`, `pull`) requires a few prerequisites:
+
+ - [`git`](https://git-scm.com/downloads) installed and in your `$PATH`
+ - A up-to-date rally-tools style git repo folder
+ - A clean working tree (use `git stash` if you don't want to commit)
+ - A current branch of `staging`
+
+The easiest way to check all these is to run `git status`. It should return
+the following text if your repo is ready:
+```
+$ git status
+On branch staging
+Your branch is up to date with 'origin/staging'.
+
+nothing to commit, working tree clean
+```
+
+Before each run of `rally stage edit`, it is recommended that you run `git
+fetch` or `git pull`. This will prevent you from missing commits or branches
+that would otherwise be available. **If your local repo is out of date `rally
+stage edit` will likely throw an error for "missing commits"**
+
+### Basic Usage
+
+To select your stage, run `rally stage init [stage name]`. This will bring up a
+short prompt asking for your name. This name is used for the `rally stage claim`
+command. Select yes to write the config to disk. The `id` of the stage preset
+and your name are saved in your rally config file (default `~/.rallyconfig`).
+To check that this was successful, run `rally stage info`. You should not see
+an error.
+
+`rally stage info` will list the stage status. The first section is the list of
+currently deployed branches and their commit hashes. The second section
+contains a list of presets `claim`-ed by developers. The commit hashes can be
+used in conjunction with `git blame` to find the branch associated with
+specific commits.
+
+---
+
+`rally stage edit` will allow you to edit the current stage. Running it with no
+arguments will produce a prompt with 4 options:
+ - Add a branch
+ - Remove a branch
+ - Finalize stage
+ - Quit
+
+To navigate the menu, use arrow keys or typing to select your choice. Once
+selected, press enter to choose. Adding a branch will list *all* available
+**remote** branches. You cannot select local-only branches when adding. Use
+arrow keys or type to select, and enter to confirm your choice. Once you are
+done adding or removing branches from the stage, choose "Finalize." This will
+move you to the next step.
+
+The finalize step will show the list of proposed changes as a diff. If
+everything looks good, press enter to continue to the deploy step.
+
+Next, `rally` will use git to form a local version of your stage. This is where
+most errors will occur. Merge conflicts, missing commits, an out of date repo,
+or a claimed preset will all cancel your pending stage without applying any
+changes. If nothing goes wrong, you will see the output of a `rally supply`
+deploy set. This will list all the rules that will be uploaded as part of the
+stage. If this is OK, then hit enter. **Note: This is the last prompt before
+`rally` begins deploying**. Assuming there are no errors with the deployment,
+the uploaded code should be available for testing immediately. Don't be afraid
+afraid editing the stage: everything is reversible!
+
+---
+
+`rally stage claim` will allow you to claim or un-claim presets. Claiming a
+preset marks it as untouchable by `rally stage`. Any stage deployments
+attempting to use a claimed preset will fail. The intended use is for
+developers actively working on presets, or for hotfixes in the UI. Note that
+this is currently 1-directional: **You can claim a preset that is already in the
+stage, but doing so will stop *anyone* from using `rally stage edit`**.
+
+The menu is similar to `rally stage edit`: use arrow keys/typing to select your
+option, and use enter to choose. `Apply` will upload your stage and apply your
+changes.
+
+---
+
+`rally stage pull` will load the current staged branches and apply them to a
+local branch. This lets you closely inspect the stage using your local editor
+or git commands.
+
+### `rally stage` Examples
+
+Selecting the `onramp` stage file on the `QA` environment:  
+```
+$ rally stage init onramp -e QA
+Found stage target to init: P-QA-6354: onramp
+? What is your name John
+? Write config to disk? Yes
+Created file /Users/jschmidt/.rallyconfig.
+```
+
+Stage edit example:
+```
+$ rally stage edit
+Finished retreiving branches.
+Stage loaded: onramp
+? What do you want to do? Add a branch to the stage
+? What branch do you want to add? changeA
+? What do you want to do? Finalize stage
+proposed changes
+   changeB
+   +changeA
+? Prepare these branches for deployment? Yes
+Required presets: 1
+   P-LOCAL: Super Cool Preset
+? Deploy now? Yes
+Uploading preset Super Cool Preset to UAT: query type, (SdviEvaluate) ok, gmetadata 200, generate header, header ok, icode up 204, No tests. Done.
+```
+
+Stage edit via command line:
+```
+$ rally stage edit -a changeA -r changeB -r changeC
+Finished retreiving branches.
+Stage loaded: onramp
+proposed changes
+   changeD
+  +changeA
+  -changeB
+  -changeC
+...
+```
+
+### `rally stage` Advanced Usage and Tips
+
+While many of the commands for rally stage use interactive menus, they all have
+an option to be programmatically skipped with command line options.
+
+ - `-y` will automatically skip all prompts asking for a yes or no answer.
+
+ - `rally stage edit` accepts `-a` or `--add` to add a branch, and `-r` or
+   `--remove` to remove a branch. Multiple branches can be supplied by using
+   the argument multiple times.
+
+ - `rally preset claim` currently does not support options to supply preset
+   names, but that is coming soon.
+
+If using this in a more complex script, `--raw` can be passed to some stage
+commands return json instead of printing text. For example:
+
+```
+$ rally stage info --raw
+{
+    "stage": [
+        {
+            "branch": "changeA",
+            "commit": "9db12be45188ffb33954de3eccda10f0fe0aa00b"
+        },
+        {
+            "branch": "changeB",
+            "commit": "2028e92c5e397616380542aa6cc0505d85fb7074"
+        }
+    ],
+    "claimedPresets": [
+        {
+            "name": "Airmaster_Finalize",
+            "owner": "John"
+        }
+    ]
+}
+```
+
+Combine that output with something like `jq` to easily manipulate it:
+
+```
+$ # List all the currently deployed branches
+$ rally stage info --raw | jq -r .stage[].branch
+changeA
+changeB
+```
+
+## `rally preset`
 
 This command deals with preset actions such as creating, uploading, and
 downloading.
@@ -104,7 +301,7 @@ will fail).
 `rally preset grab -f [preset]` will attempt to download the metadata file for
 this asset. The `--full` argument can be given to also download the `code`, too.
 
-#### `rally rule`
+## `rally rule`
 
 This command is similar to `rally preset`, but for `Supply Chain Rules`.
 
@@ -114,11 +311,11 @@ arguments.
 
 To see all rules, use `rally rule list`. `--raw` available.
 
-#### `rally provider`
+## `rally provider`
 
 See all providers. `rally provider list`. `--raw` available.
 
-#### `rally asset`
+## `rally asset`
 
 This command allows you to create and launch workflows on assets.
 
@@ -142,7 +339,7 @@ The first part of the command will be getting an asset context. You can either:
 
 Once you have your target asset, you can run any of the following commands:
 
-#### `launch`, `launchEvaluate`:
+## `launch`, `launchEvaluate`:
 
 Launch a rule or evaluate on an asset. Works in anon contexts. Requires flag
 `--job-name`.  Optional flag `--init-data` can supply data to the step in json
@@ -163,7 +360,7 @@ Example:
 `rally asset ... launch --job-name "00 john sandbox" --init-data '{"transcode": "XDCAM"}'
 `rally asset ... launchEvaluate --job-name "00 john sandbox" --init-data '{"transcode": "XDCAM"}'
 
-#### `rally supply`
+## `rally supply`
 
 This is probably the most complex command mechanically.
 
@@ -176,7 +373,7 @@ Then, using other flags you can do something with this chain.
 
 `rally supply make -f [files]`
 
-#### `rally conifg`
+## `rally conifg`
 
 This command manages the "~/.rallyconfig" file, so that you don't need to edit
 it manually. `rally config` simply creates a new config walking through all the
@@ -190,7 +387,7 @@ would let you modify just the DEV credentials.
 `rally config --raw` prints out the current config *including configs changed
 by command line options*
 
-#### `metadata`:
+## `metadata`:
 
 This command prints metadata.
 
@@ -479,7 +676,7 @@ all the file arguments are `^R%` where ^R is the CTRL-R sequence
 (register-insert-command mode). Use `CTRL-V` in insert mode to enter
 insert-escape mode, then press `CTRL-R` to type that sequence.
 
-```
+```vimscript
 nnoremap <leader><leader>u :!rally preset upload --file "%" -e UAT<cr>
 nnoremap <leader><leader>U :!rally preset upload --file "%" -e PROD --no-protect<cr>
 nnoremap <leader>u :!rally supply make --file "%" --to UAT<cr>

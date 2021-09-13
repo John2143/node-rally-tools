@@ -2,6 +2,8 @@ require("source-map-support").install();
 
 import {lib, UnconfiguredEnvError, IndexObject} from "./rally-tools.js";
 import {cached} from "./decorators.js";
+import {default as Preset} from "./preset.js";
+import {default as Rule} from "./rule.js";
 
 export {default as SupplyChain} from "./supply-chain.js";
 export {default as Preset} from "./preset.js";
@@ -56,4 +58,34 @@ export const rallyFunctions = {
         let timed = new Date() - start;
         return [result.statusCode, timed];
     },
+}
+
+export async function categorizeString(str, defaultSubproject=undefined){
+    str = str.trim();
+    if(str.startsWith('"')){
+        str = str.slice(1, -1);
+    }
+    if(match = /^(\w)-(\w{1,10})-(\d{1,10}):/.exec(str)){
+        if(match[1] === "P"){
+            let ret = await Preset.getById(match[2], match[3]);
+            //TODO modify for subproject a bit
+            return ret;
+        }else if(match[1] === "R"){
+            return await Rule.getById(match[2], match[3]);
+        }else{
+            return null;
+        }
+    }else if(match = /^([\w \/\\\-_]*)[\/\\]?silo\-(\w+)[\/\\]/.exec(str)){
+        try{
+            switch(match[2]){
+                case "presets": return new Preset({path: str, subProject: match[1]});
+                case "rules": return new Rule({path: str, subProject: match[1]});
+                case "metadata": return await Preset.fromMetadata(str, match[1]);
+            }
+        }catch(e){
+            log(e);
+        }
+    }else{
+        return null;
+    }
 }

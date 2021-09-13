@@ -6,6 +6,9 @@ import {saveConfig, loadLocals, inquirer, addAutoCompletePrompt, askQuestion, se
 import Provider from "./providers.js";
 import Asset from "./asset.js";
 import Preset from "./preset.js";
+import Rule from "./rule.js";
+import SupplyChain from "./supply-chain.js";
+import {categorizeString} from "./index.js";
 
 // pathtransform for hotfix
 import {writeFileSync, readFileSync, pathTransform} from "./fswrap.js";
@@ -17,6 +20,7 @@ let exists = {};
 let Stage = {
     async before(args){
         this.env = args.env;
+        this.args = args;
         if(!this.env) throw new AbortError("No env supplied");
     },
 
@@ -26,11 +30,13 @@ let Stage = {
         return this.stageid = api.stage;
     },
 
+    // This returns true if the stage failed to load
     async downloadStage() {
         this.setStageId();
 
         if(!this.stageid) {
             log(chalk`No stage ID found for {green ${this.env}}. Run "{red rally stage init -e ${this.env} (stage name)}" or select a different env.`);
+            return true;
         }
 
         let preset = await Preset.getById(this.env, this.stageid);
@@ -52,8 +58,8 @@ let Stage = {
         await this.stagePreset.uploadCodeToEnv(this.env, false, false);
     },
 
-    async $init(args){
-        let presetName = args._.pop();
+    async $init(){
+        let presetName = this.args._.pop();
 
         let preset = await Preset.getByName(this.env, presetName);
 
@@ -70,13 +76,13 @@ let Stage = {
         await saveConfig(configObject, {print: false});
     },
 
-    async $info(args){
-        await this.downloadStage();
+    async $info(){
+        if(await this.downloadStage()) return;
 
-        if(args.raw) return this.stageData;
+        if(configObject.rawOutput) return this.stageData;
 
-        log(chalk`Currently Staged Branches: ${this.stageData.stagedBranches.length}`);
-        for(let [branch, commit] of zip(this.stageData.stagedBranches, this.stageData.stagedCommits)){
+        log(chalk`Currently Staged Branches: ${this.stageData.stage.length}`);
+        for(let {branch, commit} of this.stageData.stage){
             log(chalk`    ${branch} {gray ${commit}}`);
         }
 
@@ -86,15 +92,15 @@ let Stage = {
         }
     },
 
-    async $claim(args){
+    async $claim(){
         await Promise.all([this.downloadStage(), addAutoCompletePrompt()]);
         let q;
 
         let opts = [
             {name: "Chaim a preset", value: "add"},
             {name: "Remove a claimed preset", value: "rem"},
-            {name: "Apply", value: "done"},
-            {name: "Quit", value: "quit"},
+            {name: "Apply changes", value: "done"},
+            {name: "Quit without saving", value: "quit"},
         ];
 
         //slice to copy
@@ -132,7 +138,7 @@ let Stage = {
 
                 if(!p) continue;
                 if(typeof(p) == "string") {
-                    this.stageData.claimedPresets = this.stageData.claimedPresets.filter(x => x.name != p && x.owner === ownerName);
+                    this.stageData.claimedPresets = this.stageData.claimedPresets.filter(x => x.name != p);
                 }else{
                     newClaimed = newClaimed.filter(x => x !== p);
                 }
@@ -190,9 +196,10 @@ let Stage = {
         }
 
         let g = await spawn({noecho: true}, "git", args);
-        log(`git ${args.join(" ")}`)
+        if(configObject.verbose) log(`git ${args.join(" ")}`);
+
         if(!oks.includes(g.exitCode)) {
-            throw Error(`Failed to run git ${args}`);
+            throw new AbortError(`Failed to run git ${args}`);
         }
 
         return [g.stdout, g.stderr]
@@ -204,19 +211,8 @@ let Stage = {
         }
     },
 
-    async $edit(args){
-        let [branches, _] = await Promise.all([this.getBranches(), this.downloadStage(), addAutoCompletePrompt()]);
-
-        if(!branches) return;
-
-        //copy the branches we started with
-        let newStagedBranches = new Set();
-        let oldStagedBranches = new Set();
-        for(let branch of this.stageData.stagedBranches){
-            newStagedBranches.add(branch);
-            oldStagedBranches.add(branch);
-        }
-
+    //finite state machine for inputting branch changes
+    async editFSM(allBranches, newStagedBranches) {
 
         let q;
 
@@ -224,7 +220,7 @@ let Stage = {
             {name: "Add a branch to the stage", value: "add"},
             {name: "Remove a branch from the stage", value: "rem"},
             {name: "Finalize stage", value: "done"},
-            {name: "Quit", value: "quit"},
+            {name: "Quit without saving", value: "quit"},
         ];
 
         for(;;) {
@@ -236,7 +232,7 @@ let Stage = {
             }]);
 
             if(q.type === "add") {
-                let qqs = branches.slice(0); //copy the branches
+                let qqs = allBranches.slice(0); //copy the branches
                 qqs.push("None");
                 q = await inquirer.prompt([{
                     type: "autocomplete",
@@ -267,11 +263,57 @@ let Stage = {
                 return
             }
         }
+    },
+
+
+
+    async $edit(){
+        let needsInput = !this.args.a && !this.args.r && !this.args.add && !this.args.remove;
+
+        let [branches, stage, _] = await Promise.all([
+            this.getBranches(),
+            this.downloadStage(),
+            !needsInput || addAutoCompletePrompt()
+        ]);
+
+        if(stage) return;
+
+        if(!branches) return;
+
+        //copy the branches we started with
+        let newStagedBranches = new Set();
+        let oldStagedBranches = new Set();
+        for(let {branch} of this.stageData.stage){
+            newStagedBranches.add(branch);
+            oldStagedBranches.add(branch);
+        }
+
+        if(needsInput) {
+            await this.editFSM(branches, newStagedBranches);
+        } else {
+            let asarray = arg => {
+                if(!arg) return [];
+                return Array.isArray(arg) ? arg : [arg];
+            }
+
+            for(let branch of [...asarray(this.args.a), ...asarray(this.args.add)]) {
+                if(!branches.includes(branch)){
+                    throw new AbortError(`Invalid branch ${branch}`);
+                }
+                newStagedBranches.add(branch);
+            }
+            for(let branch of [...asarray(this.args.r), ...asarray(this.args.remove)]) {
+                if(!branches.includes(branch)){
+                    throw new AbortError(`Invalid branch ${branch}`);
+                }
+                newStagedBranches.delete(branch);
+            }
+        }
 
         const difference = (s1, s2) => new Set([...s1].filter(x => !s2.has(x)));
         const intersect = (s1, s2) => new Set([...s1].filter(x => s2.has(x)));
 
-        log("proposed changes");
+        log("Proposed stage changes:");
         for(let branch of intersect(newStagedBranches, oldStagedBranches)){
             log(chalk`   ${branch}`);
         }
@@ -282,25 +324,35 @@ let Stage = {
             log(chalk`  {red -${branch}}`);
         }
 
-        let ok = await askQuestion("Prepare these branches for deployment?");
+        let ok = this.args.y || await askQuestion("Prepare these branches for deployment?");
         if(!ok) return;
 
         //just to make sure commits/branches don't get out of order
         newStagedBranches = Array.from(newStagedBranches);
 
-        let [diffText, newStagedCommits] = await this.doGit(newStagedBranches, this.stageData.stagedCommits);
+        try {
+            let [diffText, newStagedCommits] = await this.doGit(newStagedBranches, this.stageData.stage.map(x => x.commit));
 
-        await this.runRally(diffText);
+            await this.runRally(diffText);
 
-        this.stageData.stagedBranches = newStagedBranches;
-        this.stageData.stagedCommits = newStagedCommits;
+            this.stageData.stage = Array.from(zip(newStagedBranches, newStagedCommits)).map(([branch, commit]) => ({branch, commit}));
 
-        await this.uploadStage();
+             await this.uploadStage();
+        }catch(e){
+            if(e instanceof AbortError) {
+                throw e;
+            }
+
+            throw e; //TODO 
+        }finally{
+            await this.runGit([0], "checkout", "staging");
+        }
+
     },
 
     async $pull() {
-        await this.downloadStage();
-        await this.makeOldStage(this.stageData.stagedCommits, `rallystage-${this.env}`);
+        if(await this.downloadStage()) return;
+        await this.makeOldStage(this.stageData.stage.map(x => x.commit), `rallystage-${this.env}`);
     },
 
 
@@ -310,9 +362,13 @@ let Stage = {
         await this.runGit([0, 1], "branch", "-D", "RALLYNEWSTAGE");
         await this.runGit([0], "checkout", "-b", "RALLYNEWSTAGE");
         for(let branch of newStagedBranches) {
-            let [_, merge] = await this.runGit([0, 1], "merge", "--squash", `origin/${branch}`);
+            let originName = `origin/${branch}`
+            let [_, merge] = await this.runGit([0], "merge", "--squash", originName);
             await this.runGit([0], "commit", "-m", `autostaging: commit ${branch}`);
-            let hash = await spawn({noecho: true}, "git", ["log", "--format=oneline", "--color=never", "-n", "1", branch]);
+            let hash = await spawn({noecho: true}, "git", ["log", "--format=oneline", "--color=never", "-n", "1", originName]);
+            if(hash.exitCode !== 0) {
+                throw new AbortError(`Failed to get commit hash for branch, ${branch}`);
+            }
             newStagedCommits.push(hash.stdout.split(" ")[0]);
         }
 
@@ -351,7 +407,7 @@ nothing to commit, working tree clean`;
         let diff = await spawn({noecho: true}, "git", ["diff", "RALLYOLDSTAGE..HEAD", "--name-only"]);
         if(diff.exitCode !== 0) { 
             log(diff);
-            throw Error("diff failed");
+            throw new Error("diff failed");
         }
 
         let diffText = diff.stdout;
@@ -359,25 +415,35 @@ nothing to commit, working tree clean`;
         return [diffText, newStagedCommits];
     },
 
-    async runRally(diffText) {
-        let rto = await spawn({
-            stdin(s) {
-                s.write(diffText);
-                s.end()
-            }
-        }, "rally", ["@"]);
+    async $testrr() {
+        let diff = `silo-presets/Super Movie Data Collector.py
+        silo-presets/Super Movie Post Work Order.py
+        silo-presets/Super Movie Task Handler.py`;
 
-        let ok = await askQuestion("Deploy now?");
+
+        await this.runRally(diff);
+    },
+
+    async runRally(diffText) {
+        let set = new Set();
+        for(let file of diffText.trim().split("\n")){
+            set.add(await categorizeString(file));
+        }
+        let files = [...set];
+        files = files.filter(f => f && !f.missing);
+
+        let chain = new SupplyChain();
+
+        chain.rules = new Collection(files.filter(f => f instanceof Rule));
+        chain.presets = new Collection(files.filter(f => f instanceof Preset));
+        chain.notifications = new Collection([]);
+
+        chain.log();
+
+        let ok = this.args.y || await askQuestion("Deploy now?");
         if(!ok) return;
 
-        rtd = await spawn({
-            stdin(s) {
-                s.write(diffText);
-                s.end()
-            }
-        }, "rally", ["@", "--to", this.env]);
-
-        await this.runGit([0], "checkout", "staging");
+        await chain.syncTo(this.env);
     },
 
     async unknown(arg, args){

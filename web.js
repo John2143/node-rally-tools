@@ -913,6 +913,396 @@
 
   }
 
+  class Provider extends RallyBase {
+    constructor({
+      data,
+      remote
+    }) {
+      super();
+      this.data = data;
+      this.meta = {};
+      this.remote = remote;
+    } //cached
+
+
+    async getEditorConfig() {
+      if (this.editorConfig) return this.editorConfig;
+      this.editorConfig = await lib.makeAPIRequest({
+        env: this.remote,
+        path_full: this.data.links.editorConfig
+      });
+      this.editorConfig.fileExt = await this.getFileExtension();
+      return this.editorConfig;
+    }
+
+    static async getAllPreCollect(providers) {
+      return providers.sort((a, b) => {
+        return a.attributes.category.localeCompare(b.attributes.category) || a.attributes.name.localeCompare(b.attributes.name);
+      });
+    }
+
+    async getFileExtension() {
+      let config = await this.getEditorConfig();
+      let map = {
+        python: "py",
+        text: "txt",
+
+        getmap(key) {
+          if (this.name === "Aurora") return "zip";
+          if (this[key]) return this[key];
+          return key;
+        }
+
+      };
+      return map.getmap(config.lang);
+    }
+
+    chalkPrint(pad = true) {
+      let id = String(this.id);
+      if (pad) id = id.padStart(4);
+      return chalk`{green ${id}}: {blue ${this.category}} - {green ${this.name}}`;
+    }
+
+  }
+
+  defineAssoc(Provider, "id", "data.id");
+  defineAssoc(Provider, "name", "data.attributes.name");
+  defineAssoc(Provider, "category", "data.attributes.category");
+  defineAssoc(Provider, "remote", "meta.remote");
+  defineAssoc(Provider, "editorConfig", "meta.editorConfig");
+  Provider.endpoint = "providerTypes";
+
+  class Notification extends RallyBase {
+    constructor({
+      data,
+      remote
+    }) {
+      super();
+      this.data = data;
+      this.meta = {};
+      this.remote = remote;
+    }
+
+    static async getAllPreCollect(notifications) {
+      return notifications.sort((a, b) => {
+        return a.attributes.type.localeCompare(b.attributes.type) || a.attributes.name.localeCompare(b.attributes.name);
+      });
+    }
+
+    chalkPrint(pad = false) {
+      let id = String("N-" + this.id);
+      if (pad) id = id.padStart(4);
+      return chalk`{green ${id}}: {blue ${this.type}} - {green ${this.name}}`;
+    }
+
+  }
+
+  defineAssoc(Notification, "id", "data.id");
+  defineAssoc(Notification, "name", "data.attributes.name");
+  defineAssoc(Notification, "address", "data.attributes.address");
+  defineAssoc(Notification, "type", "data.attributes.type");
+  defineAssoc(Notification, "remote", "meta.remote");
+  Notification.endpoint = "notificationPresets";
+
+  let home;
+
+  if (os.homedir) {
+    home = os.homedir();
+  }
+
+  const colon = /:/g;
+  const siloLike = /(silo\-\w+?)s?\/([^\/]+)\.([\w1234567890]+)$/g;
+  function pathTransform(path$$1) {
+    if (path$$1.includes(":")) {
+      //Ignore the first colon in window-like filesystems
+      path$$1 = path$$1.slice(0, 3) + path$$1.slice(3).replace(colon, "--");
+    }
+
+    if (exports.configObject.invertedPath) {
+      path$$1 = path$$1.replace(siloLike, "$2-$1.$3");
+    }
+
+    if (path$$1.includes("\\342\\200\\220")) {
+      path$$1 = path$$1.replace("\\342\\200\\220", "‐");
+    }
+
+    return path$$1;
+  }
+  function readFileSync(path$$1, options) {
+    return fs__default.readFileSync(pathTransform(path$$1), options);
+  } //Create writefilesync, with ability to create directory if it doesnt exist
+
+  function writeFileSync(path$$1, data, options, dircreated = false) {
+    path$$1 = pathTransform(path$$1);
+
+    try {
+      return fs__default.writeFileSync(path$$1, data, options);
+    } catch (e) {
+      if (dircreated) throw e;
+      let directory = path.dirname(path$$1);
+
+      try {
+        fs__default.statSync(directory);
+        throw e;
+      } catch (nodir) {
+        fs__default.mkdirSync(directory);
+        return writeFileSync(path$$1, data, options, true);
+      }
+    }
+  }
+
+  class Rule extends RallyBase {
+    constructor({
+      path: path$$1,
+      data,
+      remote,
+      subProject
+    } = {}) {
+      super();
+
+      if (path$$1) {
+        path$$1 = path.resolve(path$$1);
+
+        try {
+          let f = readFileSync(path$$1, "utf-8");
+          data = JSON.parse(readFileSync(path$$1, "utf-8"));
+        } catch (e) {
+          if (e.code === "ENOENT") {
+            if (exports.configObject.ignoreMissing) {
+              this.missing = true;
+              return undefined;
+            } else {
+              throw new AbortError("Could not load code of local file");
+            }
+          } else {
+            throw new AbortError(`Unreadable JSON in ${path$$1}. ${e}`);
+          }
+        }
+      }
+
+      this.meta = {};
+      this.subproject = subProject;
+
+      if (!data) {
+        data = Rule.newShell();
+      }
+
+      this.data = data;
+      this.remote = remote;
+      this.isGeneric = !this.remote;
+    }
+
+    static newShell() {
+      return {
+        "attributes": {
+          "description": "-",
+          "priority": "PriorityNorm",
+          "starred": false
+        },
+        "relationships": {},
+        "type": "workflowRules"
+      };
+    }
+
+    async acclimatize(env) {
+      this.remote = env;
+      let preset = await this.resolveField(Preset, "preset", false, "specific");
+      let pNext = await this.resolveField(Rule, "passNext", false, "specific");
+      let eNext = await this.resolveField(Rule, "errorNext", false, "specific");
+      let proType = await this.resolveField(Provider, "providerType", false, "specific");
+      let dynamicNexts = await this.resolveField(Rule, "dynamicNexts", true, "specific");
+      let enterNotif = await this.resolveField(Notification, "enterNotifications", true, "specific");
+      let errorNotif = await this.resolveField(Notification, "errorNotifications", true, "specific");
+      let passNotif = await this.resolveField(Notification, "passNotifications", true, "specific");
+    }
+
+    async saveA(env) {
+      if (lib.isLocalEnv(env)) return;
+      return await this.createIfNotExist(env);
+    }
+
+    async saveB(env) {
+      if (!this.isGeneric) {
+        await this.resolve();
+      }
+
+      this.cleanup();
+
+      if (lib.isLocalEnv(env)) {
+        log(chalk`Saving rule {green ${this.name}} to {blue ${lib.envName(env)}}.`);
+        writeFileSync(this.localpath, JSON.stringify(this.data, null, 4));
+      } else {
+        await this.acclimatize(env);
+        await this.uploadRemote(env);
+      }
+    }
+
+    get immutable() {
+      return false;
+    }
+
+    async createIfNotExist(env) {
+      write(chalk`First pass rule {green ${this.name}} to {green ${env}}: `);
+
+      if (this.immutable) {
+        log(chalk`{magenta IMMUTABLE}. Nothing to do.`);
+        return;
+      } //First query the api to see if this already exists.
+
+
+      let remote = await Rule.getByName(env, this.name);
+      this.idMap = this.idMap || {};
+
+      if (remote) {
+        this.idMap[env] = remote.id;
+        log(chalk`exists ${remote.chalkPrint(false)}`);
+        return;
+      } //If it exists we can replace it
+
+
+      write("create, ");
+      let res = await lib.makeAPIRequest({
+        env,
+        path: `/workflowRules`,
+        method: "POST",
+        payload: {
+          data: {
+            attributes: {
+              name: this.name
+            },
+            type: "workflowRules"
+          }
+        }
+      });
+      this.idMap = this.idMap || {};
+      this.idMap[env] = res.data.id;
+      write("id ");
+      log(this.idMap[env]);
+    }
+
+    async patchStrip() {
+      delete this.data.attributes.createdAt;
+      delete this.data.attributes.starred;
+      delete this.data.attributes.updatedAt; // TEMP FIX FOR BUG IN SDVI
+
+      if (this.relationships.passMetadata && this.relationships.passMetadata[0]) {
+        log("HAS PASS");
+        log(this.name);
+        log("HAS PASS");
+      }
+
+      delete this.relationships.passMetadata;
+
+      if (this.relationships.errorMetadata && this.relationships.errorMetadata[0]) {
+        log("HAS PASS");
+        log(this.name);
+        log("HAS PASS");
+      }
+
+      delete this.relationships.errorMetadata; // This is commented out because it was fixed.
+      //for(let key in this.relationships){
+      //let relationship = this.relationships[key];
+      //if(!relationship.data || relationship.data instanceof Array && !relationship.data[0]){
+      //delete this.relationships[key];
+      //}
+      //}
+    }
+
+    async uploadRemote(env) {
+      write(chalk`Uploading rule {green ${this.name}} to {green ${env}}: `);
+
+      if (this.immutable) {
+        log(chalk`{magenta IMMUTABLE}. Nothing to do.`);
+        return;
+      }
+
+      if (this.idMap[env]) {
+        this.remote = env;
+        await this.patchStrip();
+        this.data.id = this.idMap[env]; //If it exists we can replace it
+
+        write("replace, ");
+        let res = await lib.makeAPIRequest({
+          env,
+          path: `/workflowRules/${this.idMap[env]}`,
+          method: "PATCH",
+          payload: {
+            data: this.data
+          },
+          fullResponse: true
+        });
+        log(chalk`response {yellow ${res.statusCode}}`);
+
+        if (res.statusCode !== 200) {
+          log(res.body);
+          log(JSON.stringify(this.data, null, 4));
+        }
+      } else {
+        throw Error("Bad idmap!");
+      }
+    }
+
+    get localpath() {
+      return path.join(exports.configObject.repodir, this.subproject || "", "silo-rules", this.name + ".json");
+    }
+
+    async resolve() {
+      let preset = await this.resolveField(Preset, "preset", false); //log(preset);
+
+      let pNext = await this.resolveField(Rule, "passNext", false);
+      let eNext = await this.resolveField(Rule, "errorNext", false);
+      let proType = await this.resolveField(Provider, "providerType", false); //log("Dynamic nexts")
+
+      let dynamicNexts = await this.resolveField(Rule, "dynamicNexts", true); //log(dynamicNexts);
+
+      let enterNotif = await this.resolveField(Notification, "enterNotifications", true);
+      let errorNotif = await this.resolveField(Notification, "errorNotifications", true);
+      let passNotif = await this.resolveField(Notification, "passNotifications", true); //TODO Unsupported
+
+      delete this.relationships["enterMetadata"];
+      delete this.relationships["errorMetadata"];
+      this.isGeneric = true;
+      return {
+        preset,
+        proType,
+        pNext,
+        eNext,
+        dynamicNexts,
+        errorNotif,
+        enterNotif,
+        passNotif
+      };
+    }
+
+    chalkPrint(pad = true) {
+      let id = String("R-" + (this.remote && this.remote + "-" + this.id || "LOCAL"));
+      let sub = "";
+
+      if (this.subproject) {
+        sub = chalk`{yellow ${this.subproject}}`;
+      }
+
+      if (pad) id = id.padStart(10);
+
+      try {
+        return chalk`{green ${id}}: ${sub}{blue ${this.name}}`;
+      } catch (e) {
+        return this.data;
+      }
+    }
+
+  }
+
+  defineAssoc(Rule, "name", "data.attributes.name");
+  defineAssoc(Rule, "description", "data.attributes.description");
+  defineAssoc(Rule, "id", "data.id");
+  defineAssoc(Rule, "relationships", "data.relationships");
+  defineAssoc(Rule, "isGeneric", "meta.isGeneric");
+  defineAssoc(Rule, "remote", "meta.remote");
+  defineAssoc(Rule, "subproject", "meta.project");
+  defineAssoc(Rule, "idMap", "meta.idMap");
+  Rule.endpoint = "workflowRules";
+
   const inquirer = importLazy("inquirer");
   const readdir = importLazy("recursive-readdir");
   let hasAutoCompletePrompt = false;
@@ -988,65 +1378,6 @@
     });
     log(chalk`Created file {green ${exports.configFile}}.`);
   }
-
-  class Provider extends RallyBase {
-    constructor({
-      data,
-      remote
-    }) {
-      super();
-      this.data = data;
-      this.meta = {};
-      this.remote = remote;
-    } //cached
-
-
-    async getEditorConfig() {
-      if (this.editorConfig) return this.editorConfig;
-      this.editorConfig = await lib.makeAPIRequest({
-        env: this.remote,
-        path_full: this.data.links.editorConfig
-      });
-      this.editorConfig.fileExt = await this.getFileExtension();
-      return this.editorConfig;
-    }
-
-    static async getAllPreCollect(providers) {
-      return providers.sort((a, b) => {
-        return a.attributes.category.localeCompare(b.attributes.category) || a.attributes.name.localeCompare(b.attributes.name);
-      });
-    }
-
-    async getFileExtension() {
-      let config = await this.getEditorConfig();
-      let map = {
-        python: "py",
-        text: "txt",
-
-        getmap(key) {
-          if (this.name === "Aurora") return "zip";
-          if (this[key]) return this[key];
-          return key;
-        }
-
-      };
-      return map.getmap(config.lang);
-    }
-
-    chalkPrint(pad = true) {
-      let id = String(this.id);
-      if (pad) id = id.padStart(4);
-      return chalk`{green ${id}}: {blue ${this.category}} - {green ${this.name}}`;
-    }
-
-  }
-
-  defineAssoc(Provider, "id", "data.id");
-  defineAssoc(Provider, "name", "data.attributes.name");
-  defineAssoc(Provider, "category", "data.attributes.category");
-  defineAssoc(Provider, "remote", "meta.remote");
-  defineAssoc(Provider, "editorConfig", "meta.editorConfig");
-  Provider.endpoint = "providerTypes";
 
   class File extends RallyBase {
     constructor({
@@ -1893,53 +2224,6 @@ ${eLine.line}`);
   defineAssoc(Asset, "lite", "meta.lite");
   Asset.endpoint = "movies";
 
-  let home;
-
-  if (os.homedir) {
-    home = os.homedir();
-  }
-
-  const colon = /:/g;
-  const siloLike = /(silo\-\w+?)s?\/([^\/]+)\.([\w1234567890]+)$/g;
-  function pathTransform(path$$1) {
-    if (path$$1.includes(":")) {
-      //Ignore the first colon in window-like filesystems
-      path$$1 = path$$1.slice(0, 3) + path$$1.slice(3).replace(colon, "--");
-    }
-
-    if (exports.configObject.invertedPath) {
-      path$$1 = path$$1.replace(siloLike, "$2-$1.$3");
-    }
-
-    if (path$$1.includes("\\342\\200\\220")) {
-      path$$1 = path$$1.replace("\\342\\200\\220", "‐");
-    }
-
-    return path$$1;
-  }
-  function readFileSync(path$$1, options) {
-    return fs__default.readFileSync(pathTransform(path$$1), options);
-  } //Create writefilesync, with ability to create directory if it doesnt exist
-
-  function writeFileSync(path$$1, data, options, dircreated = false) {
-    path$$1 = pathTransform(path$$1);
-
-    try {
-      return fs__default.writeFileSync(path$$1, data, options);
-    } catch (e) {
-      if (dircreated) throw e;
-      let directory = path.dirname(path$$1);
-
-      try {
-        fs__default.statSync(directory);
-        throw e;
-      } catch (nodir) {
-        fs__default.mkdirSync(directory);
-        return writeFileSync(path$$1, data, options, true);
-      }
-    }
-  }
-
   let exists = {};
 
   class Preset extends RallyBase {
@@ -2280,9 +2564,15 @@ ${eLine.line}`);
       return this.name.includes("Constant") && !exports.configObject.updateImmutable;
     }
 
-    async uploadPresetData(env, id) {
-      var _this$relationships, _this$relationships$p, _this$relationships$p2;
+    async convertImports() {}
 
+    async convertIncludes() {}
+
+    isEval() {
+      return this.providerName === "SdviEvaluate" || this.providerName === "SdviEvalPro";
+    }
+
+    async uploadPresetData(env, id) {
       if (this.code.trim() === "NOUPLOAD") {
         write(chalk`code skipped {yellow :)}, `);
         return;
@@ -2290,9 +2580,8 @@ ${eLine.line}`);
 
       let code = this.code;
       let headers = {};
-      let providerName = (_this$relationships = this.relationships) === null || _this$relationships === void 0 ? void 0 : (_this$relationships$p = _this$relationships.providerType) === null || _this$relationships$p === void 0 ? void 0 : (_this$relationships$p2 = _this$relationships$p.data) === null || _this$relationships$p2 === void 0 ? void 0 : _this$relationships$p2.name;
 
-      if (!exports.configObject.skipHeader && (providerName === "SdviEvaluate" || providerName === "SdviEvalPro")) {
+      if (!exports.configObject.skipHeader && this.isEval()) {
         write(chalk`generate header, `);
         let repodir = exports.configObject.repodir;
         let localpath;
@@ -2318,7 +2607,7 @@ ${eLine.line}`);
       } //binary presets
 
 
-      if (providerName == "Vantage") {
+      if (this.providerName == "Vantage") {
         code = Buffer.from(code).toString("base64");
         headers["Content-Transfer-Encoding"] = "base64";
       }
@@ -2576,291 +2865,8 @@ ${eLine.line}`);
   defineAssoc(Preset, "ext", "meta.ext");
   defineAssoc(Preset, "subproject", "meta.project");
   defineAssoc(Preset, "metastring", "meta.metastring");
+  defineAssoc(Preset, "providerName", "relationships.providerType.data.name");
   Preset.endpoint = "presets";
-
-  class Notification extends RallyBase {
-    constructor({
-      data,
-      remote
-    }) {
-      super();
-      this.data = data;
-      this.meta = {};
-      this.remote = remote;
-    }
-
-    static async getAllPreCollect(notifications) {
-      return notifications.sort((a, b) => {
-        return a.attributes.type.localeCompare(b.attributes.type) || a.attributes.name.localeCompare(b.attributes.name);
-      });
-    }
-
-    chalkPrint(pad = false) {
-      let id = String("N-" + this.id);
-      if (pad) id = id.padStart(4);
-      return chalk`{green ${id}}: {blue ${this.type}} - {green ${this.name}}`;
-    }
-
-  }
-
-  defineAssoc(Notification, "id", "data.id");
-  defineAssoc(Notification, "name", "data.attributes.name");
-  defineAssoc(Notification, "address", "data.attributes.address");
-  defineAssoc(Notification, "type", "data.attributes.type");
-  defineAssoc(Notification, "remote", "meta.remote");
-  Notification.endpoint = "notificationPresets";
-
-  class Rule extends RallyBase {
-    constructor({
-      path: path$$1,
-      data,
-      remote,
-      subProject
-    } = {}) {
-      super();
-
-      if (path$$1) {
-        path$$1 = path.resolve(path$$1);
-
-        try {
-          let f = readFileSync(path$$1, "utf-8");
-          data = JSON.parse(readFileSync(path$$1, "utf-8"));
-        } catch (e) {
-          if (e.code === "ENOENT") {
-            if (exports.configObject.ignoreMissing) {
-              this.missing = true;
-              return undefined;
-            } else {
-              throw new AbortError("Could not load code of local file");
-            }
-          } else {
-            throw new AbortError(`Unreadable JSON in ${path$$1}. ${e}`);
-          }
-        }
-      }
-
-      this.meta = {};
-      this.subproject = subProject;
-
-      if (!data) {
-        data = Rule.newShell();
-      }
-
-      this.data = data;
-      this.remote = remote;
-      this.isGeneric = !this.remote;
-    }
-
-    static newShell() {
-      return {
-        "attributes": {
-          "description": "-",
-          "priority": "PriorityNorm",
-          "starred": false
-        },
-        "relationships": {},
-        "type": "workflowRules"
-      };
-    }
-
-    async acclimatize(env) {
-      this.remote = env;
-      let preset = await this.resolveField(Preset, "preset", false, "specific");
-      let pNext = await this.resolveField(Rule, "passNext", false, "specific");
-      let eNext = await this.resolveField(Rule, "errorNext", false, "specific");
-      let proType = await this.resolveField(Provider, "providerType", false, "specific");
-      let dynamicNexts = await this.resolveField(Rule, "dynamicNexts", true, "specific");
-      let enterNotif = await this.resolveField(Notification, "enterNotifications", true, "specific");
-      let errorNotif = await this.resolveField(Notification, "errorNotifications", true, "specific");
-      let passNotif = await this.resolveField(Notification, "passNotifications", true, "specific");
-    }
-
-    async saveA(env) {
-      if (lib.isLocalEnv(env)) return;
-      return await this.createIfNotExist(env);
-    }
-
-    async saveB(env) {
-      if (!this.isGeneric) {
-        await this.resolve();
-      }
-
-      this.cleanup();
-
-      if (lib.isLocalEnv(env)) {
-        log(chalk`Saving rule {green ${this.name}} to {blue ${lib.envName(env)}}.`);
-        writeFileSync(this.localpath, JSON.stringify(this.data, null, 4));
-      } else {
-        await this.acclimatize(env);
-        await this.uploadRemote(env);
-      }
-    }
-
-    get immutable() {
-      return false;
-    }
-
-    async createIfNotExist(env) {
-      write(chalk`First pass rule {green ${this.name}} to {green ${env}}: `);
-
-      if (this.immutable) {
-        log(chalk`{magenta IMMUTABLE}. Nothing to do.`);
-        return;
-      } //First query the api to see if this already exists.
-
-
-      let remote = await Rule.getByName(env, this.name);
-      this.idMap = this.idMap || {};
-
-      if (remote) {
-        this.idMap[env] = remote.id;
-        log(chalk`exists ${remote.chalkPrint(false)}`);
-        return;
-      } //If it exists we can replace it
-
-
-      write("create, ");
-      let res = await lib.makeAPIRequest({
-        env,
-        path: `/workflowRules`,
-        method: "POST",
-        payload: {
-          data: {
-            attributes: {
-              name: this.name
-            },
-            type: "workflowRules"
-          }
-        }
-      });
-      this.idMap = this.idMap || {};
-      this.idMap[env] = res.data.id;
-      write("id ");
-      log(this.idMap[env]);
-    }
-
-    async patchStrip() {
-      delete this.data.attributes.createdAt;
-      delete this.data.attributes.starred;
-      delete this.data.attributes.updatedAt; // TEMP FIX FOR BUG IN SDVI
-
-      if (this.relationships.passMetadata && this.relationships.passMetadata[0]) {
-        log("HAS PASS");
-        log(this.name);
-        log("HAS PASS");
-      }
-
-      delete this.relationships.passMetadata;
-
-      if (this.relationships.errorMetadata && this.relationships.errorMetadata[0]) {
-        log("HAS PASS");
-        log(this.name);
-        log("HAS PASS");
-      }
-
-      delete this.relationships.errorMetadata; // This is commented out because it was fixed.
-      //for(let key in this.relationships){
-      //let relationship = this.relationships[key];
-      //if(!relationship.data || relationship.data instanceof Array && !relationship.data[0]){
-      //delete this.relationships[key];
-      //}
-      //}
-    }
-
-    async uploadRemote(env) {
-      write(chalk`Uploading rule {green ${this.name}} to {green ${env}}: `);
-
-      if (this.immutable) {
-        log(chalk`{magenta IMMUTABLE}. Nothing to do.`);
-        return;
-      }
-
-      if (this.idMap[env]) {
-        this.remote = env;
-        await this.patchStrip();
-        this.data.id = this.idMap[env]; //If it exists we can replace it
-
-        write("replace, ");
-        let res = await lib.makeAPIRequest({
-          env,
-          path: `/workflowRules/${this.idMap[env]}`,
-          method: "PATCH",
-          payload: {
-            data: this.data
-          },
-          fullResponse: true
-        });
-        log(chalk`response {yellow ${res.statusCode}}`);
-
-        if (res.statusCode !== 200) {
-          log(res.body);
-          log(JSON.stringify(this.data, null, 4));
-        }
-      } else {
-        throw Error("Bad idmap!");
-      }
-    }
-
-    get localpath() {
-      return path.join(exports.configObject.repodir, this.subproject || "", "silo-rules", this.name + ".json");
-    }
-
-    async resolve() {
-      let preset = await this.resolveField(Preset, "preset", false); //log(preset);
-
-      let pNext = await this.resolveField(Rule, "passNext", false);
-      let eNext = await this.resolveField(Rule, "errorNext", false);
-      let proType = await this.resolveField(Provider, "providerType", false); //log("Dynamic nexts")
-
-      let dynamicNexts = await this.resolveField(Rule, "dynamicNexts", true); //log(dynamicNexts);
-
-      let enterNotif = await this.resolveField(Notification, "enterNotifications", true);
-      let errorNotif = await this.resolveField(Notification, "errorNotifications", true);
-      let passNotif = await this.resolveField(Notification, "passNotifications", true); //TODO Unsupported
-
-      delete this.relationships["enterMetadata"];
-      delete this.relationships["errorMetadata"];
-      this.isGeneric = true;
-      return {
-        preset,
-        proType,
-        pNext,
-        eNext,
-        dynamicNexts,
-        errorNotif,
-        enterNotif,
-        passNotif
-      };
-    }
-
-    chalkPrint(pad = true) {
-      let id = String("R-" + (this.remote && this.remote + "-" + this.id || "LOCAL"));
-      let sub = "";
-
-      if (this.subproject) {
-        sub = chalk`{yellow ${this.subproject}}`;
-      }
-
-      if (pad) id = id.padStart(10);
-
-      try {
-        return chalk`{green ${id}}: ${sub}{blue ${this.name}}`;
-      } catch (e) {
-        return this.data;
-      }
-    }
-
-  }
-
-  defineAssoc(Rule, "name", "data.attributes.name");
-  defineAssoc(Rule, "description", "data.attributes.description");
-  defineAssoc(Rule, "id", "data.id");
-  defineAssoc(Rule, "relationships", "data.relationships");
-  defineAssoc(Rule, "isGeneric", "meta.isGeneric");
-  defineAssoc(Rule, "remote", "meta.remote");
-  defineAssoc(Rule, "subproject", "meta.project");
-  defineAssoc(Rule, "idMap", "meta.idMap");
-  Rule.endpoint = "workflowRules";
 
   //Move project into silo metadata
   //move autotest into silo metadata
@@ -3138,9 +3144,10 @@ ${eLine.line}`);
   defineAssoc(Tag, "remote", "meta.remote");
   Tag.endpoint = "tagNames";
 
-  let Stage = {
+  let Stage$$1 = {
     async before(args) {
       this.env = args.env;
+      this.args = args;
       if (!this.env) throw new AbortError("No env supplied");
     },
 
@@ -3150,11 +3157,13 @@ ${eLine.line}`);
       return this.stageid = api.stage;
     },
 
+    // This returns true if the stage failed to load
     async downloadStage() {
       this.setStageId();
 
       if (!this.stageid) {
         log(chalk`No stage ID found for {green ${this.env}}. Run "{red rally stage init -e ${this.env} (stage name)}" or select a different env.`);
+        return true;
       }
 
       let preset = await Preset.getById(this.env, this.stageid);
@@ -3173,8 +3182,8 @@ ${eLine.line}`);
       await this.stagePreset.uploadCodeToEnv(this.env, false, false);
     },
 
-    async $init(args) {
-      let presetName = args._.pop();
+    async $init() {
+      let presetName = this.args._.pop();
 
       let preset = await Preset.getByName(this.env, presetName);
 
@@ -3191,12 +3200,15 @@ ${eLine.line}`);
       });
     },
 
-    async $info(args) {
-      await this.downloadStage();
-      if (args.raw) return this.stageData;
-      log(chalk`Currently Staged Branches: ${this.stageData.stagedBranches.length}`);
+    async $info() {
+      if (await this.downloadStage()) return;
+      if (exports.configObject.rawOutput) return this.stageData;
+      log(chalk`Currently Staged Branches: ${this.stageData.stage.length}`);
 
-      for (let [branch, commit] of zip(this.stageData.stagedBranches, this.stageData.stagedCommits)) {
+      for (let {
+        branch,
+        commit
+      } of this.stageData.stage) {
         log(chalk`    ${branch} {gray ${commit}}`);
       }
 
@@ -3207,7 +3219,7 @@ ${eLine.line}`);
       }
     },
 
-    async $claim(args) {
+    async $claim() {
       await Promise.all([this.downloadStage(), addAutoCompletePrompt()]);
       let q;
       let opts = [{
@@ -3217,10 +3229,10 @@ ${eLine.line}`);
         name: "Remove a claimed preset",
         value: "rem"
       }, {
-        name: "Apply",
+        name: "Apply changes",
         value: "done"
       }, {
-        name: "Quit",
+        name: "Quit without saving",
         value: "quit"
       }]; //slice to copy
 
@@ -3256,7 +3268,7 @@ ${eLine.line}`);
           if (!p) continue;
 
           if (typeof p == "string") {
-            this.stageData.claimedPresets = this.stageData.claimedPresets.filter(x => x.name != p && x.owner === ownerName);
+            this.stageData.claimedPresets = this.stageData.claimedPresets.filter(x => x.name != p);
           } else {
             newClaimed = newClaimed.filter(x => x !== p);
           }
@@ -3315,10 +3327,10 @@ ${eLine.line}`);
       let g = await spawn({
         noecho: true
       }, "git", args);
-      log(`git ${args.join(" ")}`);
+      if (exports.configObject.verbose) log(`git ${args.join(" ")}`);
 
       if (!oks.includes(g.exitCode)) {
-        throw Error(`Failed to run git ${args}`);
+        throw new AbortError(`Failed to run git ${args}`);
       }
 
       return [g.stdout, g.stderr];
@@ -3330,18 +3342,8 @@ ${eLine.line}`);
       };
     },
 
-    async $edit(args) {
-      let [branches, _] = await Promise.all([this.getBranches(), this.downloadStage(), addAutoCompletePrompt()]);
-      if (!branches) return; //copy the branches we started with
-
-      let newStagedBranches = new Set();
-      let oldStagedBranches = new Set();
-
-      for (let branch of this.stageData.stagedBranches) {
-        newStagedBranches.add(branch);
-        oldStagedBranches.add(branch);
-      }
-
+    //finite state machine for inputting branch changes
+    async editFSM(allBranches, newStagedBranches) {
       let q;
       let opts = [{
         name: "Add a branch to the stage",
@@ -3353,7 +3355,7 @@ ${eLine.line}`);
         name: "Finalize stage",
         value: "done"
       }, {
-        name: "Quit",
+        name: "Quit without saving",
         value: "quit"
       }];
 
@@ -3366,7 +3368,7 @@ ${eLine.line}`);
         }]);
 
         if (q.type === "add") {
-          let qqs = branches.slice(0); //copy the branches
+          let qqs = allBranches.slice(0); //copy the branches
 
           qqs.push("None");
           q = await inquirer.prompt([{
@@ -3398,12 +3400,54 @@ ${eLine.line}`);
           return;
         }
       }
+    },
+
+    async $edit() {
+      let needsInput = !this.args.a && !this.args.r && !this.args.add && !this.args.remove;
+      let [branches, stage, _] = await Promise.all([this.getBranches(), this.downloadStage(), !needsInput || addAutoCompletePrompt()]);
+      if (stage) return;
+      if (!branches) return; //copy the branches we started with
+
+      let newStagedBranches = new Set();
+      let oldStagedBranches = new Set();
+
+      for (let {
+        branch
+      } of this.stageData.stage) {
+        newStagedBranches.add(branch);
+        oldStagedBranches.add(branch);
+      }
+
+      if (needsInput) {
+        await this.editFSM(branches, newStagedBranches);
+      } else {
+        let asarray = arg$$1 => {
+          if (!arg$$1) return [];
+          return Array.isArray(arg$$1) ? arg$$1 : [arg$$1];
+        };
+
+        for (let branch of [...asarray(this.args.a), ...asarray(this.args.add)]) {
+          if (!branches.includes(branch)) {
+            throw new AbortError(`Invalid branch ${branch}`);
+          }
+
+          newStagedBranches.add(branch);
+        }
+
+        for (let branch of [...asarray(this.args.r), ...asarray(this.args.remove)]) {
+          if (!branches.includes(branch)) {
+            throw new AbortError(`Invalid branch ${branch}`);
+          }
+
+          newStagedBranches.delete(branch);
+        }
+      }
 
       const difference = (s1, s2) => new Set([...s1].filter(x => !s2.has(x)));
 
       const intersect = (s1, s2) => new Set([...s1].filter(x => s2.has(x)));
 
-      log("proposed changes");
+      log("Proposed stage changes:");
 
       for (let branch of intersect(newStagedBranches, oldStagedBranches)) {
         log(chalk`   ${branch}`);
@@ -3417,20 +3461,33 @@ ${eLine.line}`);
         log(chalk`  {red -${branch}}`);
       }
 
-      let ok = await askQuestion("Prepare these branches for deployment?");
+      let ok = this.args.y || (await askQuestion("Prepare these branches for deployment?"));
       if (!ok) return; //just to make sure commits/branches don't get out of order
 
       newStagedBranches = Array.from(newStagedBranches);
-      let [diffText, newStagedCommits] = await this.doGit(newStagedBranches, this.stageData.stagedCommits);
-      await this.runRally(diffText);
-      this.stageData.stagedBranches = newStagedBranches;
-      this.stageData.stagedCommits = newStagedCommits;
-      await this.uploadStage();
+
+      try {
+        let [diffText, newStagedCommits] = await this.doGit(newStagedBranches, this.stageData.stage.map(x => x.commit));
+        await this.runRally(diffText);
+        this.stageData.stage = Array.from(zip(newStagedBranches, newStagedCommits)).map(([branch, commit]) => ({
+          branch,
+          commit
+        }));
+        await this.uploadStage();
+      } catch (e) {
+        if (e instanceof AbortError) {
+          throw e;
+        }
+
+        throw e; //TODO 
+      } finally {
+        await this.runGit([0], "checkout", "staging");
+      }
     },
 
     async $pull() {
-      await this.downloadStage();
-      await this.makeOldStage(this.stageData.stagedCommits, `rallystage-${this.env}`);
+      if (await this.downloadStage()) return;
+      await this.makeOldStage(this.stageData.stage.map(x => x.commit), `rallystage-${this.env}`);
     },
 
     async makeNewStage(newStagedBranches) {
@@ -3439,11 +3496,17 @@ ${eLine.line}`);
       await this.runGit([0], "checkout", "-b", "RALLYNEWSTAGE");
 
       for (let branch of newStagedBranches) {
-        let [_, merge] = await this.runGit([0, 1], "merge", "--squash", `origin/${branch}`);
+        let originName = `origin/${branch}`;
+        let [_, merge] = await this.runGit([0], "merge", "--squash", originName);
         await this.runGit([0], "commit", "-m", `autostaging: commit ${branch}`);
         let hash = await spawn({
           noecho: true
-        }, "git", ["log", "--format=oneline", "--color=never", "-n", "1", branch]);
+        }, "git", ["log", "--format=oneline", "--color=never", "-n", "1", originName]);
+
+        if (hash.exitCode !== 0) {
+          throw new AbortError(`Failed to get commit hash for branch, ${branch}`);
+        }
+
         newStagedCommits.push(hash.stdout.split(" ")[0]);
       }
 
@@ -3486,31 +3549,37 @@ nothing to commit, working tree clean`;
 
       if (diff.exitCode !== 0) {
         log(diff);
-        throw Error("diff failed");
+        throw new Error("diff failed");
       }
 
       let diffText = diff.stdout;
       return [diffText, newStagedCommits];
     },
 
+    async $testrr() {
+      let diff = `silo-presets/Super Movie Data Collector.py
+        silo-presets/Super Movie Post Work Order.py
+        silo-presets/Super Movie Task Handler.py`;
+      await this.runRally(diff);
+    },
+
     async runRally(diffText) {
-      let rto = await spawn({
-        stdin(s) {
-          s.write(diffText);
-          s.end();
-        }
+      let set = new Set();
 
-      }, "rally", ["@"]);
-      let ok = await askQuestion("Deploy now?");
+      for (let file of diffText.trim().split("\n")) {
+        set.add((await categorizeString(file)));
+      }
+
+      let files = [...set];
+      files = files.filter(f => f && !f.missing);
+      let chain = new SupplyChain();
+      chain.rules = new Collection(files.filter(f => f instanceof Rule));
+      chain.presets = new Collection(files.filter(f => f instanceof Preset));
+      chain.notifications = new Collection([]);
+      chain.log();
+      let ok = this.args.y || (await askQuestion("Deploy now?"));
       if (!ok) return;
-      rtd = await spawn({
-        stdin(s) {
-          s.write(diffText);
-          s.end();
-        }
-
-      }, "rally", ["@", "--to", this.env]);
-      await this.runGit([0], "checkout", "staging");
+      await chain.syncTo(this.env);
     },
 
     async unknown(arg$$1, args) {
@@ -3566,8 +3635,51 @@ nothing to commit, working tree clean`;
     }
 
   };
+  async function categorizeString(str, defaultSubproject = undefined) {
+    str = str.trim();
+
+    if (str.startsWith('"')) {
+      str = str.slice(1, -1);
+    }
+
+    if (match = /^(\w)-(\w{1,10})-(\d{1,10}):/.exec(str)) {
+      if (match[1] === "P") {
+        let ret = await Preset.getById(match[2], match[3]); //TODO modify for subproject a bit
+
+        return ret;
+      } else if (match[1] === "R") {
+        return await Rule.getById(match[2], match[3]);
+      } else {
+        return null;
+      }
+    } else if (match = /^([\w \/\\\-_]*)[\/\\]?silo\-(\w+)[\/\\]/.exec(str)) {
+      try {
+        switch (match[2]) {
+          case "presets":
+            return new Preset({
+              path: str,
+              subProject: match[1]
+            });
+
+          case "rules":
+            return new Rule({
+              path: str,
+              subProject: match[1]
+            });
+
+          case "metadata":
+            return await Preset.fromMetadata(str, match[1]);
+        }
+      } catch (e) {
+        log(e);
+      }
+    } else {
+      return null;
+    }
+  }
 
   exports.rallyFunctions = rallyFunctions;
+  exports.categorizeString = categorizeString;
   exports.SupplyChain = SupplyChain;
   exports.Preset = Preset;
   exports.Rule = Rule;
@@ -3576,7 +3688,7 @@ nothing to commit, working tree clean`;
   exports.Asset = Asset;
   exports.User = User;
   exports.Tag = Tag;
-  exports.Stage = Stage;
+  exports.Stage = Stage$$1;
   exports.Trace = Trace;
   exports.loadConfig = loadConfig;
   exports.loadConfigFromArgs = loadConfigFromArgs;

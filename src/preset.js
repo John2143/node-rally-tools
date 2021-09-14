@@ -542,7 +542,7 @@ class Preset extends RallyBase{
     }
 
     async printDepends(indent=0, locals=null, seen={}){
-        let includeRegex = /@include "(.+)"/gim;
+        let includeRegex = /@include ["'](.+)['"]/gim;
         //let includeRegex = /@include/g;
 
         let includes = [];

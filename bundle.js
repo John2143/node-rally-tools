@@ -3062,7 +3062,7 @@ class Preset extends RallyBase {
   }
 
   async printDepends(indent = 0, locals = null, seen = {}) {
-    let includeRegex = /@include "(.+)"/gim; //let includeRegex = /@include/g;
+    let includeRegex = /@include ["'](.+)['"]/gim; //let includeRegex = /@include/g;
 
     let includes = [];
     let inc;
@@ -3976,7 +3976,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   IndexObject: IndexObject
 });
 
-var version = "4.1.1";
+var version = "4.1.2";
 
 var baseCode = {
   SdviContentMover: `{

@@ -97,7 +97,7 @@ let Stage = {
         let q;
 
         let opts = [
-            {name: "Chaim a preset", value: "add"},
+            {name: "Claim a preset", value: "add"},
             {name: "Remove a claimed preset", value: "rem"},
             {name: "Apply changes", value: "done"},
             {name: "Quit without saving", value: "quit"},

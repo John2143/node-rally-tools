@@ -3481,7 +3481,7 @@ let Stage$$1 = {
     await Promise.all([this.downloadStage(), addAutoCompletePrompt()]);
     let q;
     let opts = [{
-      name: "Chaim a preset",
+      name: "Claim a preset",
       value: "add"
     }, {
       name: "Remove a claimed preset",
@@ -3988,7 +3988,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   IndexObject: IndexObject
 });
 
-var version = "4.1.4";
+var version = "4.1.5";
 
 var baseCode = {
   SdviContentMover: `{

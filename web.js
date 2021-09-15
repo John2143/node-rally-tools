@@ -3233,7 +3233,7 @@ ${eLine.line}`);
       await Promise.all([this.downloadStage(), addAutoCompletePrompt()]);
       let q;
       let opts = [{
-        name: "Chaim a preset",
+        name: "Claim a preset",
         value: "add"
       }, {
         name: "Remove a claimed preset",

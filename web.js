@@ -3597,7 +3597,7 @@ nothing to commit, working tree clean`;
         for (let claim of this.stageData.claimedPresets) {
           if (preset.name == claim.name) {
             hasClaimed = true;
-            log(chalk`{yrllow Claimed preset}: {blue ${claim.name}} (owner {green ${claim.owner}})`);
+            log(chalk`{yellow Claimed preset}: {blue ${claim.name}} (owner {green ${claim.owner}})`);
           }
         }
       }

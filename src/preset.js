@@ -330,6 +330,20 @@ class Preset extends RallyBase{
         let code = this.code;
         let headers = {};
 
+        //if(this.isEval()){
+            //let crt = 0;
+            //code = code.split("\n").map(line => {
+                //crt += 1
+
+                //if(line.trim().endsWith("\\")) return line;
+
+                //return [
+                    //line,
+                    //`# this ^^ is ${this.name}:${crt}`,
+                //]
+            //}).flat().join("\n");
+        //}
+
         if(!configObject.skipHeader && this.isEval()){
             write(chalk`generate header, `);
             let repodir = configObject.repodir;

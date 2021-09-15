@@ -2579,7 +2579,17 @@ ${eLine.line}`);
       }
 
       let code = this.code;
-      let headers = {};
+      let headers = {}; //if(this.isEval()){
+      //let crt = 0;
+      //code = code.split("\n").map(line => {
+      //crt += 1
+      //if(line.trim().endsWith("\\")) return line;
+      //return [
+      //line,
+      //`# this ^^ is ${this.name}:${crt}`,
+      //]
+      //}).flat().join("\n");
+      //}
 
       if (!exports.configObject.skipHeader && this.isEval()) {
         write(chalk`generate header, `);
@@ -3330,6 +3340,8 @@ ${eLine.line}`);
       if (exports.configObject.verbose) log(`git ${args.join(" ")}`);
 
       if (!oks.includes(g.exitCode)) {
+        log(g.stderr);
+        log(g.stdout);
         throw new AbortError(`Failed to run git ${args}`);
       }
 
@@ -3595,7 +3607,7 @@ nothing to commit, working tree clean`;
       }
 
       let ok = this.args.y || (await askQuestion("Deploy now?"));
-      if (!ok) return;
+      if (!ok) throw new AbortError("Not deploying");
       await chain.syncTo(this.env);
     },
 

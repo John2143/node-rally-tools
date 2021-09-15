@@ -199,6 +199,8 @@ let Stage = {
         if(configObject.verbose) log(`git ${args.join(" ")}`);
 
         if(!oks.includes(g.exitCode)) {
+            log(g.stderr);
+            log(g.stdout);
             throw new AbortError(`Failed to run git ${args}`);
         }
 
@@ -458,7 +460,7 @@ nothing to commit, working tree clean`;
 
 
         let ok = this.args.y || await askQuestion("Deploy now?");
-        if(!ok) return;
+        if(!ok) throw new AbortError("Not deploying");
 
         await chain.syncTo(this.env);
     },

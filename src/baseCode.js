@@ -69,6 +69,6 @@ name: {name}
 
 import rally
 
-def evalMain(context):
+def eval_main(context):
     # code here`,
 };

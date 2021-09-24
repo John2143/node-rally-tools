@@ -2711,6 +2711,15 @@ ${eLine.line}`);
             write("replace (simple), ");
           }
 
+          if (this.providerName === "SdviEvalPro") {
+            log("givin it a name,");
+            let oldName = this.attributes.providerDataFilename;
+
+            if (!oldName) {
+              this.attributes.providerDataFilename = this.name + ".py";
+            }
+          }
+
           let res = await lib.makeAPIRequest({
             env,
             path: `/presets/${remote.id}`,
@@ -2801,6 +2810,12 @@ ${eLine.line}`);
 
     async printRemoteInfo(env) {
       let remote = await Preset.getByName(env, this.name);
+
+      if (!remote) {
+        log(chalk`Not found on {red ${env}}`);
+        return;
+      }
+
       await remote.downloadCode();
       let i = remote.parseHeaderInfo();
 
@@ -2809,6 +2824,7 @@ ${eLine.line}`);
                 ENV: {red ${env}}, updated {yellow ~${i.offset}}
                 Built on {blue ${i.built}} by {green ${i.author}}
                 From ${i.build || "(unknown)"} on ${i.branch} ({yellow ${i.commit}})
+                Remote Data Filename "${this.importName}"
             `.replace(/^[ \t]+/gim, "").trim());
       } else {
         log(chalk`No header on {red ${env}}`);
@@ -2865,7 +2881,9 @@ ${eLine.line}`);
 
   defineAssoc(Preset, "_nameInner", "data.attributes.providerSettings.PresetName");
   defineAssoc(Preset, "_nameOuter", "data.attributes.name");
+  defineAssoc(Preset, "_nameE2", "data.attributes.providerDataFilename");
   defineAssoc(Preset, "id", "data.id");
+  defineAssoc(Preset, "importName", "data.attributes.providerDataFilename");
   defineAssoc(Preset, "attributes", "data.attributes");
   defineAssoc(Preset, "relationships", "data.relationships");
   defineAssoc(Preset, "remote", "meta.remote");
@@ -3590,6 +3608,12 @@ nothing to commit, working tree clean`;
       chain.rules = new Collection(files.filter(f => f instanceof Rule));
       chain.presets = new Collection(files.filter(f => f instanceof Preset));
       chain.notifications = new Collection([]);
+
+      if (chain.rules.arr.length + chain.presets.arr.length === 0) {
+        log(chalk`{blue Info:} No changed prests, nothing to deploy`);
+        return;
+      }
+
       chain.log();
       let hasClaimed = false;
 

@@ -452,6 +452,15 @@ class Preset extends RallyBase{
                     write("replace (simple), ");
                 }
 
+                if(this.providerName === "SdviEvalPro"){
+                    log("givin it a name,");
+                    let oldName = this.attributes.providerDataFilename;
+                    if(!oldName){
+                        this.attributes.providerDataFilename = this.name + ".py";
+                    }
+                }
+
+
                 let res = await lib.makeAPIRequest({
                     env, path: `/presets/${remote.id}`, method: "PUT",
                     payload,
@@ -534,6 +543,10 @@ class Preset extends RallyBase{
 
     async printRemoteInfo(env){
         let remote = await Preset.getByName(env, this.name);
+        if(!remote) {
+            log(chalk`Not found on {red ${env}}`);
+            return;
+        }
         await remote.downloadCode();
         let i = remote.parseHeaderInfo();
 
@@ -542,6 +555,7 @@ class Preset extends RallyBase{
                 ENV: {red ${env}}, updated {yellow ~${i.offset}}
                 Built on {blue ${i.built}} by {green ${i.author}}
                 From ${i.build || "(unknown)"} on ${i.branch} ({yellow ${i.commit}})
+                Remote Data Filename "${this.importName}"
             `.replace(/^[ \t]+/gim, "").trim());
         }else{
             log(chalk`No header on {red ${env}}`);
@@ -597,7 +611,9 @@ class Preset extends RallyBase{
 
 defineAssoc(Preset, "_nameInner", "data.attributes.providerSettings.PresetName");
 defineAssoc(Preset, "_nameOuter", "data.attributes.name");
+defineAssoc(Preset, "_nameE2", "data.attributes.providerDataFilename");
 defineAssoc(Preset, "id", "data.id");
+defineAssoc(Preset, "importName", "data.attributes.providerDataFilename");
 defineAssoc(Preset, "attributes", "data.attributes");
 defineAssoc(Preset, "relationships", "data.relationships");
 defineAssoc(Preset, "remote", "meta.remote");

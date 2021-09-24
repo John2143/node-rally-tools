@@ -442,6 +442,11 @@ nothing to commit, working tree clean`;
         chain.presets = new Collection(files.filter(f => f instanceof Preset));
         chain.notifications = new Collection([]);
 
+        if(chain.rules.arr.length + chain.presets.arr.length === 0){
+            log(chalk`{blue Info:} No changed prests, nothing to deploy`);
+            return
+        }
+
         chain.log();
 
         let hasClaimed = false;

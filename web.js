@@ -3360,7 +3360,7 @@ ${eLine.line}`);
       if (!oks.includes(g.exitCode)) {
         log(g.stderr);
         log(g.stdout);
-        throw new AbortError(`Failed to run git ${args}`);
+        throw new AbortError(chalk`Failed to run git ${args} {red ${g.exitCode}}`);
       }
 
       return [g.stdout, g.stderr];
@@ -3530,7 +3530,12 @@ ${eLine.line}`);
       for (let branch of newStagedBranches) {
         let originName = `origin/${branch}`;
         let [_, merge] = await this.runGit([0], "merge", "--squash", originName);
-        await this.runGit([0], "commit", "-m", `autostaging: commit ${branch}`);
+        let [commit, _2] = await this.runGit([0, 1], "commit", "-m", `autostaging: commit ${branch}`);
+
+        if (commit.includes("working tree clean")) {
+          log(chalk`{yellow Warning:} working tree clean after merging {green ${branch}}, please remove this from the stage`);
+        }
+
         let hash = await spawn({
           noecho: true
         }, "git", ["log", "--format=oneline", "--color=never", "-n", "1", originName]);
@@ -3551,7 +3556,17 @@ ${eLine.line}`);
       await this.runGit([0], "checkout", "-b", name);
 
       for (let branch of oldStagedCommits) {
-        await this.runGit([0], "merge", branch);
+        let [err, _] = await this.runGit([0, 1], "merge", branch);
+
+        if (err.includes("Automatic merge failed")) {
+          log(chalk`{red Error:} ${branch} failed to merge during auto-commit`);
+
+          if (this.args.force) {
+            await this.runGit([0], "merge", "--abort");
+          } else {
+            throw new AbortError("Not trying to merge other branches");
+          }
+        }
       }
     },
 

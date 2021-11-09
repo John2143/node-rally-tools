@@ -5,6 +5,7 @@ import File from "./file.js";
 import Provider from "./providers.js";
 import Preset from "./preset.js";
 import {getArtifact, parseTraceLine} from "./trace.js";
+import moment from "moment"
 
 import path from "path";
 import fs from "fs";
@@ -433,7 +434,8 @@ class Asset extends RallyBase{
         return true;
     }
 
-    async grep(text, {artifact = "trace", nameOnly = false, ordering = null}){
+    //get all artifacts of type `artifact` from this asset
+    async *artifactsList(artifact) {
         async function* reorderPromises(p){
             ////yield in order we got it
             //yield* p[Symbol.iterator]();
@@ -461,6 +463,17 @@ class Asset extends RallyBase{
 
         elog("Getting job artifacts...");
 
+
+        //let evals = r.filter(x => x.attributes.providerTypeName === "SdviEvaluate");
+        let evals = r;
+        let zipped = evals.map(async x => [x, await getArtifact(this.remote, artifact, x.id)]);
+
+        for await(let x of reorderPromises(zipped)) {
+            yield x;
+        }
+    }
+
+    async grep(text, {artifact = "trace", nameOnly = false, ordering = null}){
         function highlight(line, text){
             let parts = line.split(text);
             return parts.join(chalk`{blue ${text}}`);
@@ -475,10 +488,7 @@ class Asset extends RallyBase{
             }
         }
 
-        //let evals = r.filter(x => x.attributes.providerTypeName === "SdviEvaluate");
-        let evals = r;
-        let zipped = evals.map(async x => [x, await getArtifact(this.remote, artifact, x.id)]);
-        for await(let [e, trace] of reorderPromises(zipped)){
+        for await(let [e, trace] of this.artifactsList(artifact)){
             if(!trace) continue;
 
             let lines = trace.split("\n").map(parseLine);
@@ -486,12 +496,43 @@ class Asset extends RallyBase{
             if(matching.length > 0){
                 let preset = await Preset.getById(this.remote, e.relationships.preset.data.id);
                 if(nameOnly){
-                    log(chalk`{red ${preset.name}} ${e.id} {blue ${matching.length}} matche(s)`);
+                    log(chalk`{red ${preset.name}} ${e.id} {blue ${matching.length}} matche(s) ${e.attributes.completedAt}`);
                 }else if(configObject.rawOutput){
                     console.log(matching.map(x => chalk`{red ${preset.name}}:${highlight(x.content, text)}`).join("\n"));
                 }else{
-                    log(chalk`{red ${preset.name}} ${e.id}`);
+                    log(chalk`{red ${preset.name}} ${e.id} ${moment(e.attributes.completedAt)}`);
                     log(matching.map(x => `  ${highlight(x.content, text)}`).join("\n"));
+                }
+            }
+        }
+    }
+
+    async replay() {
+
+        function colorRequest(id) {
+            if(id <= 299) {
+                return chalk`{green ${id}}`;
+            }else if(id <= 399) {
+                return chalk`{blue ${id}}`;
+            }else if(id <= 499) {
+                return chalk`{red ${id}}`;
+            }else if(id <= 599) {
+                return chalk`{cyan ${id}}`;
+            }else {
+                throw new Error("failed to create color from id");
+            }
+        }
+        let worstRegexEver = /^@Request (?<type>\w+) (?<url>.+)$[\n\r]+^(?<time>.+)$[\S\s]+?^(?<request>\{[\S\s]+?^\})?[\S\s]+?^@Response (?<statusCode>\d+)$[\S\s]+?^(?<response>\{[\S\s]+?^\})?[\S\s]+?={61}/gm;
+        for await(let [e, trace] of this.artifactsList("output")){
+            if(!trace) continue;
+
+            let preset = await Preset.getById(this.remote, e.relationships.preset.data.id);
+            log(chalk`{red ${preset.name}}`);
+            for(let request of trace.matchAll(worstRegexEver)) {
+                //log(request);
+                if(true){
+                    let r = request.groups;
+                    log(chalk`Request: ${r.type} ${r.url} returned ${colorRequest(r.statusCode)}`);
                 }
             }
         }

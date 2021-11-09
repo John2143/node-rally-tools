@@ -2107,6 +2107,69 @@ ${eLine.line}`);
       await file.delete(false); //mode=forget
 
       return true;
+    } //get all artifacts of type `artifact` from this asset
+
+
+    artifactsList(artifact) {
+      var _this = this;
+
+      return _wrapAsyncGenerator(function* () {
+        function reorderPromises(_x) {
+          return _reorderPromises.apply(this, arguments);
+        }
+
+        function _reorderPromises() {
+          _reorderPromises = _wrapAsyncGenerator(function* (p) {
+            ////yield in order we got it
+            //yield* p[Symbol.iterator]();
+            ////yield in order of first to finish
+            //yield* unordered(p);
+            //yield in chronological order
+            let k = yield _awaitAsyncGenerator(Promise.all(p));
+            yield* _asyncGeneratorDelegate(_asyncIterator(k.sort(([e1, _a], [e2, _b]) => {
+              return e1.attributes.completedAt - e2.attributes.completedAt;
+            })), _awaitAsyncGenerator);
+          });
+          return _reorderPromises.apply(this, arguments);
+        }
+
+        elog("Reading jobs...");
+        let r = yield _awaitAsyncGenerator(lib.indexPathFast({
+          env: _this.remote,
+          path: "/jobs",
+          qs: {
+            filter: `movieId=${_this.id}`
+          }
+        }));
+        elog("Getting job artifacts..."); //let evals = r.filter(x => x.attributes.providerTypeName === "SdviEvaluate");
+
+        let evals = r;
+        let zipped = evals.map(async x => [x, await getArtifact(_this.remote, artifact, x.id)]);
+        var _iteratorNormalCompletion = true;
+        var _didIteratorError = false;
+
+        var _iteratorError;
+
+        try {
+          for (var _iterator = _asyncIterator(reorderPromises(zipped)), _step, _value; _step = yield _awaitAsyncGenerator(_iterator.next()), _iteratorNormalCompletion = _step.done, _value = yield _awaitAsyncGenerator(_step.value), !_iteratorNormalCompletion; _iteratorNormalCompletion = true) {
+            let x = _value;
+            yield x;
+          }
+        } catch (err) {
+          _didIteratorError = true;
+          _iteratorError = err;
+        } finally {
+          try {
+            if (!_iteratorNormalCompletion && _iterator.return != null) {
+              yield _awaitAsyncGenerator(_iterator.return());
+            }
+          } finally {
+            if (_didIteratorError) {
+              throw _iteratorError;
+            }
+          }
+        }
+      })();
     }
 
     async grep(text, {
@@ -2114,35 +2177,6 @@ ${eLine.line}`);
       nameOnly = false,
       ordering = null
     }) {
-      function reorderPromises(_x) {
-        return _reorderPromises.apply(this, arguments);
-      }
-
-      function _reorderPromises() {
-        _reorderPromises = _wrapAsyncGenerator(function* (p) {
-          ////yield in order we got it
-          //yield* p[Symbol.iterator]();
-          ////yield in order of first to finish
-          //yield* unordered(p);
-          //yield in chronological order
-          let k = yield _awaitAsyncGenerator(Promise.all(p));
-          yield* _asyncGeneratorDelegate(_asyncIterator(k.sort(([e1, _a], [e2, _b]) => {
-            return e1.attributes.completedAt - e2.attributes.completedAt;
-          })), _awaitAsyncGenerator);
-        });
-        return _reorderPromises.apply(this, arguments);
-      }
-
-      elog("Reading jobs...");
-      let r = await lib.indexPathFast({
-        env: this.remote,
-        path: "/jobs",
-        qs: {
-          filter: `movieId=${this.id}`
-        }
-      });
-      elog("Getting job artifacts...");
-
       function highlight(line, text) {
         let parts = line.split(text);
         return parts.join(chalk`{blue ${text}}`);
@@ -2157,19 +2191,16 @@ ${eLine.line}`);
             content: x
           };
         }
-      } //let evals = r.filter(x => x.attributes.providerTypeName === "SdviEvaluate");
+      }
 
+      var _iteratorNormalCompletion2 = true;
+      var _didIteratorError2 = false;
 
-      let evals = r;
-      let zipped = evals.map(async x => [x, await getArtifact(this.remote, artifact, x.id)]);
-      var _iteratorNormalCompletion = true;
-      var _didIteratorError = false;
-
-      var _iteratorError;
+      var _iteratorError2;
 
       try {
-        for (var _iterator = _asyncIterator(reorderPromises(zipped)), _step, _value; _step = await _iterator.next(), _iteratorNormalCompletion = _step.done, _value = await _step.value, !_iteratorNormalCompletion; _iteratorNormalCompletion = true) {
-          let [e, trace] = _value;
+        for (var _iterator2 = _asyncIterator(this.artifactsList(artifact)), _step2, _value2; _step2 = await _iterator2.next(), _iteratorNormalCompletion2 = _step2.done, _value2 = await _step2.value, !_iteratorNormalCompletion2; _iteratorNormalCompletion2 = true) {
+          let [e, trace] = _value2;
           if (!trace) continue;
           let lines = trace.split("\n").map(parseLine);
           let matching = lines.filter(x => x.content.includes(text));
@@ -2178,26 +2209,78 @@ ${eLine.line}`);
             let preset = await Preset.getById(this.remote, e.relationships.preset.data.id);
 
             if (nameOnly) {
-              log(chalk`{red ${preset.name}} ${e.id} {blue ${matching.length}} matche(s)`);
+              log(chalk`{red ${preset.name}} ${e.id} {blue ${matching.length}} matche(s) ${e.attributes.completedAt}`);
             } else if (exports.configObject.rawOutput) {
               console.log(matching.map(x => chalk`{red ${preset.name}}:${highlight(x.content, text)}`).join("\n"));
             } else {
-              log(chalk`{red ${preset.name}} ${e.id}`);
+              log(chalk`{red ${preset.name}} ${e.id} ${moment(e.attributes.completedAt)}`);
               log(matching.map(x => `  ${highlight(x.content, text)}`).join("\n"));
             }
           }
         }
       } catch (err) {
-        _didIteratorError = true;
-        _iteratorError = err;
+        _didIteratorError2 = true;
+        _iteratorError2 = err;
       } finally {
         try {
-          if (!_iteratorNormalCompletion && _iterator.return != null) {
-            await _iterator.return();
+          if (!_iteratorNormalCompletion2 && _iterator2.return != null) {
+            await _iterator2.return();
           }
         } finally {
-          if (_didIteratorError) {
-            throw _iteratorError;
+          if (_didIteratorError2) {
+            throw _iteratorError2;
+          }
+        }
+      }
+    }
+
+    async replay() {
+      function colorRequest(id) {
+        if (id <= 299) {
+          return chalk`{green ${id}}`;
+        } else if (id <= 399) {
+          return chalk`{blue ${id}}`;
+        } else if (id <= 499) {
+          return chalk`{red ${id}}`;
+        } else if (id <= 599) {
+          return chalk`{cyan ${id}}`;
+        } else {
+          throw new Error("failed to create color from id");
+        }
+      }
+
+      let worstRegexEver = /^@Request (?<type>\w+) (?<url>.+)$[\n\r]+^(?<time>.+)$[\S\s]+?^(?<request>\{[\S\s]+?^\})?[\S\s]+?^@Response (?<statusCode>\d+)$[\S\s]+?^(?<response>\{[\S\s]+?^\})?[\S\s]+?={61}/gm;
+      var _iteratorNormalCompletion3 = true;
+      var _didIteratorError3 = false;
+
+      var _iteratorError3;
+
+      try {
+        for (var _iterator3 = _asyncIterator(this.artifactsList("output")), _step3, _value3; _step3 = await _iterator3.next(), _iteratorNormalCompletion3 = _step3.done, _value3 = await _step3.value, !_iteratorNormalCompletion3; _iteratorNormalCompletion3 = true) {
+          let [e, trace] = _value3;
+          if (!trace) continue;
+          let preset = await Preset.getById(this.remote, e.relationships.preset.data.id);
+          log(chalk`{red ${preset.name}}`);
+
+          for (let request of trace.matchAll(worstRegexEver)) {
+            //log(request);
+            {
+              let r = request.groups;
+              log(chalk`Request: ${r.type} ${r.url} returned ${colorRequest(r.statusCode)}`);
+            }
+          }
+        }
+      } catch (err) {
+        _didIteratorError3 = true;
+        _iteratorError3 = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion3 && _iterator3.return != null) {
+            await _iterator3.return();
+          }
+        } finally {
+          if (_didIteratorError3) {
+            throw _iteratorError3;
           }
         }
       }

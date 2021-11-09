@@ -873,6 +873,8 @@ let cli = {
                     nameOnly: args["name-only"],
                     ordering: null,
                 });
+            }else if (arg === "viewapi") {
+                await asset.replay();
             }else if(arg === "analyze") {
                 await asset.analyze();
             }else{

@@ -1,4 +1,4 @@
-import {RallyBase, lib, AbortError, Collection} from  "./rally-tools.js";
+import {RallyBase, lib, AbortError, Collection, orderedObjectKeys} from  "./rally-tools.js";
 import {basename, resolve as pathResolve, dirname} from "path";
 import {cached, defineAssoc, spawn} from "./decorators.js";
 import {configObject} from "./config.js";
@@ -71,8 +71,9 @@ class Preset extends RallyBase{
             //this.id = data.id;
             this.isGeneric = false;
         }
-        this.data.attributes.rallyConfiguration = undefined;
-        this.data.attributes.systemManaged = undefined;
+        delete this.data.attributes.rallyConfiguration;
+        delete this.data.attributes.systemManaged;
+        delete this.data.meta;
     }
     //Given a metadata file, get its actualy file
     static async fromMetadata(path, subproject){
@@ -276,7 +277,7 @@ class Preset extends RallyBase{
         });
     }
     static getLocalPath(name, ext, subproject){
-        return path.join(configObject.repodir, subproject || "", "silo-presets", name + "." + ext);
+        return this._localpath || path.join(configObject.repodir, subproject || "", "silo-presets", name + "." + ext);
     }
     get localpath(){return Preset.getLocalPath(this.name, this.ext, this.subproject)}
 
@@ -324,7 +325,8 @@ class Preset extends RallyBase{
     async uploadPresetData(env, id){
         if(this.code.trim() === "NOUPLOAD"){
             write(chalk`code skipped {yellow :)}, `);
-            return;
+            // Not an error, so return null
+            return null;
         }
 
         let code = this.code;
@@ -422,7 +424,7 @@ class Preset extends RallyBase{
                 return a.startEphemeralEvaluateIdeal(this);
             }else{
                 log(chalk`Failed uploading {red ${this.path}}. No name found.`);
-                return;
+                return "Missing Name";
             }
         }
 
@@ -430,12 +432,13 @@ class Preset extends RallyBase{
 
         if(this.immutable){
             log(chalk`{magenta IMMUTABLE}. Nothing to do.`);
-            return;
+            return "Immutable Preset";
         }
 
         //First query the api to see if this already exists.
         let remote = await Preset.getByName(env, this.name);
 
+        let uploadResult = null;
         if(remote){
             //If it exists we can replace it
             if(includeMetadata){
@@ -469,11 +472,11 @@ class Preset extends RallyBase{
                 write(chalk`metadata {yellow ${res.statusCode}}, `);
                 if(res.statusCode >= 400){
                     log(chalk`skipping code upload, did not successfully upload metadata`)
-                    return;
+                    return "Metadata Upload Failed";
                 }
             }
 
-            await this.uploadPresetData(env, remote.id);
+            uploadResult = await this.uploadPresetData(env, remote.id);
         }else{
             write("create, ");
             let metadata = {data: this.data};
@@ -489,13 +492,15 @@ class Preset extends RallyBase{
             });
             let id = res.data.id;
             write(chalk`Created id {green ${id}}... Uploading Code... `);
-            await this.uploadPresetData(env, id);
+            uploadResult = await this.uploadPresetData(env, id);
         }
         if(this.test[0] && shouldTest){
             await this.runTest(env);
         }else{
             log("No tests. Done.");
         }
+
+        return uploadResult;
     }
 
     getLocalMetadata(){

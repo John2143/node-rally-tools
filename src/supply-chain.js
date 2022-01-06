@@ -154,17 +154,25 @@ export default class SupplyChain{
          }
     }
     async syncTo(env){
+        let fails = [];
         for(let preset of this.presets){
             try{
-                await preset.save(env);
-            }catch(e){log(e);}
+                fails.push([preset, await preset.save(env), "preset"]);
+            }catch(e){
+                log(chalk`{red Error}`);
+                fails.push([preset, e]);
+            }
         }
+
         if(this.rules.arr[0]){
             log("Starting create phase for rules")
             for(let rule of this.rules){
                 try{
-                    await rule.saveA(env);
-                }catch(e){log(e);}
+                    fails.push([rule, await rule.saveA(env), "rule create"]);
+                }catch(e){
+                    log(chalk`{red Error}`);
+                    fails.push([rule, e, "rule create"]);
+                }
             }
 
             log("OK")
@@ -173,9 +181,21 @@ export default class SupplyChain{
 
             for(let rule of this.rules){
                 try{
-                    await rule.saveB(env);
-                }catch(e){log(e);}
+                    fails.push([rule, await rule.saveB(env), "rule link"]);
+                }catch(e){
+                    log(chalk`{red Error}`);
+                    fails.push([rule, e, "rule link"]);
+                }
             }
         }
+
+        let finalErrors = [];
+        for(let [item, error, stage] of fails){
+            if(!error) continue;
+            log(chalk`Error during {blue ${stage}}: ${item.chalkPrint(false)} {red ${error}}`);
+            finalErrors.push([item, error, stage]);
+        }
+
+        return finalErrors;
     }
 }

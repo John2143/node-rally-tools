@@ -4,6 +4,7 @@ import {configObject} from "./config.js";
 import File from "./file.js";
 import Provider from "./providers.js";
 import Preset from "./preset.js";
+import Rule from "./rule.js";
 import {getArtifact, parseTraceLine} from "./trace.js";
 import moment from "moment"
 
@@ -432,6 +433,24 @@ class Asset extends RallyBase{
         if(!file) return false;
         await file.delete(false);//mode=forget
         return true;
+    }
+
+    async listJobs() {
+        let jobs = await lib.indexPathFast({
+            env: this.remote, path: "/jobs",
+            qs: {
+                filter: `movieId=${this.id}`
+            }
+        });
+
+
+        for(let e of jobs) {
+            if(!e.relationships.preset.data) continue;
+            let preset = await Preset.getById(this.remote, e.relationships.preset.data.id);
+            let rule = await Rule.getById(this.remote, e.relationships.workflowRule.data.id);
+            log("Preset", preset.name);
+            log("Rule", rule.name);
+        }
     }
 
     //get all artifacts of type `artifact` from this asset

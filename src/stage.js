@@ -271,6 +271,7 @@ let Stage = {
 
     async $edit(){
         let needsInput = !this.args.a && !this.args.r && !this.args.add && !this.args.remove;
+        let clean = this.args.clean;
 
         let [branches, stage, _] = await Promise.all([
             this.getBranches(),
@@ -286,7 +287,9 @@ let Stage = {
         let newStagedBranches = new Set();
         let oldStagedBranches = new Set();
         for(let {branch} of this.stageData.stage){
-            newStagedBranches.add(branch);
+            if(!clean) {
+                newStagedBranches.add(branch);
+            }
             oldStagedBranches.add(branch);
         }
 

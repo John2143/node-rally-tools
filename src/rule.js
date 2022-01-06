@@ -1,5 +1,5 @@
 import {cached, defineAssoc} from "./decorators.js";
-import {RallyBase, lib, Collection, AbortError} from  "./rally-tools.js";
+import {RallyBase, lib, Collection, AbortError, orderedObjectKeys} from  "./rally-tools.js";
 import {configObject} from "./config.js";
 import Preset from "./preset.js";
 import Provider from "./providers.js";
@@ -36,6 +36,10 @@ class Rule extends RallyBase{
         }
         this.data = data;
         this.remote = remote;
+        delete this.data.relationships.transitions;
+        delete this.data.meta;
+        delete this.data.attributes.updatedAt;
+        delete this.data.attributes.createdAt;
         this.isGeneric = !this.remote;
     }
 
@@ -76,10 +80,11 @@ class Rule extends RallyBase{
         this.cleanup();
         if(lib.isLocalEnv(env)){
             log(chalk`Saving rule {green ${this.name}} to {blue ${lib.envName(env)}}.`)
-            writeFileSync(this.localpath, JSON.stringify(this.data, null, 4));
+
+            writeFileSync(this.localpath, JSON.stringify(orderedObjectKeys(this.data), null, 4));
         }else{
             await this.acclimatize(env);
-            await this.uploadRemote(env);
+            return await this.uploadRemote(env);
         }
     }
     get immutable(){
@@ -161,14 +166,13 @@ class Rule extends RallyBase{
             //If it exists we can replace it
             write("replace, ");
             let res = await lib.makeAPIRequest({
-                env, path: `/workflowRules/${this.idMap[env]}`, method: "PATCH",
+                env, path: `/workflowRules/${this.idMap[env]}`, method: "PUT",
                 payload: {data: this.data}, fullResponse: true,
             });
 
             log(chalk`response {yellow ${res.statusCode}}`);
-            if(res.statusCode !== 200){
-                log(res.body)
-                log(JSON.stringify(this.data, null, 4));
+            if(res.statusCode > 210){
+                return `Failed to upload: ${res.body}`;
             }
         }else{
             throw Error("Bad idmap!");
@@ -176,7 +180,7 @@ class Rule extends RallyBase{
     }
 
     get localpath(){
-        return join(configObject.repodir, this.subproject || "", "silo-rules", this.name + ".json");
+        return this._localpath || join(configObject.repodir, this.subproject || "", "silo-rules", this.name + ".json");
     }
 
     async resolve(){

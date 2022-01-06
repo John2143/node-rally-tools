@@ -422,6 +422,8 @@ let supplysub = {
                 }
             }
 
+            let anyDifferent = false;
+
             for(let preset of this.chain.presets){
                 let otherPreset = otherPresets.arr.find(x => x.name === preset.name) || {};
 
@@ -440,7 +442,13 @@ let supplysub = {
                     }else{
                         log("Code Different");
                     }
+
+                    anyDifferent = true
                 }
+            }
+
+            if(!anyDifferent) {
+                log("All presets are the same");
             }
 
         }else{
@@ -877,11 +885,52 @@ let cli = {
                 await asset.replay();
             }else if(arg === "analyze") {
                 await asset.analyze();
+            }else if(arg === "listJobs") {
+                await asset.listJobs();
             }else{
                 log(`No usage found for ${arg}`);
             }
         }
         if(configObject.rawOutput && !configObject.script) return asset;
+    },
+
+    async pullList(args){
+        let list = await getFilesFromArgs(args);
+
+        let chain = new SupplyChain();
+
+        chain.rules = new Collection([]);
+        chain.presets = new Collection([]);
+        chain.notifications = new Collection([]);
+
+        let files = await spawn({noecho: true}, "git", ["ls-files"]);
+        files = files.stdout.split("\n");
+        log(files);
+
+        let parse = /(\w+) (.+)/;
+        for(let item of list) {
+            let [_, type, name] = parse.exec(item);
+
+            if(type == "Rule"){
+                let rule = await Rule.getByName("UAT", name);
+                rule._localpath = files.filter(x => x.includes(name) && x.includes("rules"))[0];
+                rule.path = rule._localpath;
+                log(rule._localpath);
+                chain.rules.arr.push(rule);
+            }else if(type == "Preset"){
+                let preset = await Preset.getByName("UAT", name);
+                preset._localpath = files.filter(x => x.includes(name) && x.includes("presets"))[0];
+                preset.path = preset._localpath;
+                log(preset._localpath);
+                chain.presets.arr.push(preset);
+            }
+        }
+
+        await chain.log();
+
+        //let maybeFile = files.filter(
+
+        await chain.syncTo("LOCAL");
     },
 
     async checkSegments(args){

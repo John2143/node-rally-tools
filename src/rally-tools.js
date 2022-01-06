@@ -213,14 +213,14 @@ export class APIError extends Error{
 {green ${body}}
 {reset ${response.body}}
 ===============================
-{red ${response.body ? "Request timed out" : "Bad response from API"}}
+{red ${!response.body ? "Request timed out" : "Bad response from API"}}
 ===============================
         `);
         this.response = response;
         this.opts = opts;
         this.body = body;
 
-        Error.captureStackTrace(this, this.constructor);
+        //Error.captureStackTrace(this, this.constructor);
         this.name = "ApiError";
     }
 }
@@ -243,6 +243,13 @@ export class FileTooLargeError extends Error{
     constructor(file){
         super(`File ${file.parentAsset ? file.parentAsset.name : "(unknown)"}/${file.name} size is: ${file.sizeGB}g (> ~.2G)`);
         this.name = "File too large error";
+    }
+}
+
+export class ResoultionError extends Error{
+    constructor(name, env){
+        super(chalk`Error during name resolution: '{blue ${name}}' is not mapped on {green ${env}}`);
+        this.name = "Name Resoultion Error";
     }
 }
 
@@ -343,11 +350,15 @@ export class RallyBase{
             obj = await type.getById(this.remote, dataObj.id);
             if(obj){
                 dataObj.name = obj.name
+            }else{
+                throw new ResoultionError(`(id = ${dataObj.id})`, this.remote);
             }
         }else if(direction == "specific"){
             obj = await type.getByName(this.remote, dataObj.name);
             if(obj){
                 dataObj.id = obj.id
+            }else{
+                throw new ResoultionError(dataObj.name, this.remote);
             }
         }
         return obj;
@@ -538,3 +549,18 @@ export class IndexObject {
         return all;
     }
 }
+
+export function orderedObjectKeys(obj) {
+    let keys = Object.keys(obj).sort();
+
+    let newDict = {};
+    for(let key of keys) {
+        if(typeof obj[key] === "object" && obj[key]) {
+            newDict[key] = orderedObjectKeys(obj[key]);
+        }else{
+            newDict[key] = obj[key];
+        }
+    }
+
+    return newDict;
+};

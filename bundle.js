@@ -1017,7 +1017,9 @@ function orderedObjectKeys(obj) {
   let newDict = {};
 
   for (let key of keys) {
-    if (typeof obj[key] === "object" && obj[key]) {
+    if (Array.isArray(obj[key])) {
+      newDict[key] = obj[key].map(x => orderedObjectKeys(x));
+    } else if (typeof obj[key] === "object" && obj[key]) {
       newDict[key] = orderedObjectKeys(obj[key]);
     } else {
       newDict[key] = obj[key];
@@ -4187,7 +4189,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   orderedObjectKeys: orderedObjectKeys
 });
 
-var version = "4.2.0";
+var version = "5.0.0";
 
 var baseCode = {
   SdviContentMover: `{

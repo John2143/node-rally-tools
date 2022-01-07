@@ -930,7 +930,9 @@
     let newDict = {};
 
     for (let key of keys) {
-      if (typeof obj[key] === "object" && obj[key]) {
+      if (Array.isArray(obj[key])) {
+        newDict[key] = obj[key].map(x => orderedObjectKeys(x));
+      } else if (typeof obj[key] === "object" && obj[key]) {
         newDict[key] = orderedObjectKeys(obj[key]);
       } else {
         newDict[key] = obj[key];

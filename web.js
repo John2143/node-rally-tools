@@ -2586,10 +2586,14 @@ ${eLine.line}`);
     }
 
     async downloadCode() {
+      var _this$data$links;
+
       if (!this.remote || this.code) return this.code;
+      let pdlink = (_this$data$links = this.data.links) === null || _this$data$links === void 0 ? void 0 : _this$data$links.providerData;
+      if (!pdlink) return this.code = "";
       let code = await lib.makeAPIRequest({
         env: this.remote,
-        path_full: this.data.links.providerData,
+        path_full: pdlink,
         json: false
       }); //match header like 
       // # c: d

@@ -210,9 +210,11 @@ class Preset extends RallyBase{
 
     async downloadCode(){
         if(!this.remote || this.code) return this.code;
+        let pdlink = this.data.links?.providerData;
+        if(!pdlink) return this.code = "";
         let code = await lib.makeAPIRequest({
             env: this.remote,
-            path_full: this.data.links.providerData,
+            path_full: pdlink,
             json: false,
         });
 

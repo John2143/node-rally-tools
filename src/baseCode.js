@@ -63,7 +63,14 @@ export default {
 name: {name}
 '''
 
-# code here`, SdviEvalPro: `'''
+# code here
+
+if ({{DYNAMIC_PRESET_DATA}}).get("uploadPresetName") == "{name}":
+    # Unit test code here: This will run every time this preset is uploaded.
+
+    print("Unit tests for {name}"
+
+`, SdviEvalPro: `'''
 name: {name}
 '''
 

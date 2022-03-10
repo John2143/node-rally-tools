@@ -75,7 +75,7 @@ class Preset extends RallyBase{
         delete this.data.attributes.systemManaged;
         delete this.data.meta;
     }
-    //Given a metadata file, get its actualy file
+    //Given a metadata file, get its actual file
     static async fromMetadata(path, subproject){
         let data;
         try{
@@ -162,7 +162,7 @@ class Preset extends RallyBase{
             }
 
             log(chalk`Starting job {green ${this.name}} on ${asset.chalkPrint(false)}... `);
-            await asset.startEvaluate(remote.id);
+            await asset.startEvaluate(remote.id, {"uploadPresetName": this.name});
         }
     }
     async resolve(){
@@ -188,7 +188,7 @@ class Preset extends RallyBase{
         writeFileSync(this.localmetadatapath, JSON.stringify(this.data, null, 4));
     }
     async saveLocalFile(){
-        writeFileSync(this.localpath, this.code);
+        writeFileSync(this.localpath, this.code || "");
     }
     async uploadRemote(env, shouldTest = true){
         await this.uploadCodeToEnv(env, true, shouldTest);

@@ -16,6 +16,8 @@ import path from "path";
 import moment from "moment";
 
 let exists = {};
+let stagingEmsg = chalk`Not currently on a clean staging branch. Please move to staging or resolve the commits.
+Try {red git status} or {red rally stage edit --verbose} for more info.`;
 
 let Stage = {
     async before(args){
@@ -179,7 +181,7 @@ let Stage = {
             });
 
         if(!await this.checkCurrentBranch()) {
-            log("Not currently on staging");
+            log(stagingEmsg);
             return;
         }
 
@@ -411,12 +413,21 @@ Your branch is up to date with 'origin/staging'.
 nothing to commit, working tree clean`;
 
         let status = await spawn({noecho: true}, "git", ["status"]);
-        return status.stdout.trim() === expected;
+        let trimmed = status.stdout.trim();
+
+        if(configObject.verbose){
+            log("expected:");
+            log(chalk`{green ${expected}}`);
+            log("got:");
+            log(chalk`{red ${trimmed}}`);
+        }
+
+        return trimmed === expected;
     },
 
     async doGit(newStagedBranches, oldStagedCommits) {
         if(!await this.checkCurrentBranch()) {
-            log("Not currently on staging");
+            log(stagingEmsg);
             return;
         }
 

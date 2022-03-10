@@ -1,16 +1,14 @@
 (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('chalk'), require('os'), require('fs'), require('child_process'), require('perf_hooks'), require('request-promise'), require('path'), require('moment')) :
-  typeof define === 'function' && define.amd ? define(['exports', 'chalk', 'os', 'fs', 'child_process', 'perf_hooks', 'request-promise', 'path', 'moment'], factory) :
-  (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.RallyTools = {}, global.chalk$1, global.os, global.fs, global.child_process, global.perf_hooks, global.rp, global.path, global.moment));
-})(this, (function (exports, chalk$1, os, fs, child_process, perf_hooks, rp, path, moment) { 'use strict';
+  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('os'), require('fs'), require('child_process'), require('perf_hooks'), require('chalk'), require('request-promise'), require('path'), require('moment')) :
+  typeof define === 'function' && define.amd ? define(['exports', 'os', 'fs', 'child_process', 'perf_hooks', 'chalk', 'request-promise', 'path', 'moment'], factory) :
+  (factory((global.RallyTools = {}),global.os,global.fs,global.child_process,global.perf_hooks,global.chalk$1,global.rp,global.path,global.moment));
+}(this, (function (exports,os,fs,child_process,perf_hooks,chalk$1,rp,path,moment) { 'use strict';
 
-  function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
-
-  var chalk__default = /*#__PURE__*/_interopDefaultLegacy(chalk$1);
-  var fs__default = /*#__PURE__*/_interopDefaultLegacy(fs);
-  var rp__default = /*#__PURE__*/_interopDefaultLegacy(rp);
-  var path__default = /*#__PURE__*/_interopDefaultLegacy(path);
-  var moment__default = /*#__PURE__*/_interopDefaultLegacy(moment);
+  var fs__default = 'default' in fs ? fs['default'] : fs;
+  chalk$1 = chalk$1 && chalk$1.hasOwnProperty('default') ? chalk$1['default'] : chalk$1;
+  rp = rp && rp.hasOwnProperty('default') ? rp['default'] : rp;
+  var path__default = 'default' in path ? path['default'] : path;
+  moment = moment && moment.hasOwnProperty('default') ? moment['default'] : moment;
 
   function _asyncIterator(iterable) {
     var method;
@@ -197,7 +195,7 @@
     exports.configFile = os.homedir() + "/.rallyconfig";
   }
 
-  exports.configObject = void 0;
+
   function loadConfig(file) {
     if (file) exports.configFile = file;
     if (!exports.configFile) return;
@@ -231,10 +229,10 @@
   //these are the help entries for each command
   //function retuns obj.a.b.c
 
-  function deepAccess(obj, path) {
+  function deepAccess(obj, path$$1) {
     let o = obj;
 
-    for (let key of path) {
+    for (let key of path$$1) {
       if (!o) return [];
       o = o[key];
     }
@@ -244,16 +242,16 @@
   //corresponds to an object in this.data
 
 
-  function defineAssoc(classname, shortname, path) {
-    path = path.split(".");
-    let lastKey = path.pop();
+  function defineAssoc(classname, shortname, path$$1) {
+    path$$1 = path$$1.split(".");
+    let lastKey = path$$1.pop();
     Object.defineProperty(classname.prototype, shortname, {
       get() {
-        return deepAccess(this, path)[lastKey];
+        return deepAccess(this, path$$1)[lastKey];
       },
 
       set(val) {
-        deepAccess(this, path)[lastKey] = val;
+        deepAccess(this, path$$1)[lastKey] = val;
       }
 
     });
@@ -306,7 +304,7 @@
     });
   }
 
-  global.chalk = chalk__default["default"];
+  global.chalk = chalk$1;
 
   global.log = (...text) => console.log(...text);
 
@@ -316,7 +314,7 @@
 
   global.ewrite = (...text) => process.stderr.write(...text);
 
-  global.errorLog = (...text) => log(...text.map(chalk__default["default"].red));
+  global.errorLog = (...text) => log(...text.map(chalk$1.red));
 
   class lib {
     //This function takes 2 required arguemnts:
@@ -339,7 +337,7 @@
     //  not just the returned data.
     static async makeAPIRequest({
       env,
-      path,
+      path: path$$1,
       path_full,
       fullPath,
       payload,
@@ -370,11 +368,11 @@
       let rally_api_key = config.key;
       let rally_api = config.url;
 
-      if (path && path.startsWith("/v1.0/")) {
+      if (path$$1 && path$$1.startsWith("/v1.0/")) {
         rally_api = rally_api.replace("/api/v2", "/api");
       }
 
-      path = path_full || rally_api + path;
+      path$$1 = path_full || rally_api + path$$1;
 
       if (payload) {
         body = JSON.stringify(payload, null, 4);
@@ -392,7 +390,7 @@
       };
 
       if (exports.configObject.vvverbose) {
-        log(`${method} @ ${path}`);
+        log(`${method} @ ${path$$1}`);
         log(JSON.stringify(fullHeaders, null, 4));
 
         if (body) {
@@ -406,7 +404,7 @@
         method,
         body,
         qs,
-        uri: path,
+        uri: path$$1,
         timeout,
         auth: {
           bearer: rally_api_key
@@ -418,10 +416,10 @@
       let response;
 
       try {
-        response = await rp__default["default"](requestOptions);
+        response = await rp(requestOptions);
 
         if (exports.configObject.vverbose || exports.configObject.vvverbose) {
-          log(chalk__default["default"]`${method} @ ${response.request.uri.href}`);
+          log(chalk$1`${method} @ ${response.request.uri.href}`);
         }
       } catch (e) {
         if ((e === null || e === void 0 ? void 0 : e.cause.code) === "ESOCKETTIMEDOUT") {
@@ -466,10 +464,10 @@
     // - Observe: function to be called for each set of data from the api
 
 
-    static async indexPath(env, path) {
+    static async indexPath(env, path$$1) {
       let opts = typeof env === "string" ? {
         env,
-        path
+        path: path$$1
       } : env;
       opts.maxParallelRequests = 1;
       let index = new IndexObject(opts);
@@ -510,10 +508,10 @@
     // - chunksize[10]: How often to break apart concurrent requests
 
 
-    static async indexPathFast(env, path) {
+    static async indexPathFast(env, path$$1) {
       let opts = typeof env === "string" ? {
         env,
-        path
+        path: path$$1
       } : env;
       let index = new IndexObject(opts);
       return await index.fullResults();
@@ -539,7 +537,7 @@
   }
   class APIError extends Error {
     constructor(response, opts, body) {
-      super(chalk__default["default"]`
+      super(chalk$1`
 {reset Request returned} {yellow ${response === null || response === void 0 ? void 0 : response.statusCode}}{
 {green ${JSON.stringify(opts, null, 4)}}
 {green ${body}}
@@ -579,7 +577,7 @@
   }
   class ResoultionError extends Error {
     constructor(name, env) {
-      super(chalk__default["default"]`Error during name resolution: '{blue ${name}}' is not mapped on {green ${env}}`);
+      super(chalk$1`Error during name resolution: '{blue ${name}}' is not mapped on {green ${env}}`);
       this.name = "Name Resoultion Error";
     }
 
@@ -610,7 +608,7 @@
         if (d) {
           log(d.chalkPrint(true));
         } else {
-          log(chalk__default["default"]`{red (None)}`);
+          log(chalk$1`{red (None)}`);
         }
       }
     }
@@ -665,7 +663,7 @@
         env,
         path: `/${this.endpoint}`,
         qs: { ...qs,
-          filter: `name=${name}` + (qs ? qs.filter : "")
+          filter: `name=${name}` + (qs && qs.filter ? qs.filter : "")
         }
       }); //TODO included might not wokr correctly here
 
@@ -978,6 +976,8 @@
 
         getmap(key) {
           if (this.name === "Aurora") return "zip";
+          if (this.name === "Vantage") return "zip";
+          if (this.name === "ffmpeg") return "txt";
           if (this[key]) return this[key];
           return key;
         }
@@ -1033,66 +1033,68 @@
   defineAssoc(Notification, "remote", "meta.remote");
   Notification.endpoint = "notificationPresets";
 
+  let home;
+
   if (os.homedir) {
-    os.homedir();
+    home = os.homedir();
   }
 
   const colon = /:/g;
   const siloLike = /(silo\-\w+?)s?\/([^\/]+)\.([\w1234567890]+)$/g;
-  function pathTransform(path) {
-    if (path.includes(":")) {
+  function pathTransform(path$$1) {
+    if (path$$1.includes(":")) {
       //Ignore the first colon in window-like filesystems
-      path = path.slice(0, 3) + path.slice(3).replace(colon, "--");
+      path$$1 = path$$1.slice(0, 3) + path$$1.slice(3).replace(colon, "--");
     }
 
     if (exports.configObject.invertedPath) {
-      path = path.replace(siloLike, "$2-$1.$3");
+      path$$1 = path$$1.replace(siloLike, "$2-$1.$3");
     }
 
-    if (path.includes("\\342\\200\\220")) {
-      path = path.replace("\\342\\200\\220", "‐");
+    if (path$$1.includes("\\342\\200\\220")) {
+      path$$1 = path$$1.replace("\\342\\200\\220", "‐");
     }
 
-    return path;
+    return path$$1;
   }
-  function readFileSync(path, options) {
-    return fs__default["default"].readFileSync(pathTransform(path), options);
+  function readFileSync(path$$1, options) {
+    return fs__default.readFileSync(pathTransform(path$$1), options);
   } //Create writefilesync, with ability to create directory if it doesnt exist
 
-  function writeFileSync(path$1, data, options, dircreated = false) {
-    path$1 = pathTransform(path$1);
+  function writeFileSync(path$$1, data, options, dircreated = false) {
+    path$$1 = pathTransform(path$$1);
 
     try {
-      return fs__default["default"].writeFileSync(path$1, data, options);
+      return fs__default.writeFileSync(path$$1, data, options);
     } catch (e) {
       if (dircreated) throw e;
-      let directory = path.dirname(path$1);
+      let directory = path.dirname(path$$1);
 
       try {
-        fs__default["default"].statSync(directory);
+        fs__default.statSync(directory);
         throw e;
       } catch (nodir) {
-        fs__default["default"].mkdirSync(directory);
-        return writeFileSync(path$1, data, options, true);
+        fs__default.mkdirSync(directory);
+        return writeFileSync(path$$1, data, options, true);
       }
     }
   }
 
   class Rule extends RallyBase {
     constructor({
-      path: path$1,
+      path: path$$1,
       data,
       remote,
       subProject
     } = {}) {
       super();
 
-      if (path$1) {
-        path$1 = path.resolve(path$1);
+      if (path$$1) {
+        path$$1 = path.resolve(path$$1);
 
         try {
-          let f = readFileSync(path$1, "utf-8");
-          data = JSON.parse(readFileSync(path$1, "utf-8"));
+          let f = readFileSync(path$$1, "utf-8");
+          data = JSON.parse(readFileSync(path$$1, "utf-8"));
         } catch (e) {
           if (e.code === "ENOENT") {
             if (exports.configObject.ignoreMissing) {
@@ -1102,7 +1104,7 @@
               throw new AbortError("Could not load code of local file");
             }
           } else {
-            throw new AbortError(`Unreadable JSON in ${path$1}. ${e}`);
+            throw new AbortError(`Unreadable JSON in ${path$$1}. ${e}`);
           }
         }
       }
@@ -1137,14 +1139,14 @@
 
     async acclimatize(env) {
       this.remote = env;
-      await this.resolveField(Preset, "preset", false, "specific");
-      await this.resolveField(Rule, "passNext", false, "specific");
-      await this.resolveField(Rule, "errorNext", false, "specific");
-      await this.resolveField(Provider, "providerType", false, "specific");
-      await this.resolveField(Rule, "dynamicNexts", true, "specific");
-      await this.resolveField(Notification, "enterNotifications", true, "specific");
-      await this.resolveField(Notification, "errorNotifications", true, "specific");
-      await this.resolveField(Notification, "passNotifications", true, "specific");
+      let preset = await this.resolveField(Preset, "preset", false, "specific");
+      let pNext = await this.resolveField(Rule, "passNext", false, "specific");
+      let eNext = await this.resolveField(Rule, "errorNext", false, "specific");
+      let proType = await this.resolveField(Provider, "providerType", false, "specific");
+      let dynamicNexts = await this.resolveField(Rule, "dynamicNexts", true, "specific");
+      let enterNotif = await this.resolveField(Notification, "enterNotifications", true, "specific");
+      let errorNotif = await this.resolveField(Notification, "errorNotifications", true, "specific");
+      let passNotif = await this.resolveField(Notification, "passNotifications", true, "specific");
     }
 
     async saveA(env) {
@@ -1341,16 +1343,16 @@
     hasAutoCompletePrompt = true;
     inquirer.registerPrompt("autocomplete", require("inquirer-autocomplete-prompt"));
   }
-  async function loadLocals(path$1, Class) {
+  async function loadLocals(path$$1, Class) {
     let basePath = exports.configObject.repodir;
-    let objs = (await readdir(basePath)).filter(name => name.includes(path$1)).filter(name => !path.basename(name).startsWith(".")).map(name => new Class({
+    let objs = (await readdir(basePath)).filter(name => name.includes(path$$1)).filter(name => !path.basename(name).startsWith(".")).map(name => new Class({
       path: name
     }));
     return objs;
   }
-  async function selectLocal(path, typeName, Class, canSelectNone = true) {
+  async function selectLocal(path$$1, typeName, Class, canSelectNone = true) {
     addAutoCompletePrompt();
-    let objs = await loadLocals(path, Class);
+    let objs = await loadLocals(path$$1, Class);
     let objsMap = objs.map(x => ({
       name: x.chalkPrint(true),
       value: x
@@ -1582,10 +1584,10 @@
 ${eLine.line}`);
   }
   async function getArtifact(env, artifact, jobid) {
-    let path = `/jobs/${jobid}/artifacts/${artifact}`;
+    let path$$1 = `/jobs/${jobid}/artifacts/${artifact}`;
     let art = lib.makeAPIRequest({
       env,
-      path
+      path: path$$1
     }).catch(_ => null);
     return await art;
   }
@@ -1717,7 +1719,7 @@ ${eLine.line}`);
       }
 
       if (metadata.Metadata) {
-        await lib.makeAPIRequest({
+        let req = await lib.makeAPIRequest({
           env: this.remote,
           path: `/movies/${this.id}/metadata/Metadata`,
           method: "PATCH",
@@ -1771,7 +1773,7 @@ ${eLine.line}`);
     }
 
     async delete() {
-      await lib.makeAPIRequest({
+      let req = await lib.makeAPIRequest({
         env: this.remote,
         path: "/assets/" + this.id,
         method: "DELETE"
@@ -2123,8 +2125,8 @@ ${eLine.line}`);
       let c = await file.getContent();
 
       if (destFolder) {
-        let filePath = path__default["default"].join(destFolder, file.instancesList[0].name);
-        fs__default["default"].writeFileSync(filePath, c);
+        let filePath = path__default.join(destFolder, file.instancesList[0].name);
+        fs__default.writeFileSync(filePath, c);
       } else {
         console.log(c);
       }
@@ -2261,7 +2263,7 @@ ${eLine.line}`);
             } else if (exports.configObject.rawOutput) {
               console.log(matching.map(x => chalk`{red ${preset.name}}:${highlight(x.content, text)}`).join("\n"));
             } else {
-              log(chalk`{red ${preset.name}} ${e.id} ${moment__default["default"](e.attributes.completedAt)}`);
+              log(chalk`{red ${preset.name}} ${e.id} ${moment(e.attributes.completedAt)}`);
               log(matching.map(x => `  ${highlight(x.content, text)}`).join("\n"));
             }
           }
@@ -2312,7 +2314,7 @@ ${eLine.line}`);
 
           for (let request of trace.matchAll(worstRegexEver)) {
             //log(request);
-            if (true) {
+            {
               let r = request.groups;
               log(chalk`Request: ${r.type} ${r.url} returned ${colorRequest(r.statusCode)}`);
             }
@@ -2359,25 +2361,25 @@ ${eLine.line}`);
 
   class Preset extends RallyBase {
     constructor({
-      path: path$1,
+      path: path$$1,
       remote,
       data,
       subProject
     } = {}) {
       // Get full path if possible
-      if (path$1) {
-        path$1 = path.resolve(path$1);
+      if (path$$1) {
+        path$$1 = path.resolve(path$$1);
 
-        if (path.dirname(path$1).includes("silo-metadata")) {
+        if (path.dirname(path$$1).includes("silo-metadata")) {
           throw new AbortError("Constructing preset from metadata file");
         }
       }
 
       super(); // Cache by path
 
-      if (path$1) {
-        if (exists[pathTransform(path$1)]) return exists[pathTransform(path$1)];
-        exists[pathTransform(path$1)] = this;
+      if (path$$1) {
+        if (exists[pathTransform(path$$1)]) return exists[pathTransform(path$$1)];
+        exists[pathTransform(path$$1)] = this;
       }
 
       this.meta = {};
@@ -2385,8 +2387,8 @@ ${eLine.line}`);
       this.remote = remote;
 
       if (lib.isLocalEnv(this.remote)) {
-        if (path$1) {
-          this.path = path$1;
+        if (path$$1) {
+          this.path = path$$1;
           let pathspl = this.path.split(".");
           this.ext = pathspl[pathspl.length - 1];
 
@@ -2409,7 +2411,7 @@ ${eLine.line}`);
             this.isGeneric = true;
             name = this.name;
           } catch (e) {
-            log(chalk`{yellow Warning}: ${path$1} does not have a readable metadata file! Looking for ${this.localmetadatapath}`);
+            log(chalk`{yellow Warning}: ${path$$1} does not have a readable metadata file! Looking for ${this.localmetadatapath}`);
             this.data = Preset.newShell(name);
             this.isGeneric = false;
           }
@@ -2428,14 +2430,14 @@ ${eLine.line}`);
       delete this.data.attributes.rallyConfiguration;
       delete this.data.attributes.systemManaged;
       delete this.data.meta;
-    } //Given a metadata file, get its actualy file
+    } //Given a metadata file, get its actual file
 
 
-    static async fromMetadata(path, subproject) {
+    static async fromMetadata(path$$1, subproject) {
       let data;
 
       try {
-        data = JSON.parse(readFileSync(path));
+        data = JSON.parse(readFileSync(path$$1));
       } catch (e) {
         if (e.code === "ENOENT" && exports.configObject.ignoreMissing) {
           return null;
@@ -2449,7 +2451,7 @@ ${eLine.line}`);
 
       if (!provider) {
         log(chalk`{red The provider type {green ${providerType}} does not exist}`);
-        log(chalk`{red Skipping {green ${path}}.}`);
+        log(chalk`{red Skipping {green ${path$$1}}.}`);
         return null;
       }
 
@@ -2528,7 +2530,9 @@ ${eLine.line}`);
         }
 
         log(chalk`Starting job {green ${this.name}} on ${asset.chalkPrint(false)}... `);
-        await asset.startEvaluate(remote.id);
+        await asset.startEvaluate(remote.id, {
+          "uploadPresetName": this.name
+        });
       }
     }
 
@@ -2557,7 +2561,7 @@ ${eLine.line}`);
     }
 
     async saveLocalFile() {
-      writeFileSync(this.localpath, this.code);
+      writeFileSync(this.localpath, this.code || "");
     }
 
     async uploadRemote(env, shouldTest = true) {
@@ -2652,7 +2656,7 @@ ${eLine.line}`);
     }
 
     static getLocalPath(name, ext, subproject) {
-      return this._localpath || path__default["default"].join(exports.configObject.repodir, subproject || "", "silo-presets", name + "." + ext);
+      return this._localpath || path__default.join(exports.configObject.repodir, subproject || "", "silo-presets", name + "." + ext);
     }
 
     get localpath() {
@@ -2689,7 +2693,7 @@ ${eLine.line}`);
         return this.path.replace("silo-presets", "silo-metadata").replace(new RegExp(this.ext + "$"), "json");
       }
 
-      return path__default["default"].join(exports.configObject.repodir, this.subproject || "", "silo-metadata", this.name + ".json");
+      return path__default.join(exports.configObject.repodir, this.subproject || "", "silo-metadata", this.name + ".json");
     }
 
     get immutable() {
@@ -2741,7 +2745,7 @@ ${eLine.line}`);
             stdout: headerText
           } = await spawn({
             noecho: true
-          }, "sh", [path__default["default"].join(exports.configObject.repodir, `bin/header.sh`), moment__default["default"](Date.now()).format("ddd YYYY/MM/DD hh:mm:ssa"), localpath]);
+          }, "sh", [path__default.join(exports.configObject.repodir, `bin/header.sh`), moment(Date.now()).format("ddd YYYY/MM/DD hh:mm:ssa"), localpath]);
           code = headerText + code;
           write(chalk`header ok, `);
         } catch (e) {
@@ -2931,9 +2935,9 @@ ${eLine.line}`);
         let date;
 
         if (isUTC) {
-          date = moment__default["default"].utc(abs.built, format);
+          date = moment.utc(abs.built, format);
         } else {
-          date = moment__default["default"](abs.built, format);
+          date = moment(abs.built, format);
         }
 
         if (!date.isValid()) continue;
@@ -3323,7 +3327,9 @@ ${eLine.line}`);
   defineAssoc(Tag, "remote", "meta.remote");
   Tag.endpoint = "tagNames";
 
-  let Stage = {
+  let stagingEmsg = chalk`Not currently on a clean staging branch. Please move to staging or resolve the commits.
+Try {red git status} or {red rally stage edit --verbose} for more info.`;
+  let Stage$$1 = {
     async before(args) {
       this.env = args.env;
       this.args = args;
@@ -3488,7 +3494,7 @@ ${eLine.line}`);
       });
 
       if (!(await this.checkCurrentBranch())) {
-        log("Not currently on staging");
+        log(stagingEmsg);
         return;
       }
 
@@ -3606,9 +3612,9 @@ ${eLine.line}`);
       if (needsInput) {
         await this.editFSM(branches, newStagedBranches);
       } else {
-        let asarray = arg => {
-          if (!arg) return [];
-          return Array.isArray(arg) ? arg : [arg];
+        let asarray = arg$$1 => {
+          if (!arg$$1) return [];
+          return Array.isArray(arg$$1) ? arg$$1 : [arg$$1];
         };
 
         for (let branch of [...asarray(this.args.a), ...asarray(this.args.add)]) {
@@ -3684,7 +3690,7 @@ ${eLine.line}`);
 
       for (let branch of newStagedBranches) {
         let originName = `origin/${branch}`;
-        await this.runGit([0], "merge", "--squash", originName);
+        let [_, merge] = await this.runGit([0], "merge", "--squash", originName);
         let [commit, _2] = await this.runGit([0, 1], "commit", "-m", `autostaging: commit ${branch}`);
 
         if (commit.includes("working tree clean")) {
@@ -3733,12 +3739,21 @@ nothing to commit, working tree clean`;
       let status = await spawn({
         noecho: true
       }, "git", ["status"]);
-      return status.stdout.trim() === expected;
+      let trimmed = status.stdout.trim();
+
+      if (exports.configObject.verbose) {
+        log("expected:");
+        log(chalk`{green ${expected}}`);
+        log("got:");
+        log(chalk`{red ${trimmed}}`);
+      }
+
+      return trimmed === expected;
     },
 
     async doGit(newStagedBranches, oldStagedCommits) {
       if (!(await this.checkCurrentBranch())) {
-        log("Not currently on staging");
+        log(stagingEmsg);
         return;
       }
 
@@ -3805,8 +3820,8 @@ nothing to commit, working tree clean`;
       await chain.syncTo(this.env);
     },
 
-    async unknown(arg, args) {
-      log(chalk`Unknown action {red ${arg}} try '{white rally help stage}'`);
+    async unknown(arg$$1, args) {
+      log(chalk`Unknown action {red ${arg$$1}} try '{white rally help stage}'`);
     }
 
   };
@@ -3818,7 +3833,7 @@ nothing to commit, working tree clean`;
 
       for (let i = 10; i <= 30; i += 5) {
         console.time("test with " + i);
-        await lib.indexPathFast("DEV", `/workflowRules?page=1p${i}`);
+        let dl = await lib.indexPathFast("DEV", `/workflowRules?page=1p${i}`);
         console.timeEnd("test with " + i);
       }
     },
@@ -3836,7 +3851,7 @@ nothing to commit, working tree clean`;
 
         if (repodir) {
           try {
-            fs__default["default"].lstatSync(repodir).isDirectory();
+            fs__default.lstatSync(repodir).isDirectory();
             return [true, 0];
           } catch (e) {
             return [false, 0];
@@ -3901,38 +3916,38 @@ nothing to commit, working tree clean`;
     }
   }
 
-  exports.APIError = APIError;
-  exports.AbortError = AbortError;
-  exports.Asset = Asset;
-  exports.Collection = Collection;
-  exports.FileTooLargeError = FileTooLargeError;
-  exports.IndexObject = IndexObject;
-  exports.Notification = Notification;
-  exports.Preset = Preset;
-  exports.ProtectedEnvError = ProtectedEnvError;
-  exports.Provider = Provider;
-  exports.RallyBase = RallyBase;
-  exports.ResoultionError = ResoultionError;
-  exports.Rule = Rule;
-  exports.Stage = Stage;
-  exports.SupplyChain = SupplyChain;
-  exports.Tag = Tag;
-  exports.Trace = Trace;
-  exports.UnconfiguredEnvError = UnconfiguredEnvError;
-  exports.User = User;
+  exports.rallyFunctions = rallyFunctions;
   exports.categorizeString = categorizeString;
-  exports.lib = lib;
+  exports.SupplyChain = SupplyChain;
+  exports.Preset = Preset;
+  exports.Rule = Rule;
+  exports.Provider = Provider;
+  exports.Notification = Notification;
+  exports.Asset = Asset;
+  exports.User = User;
+  exports.Tag = Tag;
+  exports.Stage = Stage$$1;
+  exports.Trace = Trace;
   exports.loadConfig = loadConfig;
   exports.loadConfigFromArgs = loadConfigFromArgs;
-  exports.orderedObjectKeys = orderedObjectKeys;
-  exports.rallyFunctions = rallyFunctions;
-  exports.range = range;
   exports.setConfig = setConfig;
+  exports.lib = lib;
+  exports.AbortError = AbortError;
+  exports.APIError = APIError;
+  exports.UnconfiguredEnvError = UnconfiguredEnvError;
+  exports.ProtectedEnvError = ProtectedEnvError;
+  exports.FileTooLargeError = FileTooLargeError;
+  exports.ResoultionError = ResoultionError;
+  exports.Collection = Collection;
+  exports.RallyBase = RallyBase;
   exports.sleep = sleep;
-  exports.unordered = unordered;
   exports.zip = zip;
+  exports.unordered = unordered;
+  exports.range = range;
+  exports.IndexObject = IndexObject;
+  exports.orderedObjectKeys = orderedObjectKeys;
 
   Object.defineProperty(exports, '__esModule', { value: true });
 
-}));
+})));
 //# sourceMappingURL=web.js.map

@@ -33,6 +33,8 @@ class Provider extends RallyBase{
             text: "txt",
             getmap(key){
                 if(this.name === "Aurora") return "zip";
+                if(this.name === "Vantage") return "zip";
+                if(this.name === "ffmpeg") return "txt";
                 if(this[key]) return this[key];
                 return key;
             }

@@ -314,7 +314,7 @@ export class RallyBase{
 
         let data = await lib.makeAPIRequest({
             env, path: `/${this.endpoint}`,
-            qs: {...qs, filter: `name=${name}` + (qs ? qs.filter : "")},
+            qs: {...qs, filter: `name=${name}` + (qs && qs.filter ? qs.filter : "")},
         });
         //TODO included might not wokr correctly here
         if(data.data[0]){

@@ -3588,7 +3588,7 @@ Try {red git status} or {red rally stage edit --verbose} for more info.`;
         } else if (q.type === "done") {
           break;
         } else if (q.type === "quit") {
-          return;
+          return "quit";
         }
       }
     },
@@ -3614,7 +3614,11 @@ Try {red git status} or {red rally stage edit --verbose} for more info.`;
       }
 
       if (needsInput) {
-        await this.editFSM(branches, newStagedBranches);
+        let res = await this.editFSM(branches, newStagedBranches);
+
+        if (res == "quit") {
+          return;
+        }
       } else {
         let asarray = arg$$1 => {
           if (!arg$$1) return [];
@@ -3694,7 +3698,18 @@ Try {red git status} or {red rally stage edit --verbose} for more info.`;
 
       for (let branch of newStagedBranches) {
         let originName = `origin/${branch}`;
-        let [_, merge] = await this.runGit([0], "merge", "--squash", originName);
+        let mergeinfo = await spawn({
+          noecho: true
+        }, "git", ["merge", "--squash", originName]);
+
+        if (mergeinfo.exitCode == 1) {
+          let e = new AbortError(`Failed to merge ${branch}`);
+          e.branch = branch;
+          throw e;
+        } else if (mergeinfo.exitCode != 0) {
+          throw new AbortError(`Failed to merge for unknown reason ${branch}: {red ${mergeinfo}}`);
+        }
+
         let [commit, _2] = await this.runGit([0, 1], "commit", "-m", `autostaging: commit ${branch}`);
 
         if (commit.includes("working tree clean")) {
@@ -3755,13 +3770,78 @@ nothing to commit, working tree clean`;
       return trimmed === expected;
     },
 
+    async findConflict(newStagedBranches, brokeBranch) {
+      await this.runGit([0], "reset", "--hard", "HEAD");
+      let conflicting = [];
+
+      for (let branch of newStagedBranches) {
+        if (branch == brokeBranch) continue;
+        await this.runGit([0], "checkout", "staging");
+        await this.runGit([0, 1], "branch", "-D", "RALLYNEWSTAGE");
+        await this.runGit([0], "checkout", "-b", "RALLYNEWSTAGE");
+        let originName = `origin/${branch}`;
+        await this.runGit([0], "merge", "--squash", originName);
+        await this.runGit([0, 1], "commit", "-m", `autostaging: commit ${branch}`);
+        let [a, b] = await this.runGit([0, 1], "merge", "--squash", `origin/${brokeBranch}`);
+
+        if (a.includes("merge failed")) {
+          conflicting.push({
+            branch,
+            msg: a
+          });
+          let [c, d] = await this.runGit([0, 1], "reset", "--hard", "HEAD");
+        } else {
+          let [c, d] = await this.runGit([0, 1], "commit", "-m", `asdf`);
+        }
+      }
+
+      await this.runGit([0], "reset", "--hard", "HEAD");
+      await this.runGit([0], "checkout", "staging");
+      return conflicting;
+    },
+
+    async printConflicts(conflicts) {
+      for ({
+        branch,
+        msg
+      } of conflicts) {
+        log(chalk`Conflict found on branch {blue ${branch}}: \n {red ${msg}}`);
+      }
+    },
+
+    async $tfc() {
+      await this.runGit([0], "reset", "--hard", "HEAD");
+      await this.runGit([0], "checkout", "staging");
+      let a = await this.findConflict(["fix-tc_adjust_planb", "test-too_many_markers_fix", "audio_rectifier_updates_ASR-69", "getIbmsMediaIdFix", "ASR-393_WrongTimecodesBlackSegmentDetection", "ASR-390_BadWooPartNums", "ASXT-Audio-QC-Baton-DLAPost", "ASR-293", "ASR-383_tiktok_rectifier"], "ASR-383_tiktok_rectifier");
+      await this.printConflicts(a);
+    },
+
     async doGit(newStagedBranches, oldStagedCommits) {
       if (!(await this.checkCurrentBranch())) {
         log(stagingEmsg);
         return;
       }
 
-      let newStagedCommits = await this.makeNewStage(newStagedBranches);
+      let newStagedCommits;
+
+      try {
+        newStagedCommits = await this.makeNewStage(newStagedBranches);
+      } catch (e) {
+        if (e instanceof AbortError && e.branch) {
+          log("Diagnosing conflict...");
+          let conflicts = await this.findConflict(newStagedBranches, e.branch);
+          this.printConflicts(conflicts);
+
+          if (conflicts.length > 0) {
+            throw new AbortError("Found conflict");
+          } else {
+            throw new AbortError("Unable to find conflict... No idea what to do.");
+          }
+        } else {
+          throw e;
+        }
+      }
+
       await this.makeOldStage(oldStagedCommits, "RALLYOLDSTAGE");
       await this.runGit([0], "checkout", "RALLYNEWSTAGE");
       let diff = await spawn({

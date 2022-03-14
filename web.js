@@ -1435,15 +1435,24 @@
       return this.sizeGB <= .2;
     }
 
-    async getContent(force = false) {
+    async getContent(force = false, noRedirect = false) {
       if (!this.canBeDownloaded() && !force) {
         throw new FileTooLargeError(this);
       }
 
-      return lib.makeAPIRequest({
+      let d = lib.makeAPIRequest({
         env: this.remote,
-        fullPath: this.contentLink
+        fullPath: this.contentLink,
+        qs: {
+          "no-redirect": noRedirect
+        }
       });
+
+      if (noRedirect) {
+        return (await d).links.content;
+      } else {
+        return d;
+      }
     }
 
     async delete(remove = true) {

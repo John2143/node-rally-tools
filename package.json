@@ -12,6 +12,7 @@
     "inquirer-autocomplete-prompt": "^1.0.1",
     "minimist": "^1.2.0",
     "moment": "^2.24.0",
+    "node-fetch": "^2",
     "recursive-readdir": "^2.2.2",
     "request": "^2.87.0",
     "request-promise": "^4.2.2",
@@ -43,5 +44,8 @@
     "rally": "bundle.js"
   },
   "author": "John Schmidt <john_schmidt@discovery.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "optionalDependencies": {
+    "@octokit/rest": "^18.12.0"
+  }
 }

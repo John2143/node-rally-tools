@@ -4,7 +4,7 @@ import argparse from "minimist";
 import * as allIndexBundle from "./index.js"
 import {
     rallyFunctions as funcs,
-    Preset, Rule, SupplyChain, Provider, Asset, User, Tag, Stage,
+    Preset, Rule, SupplyChain, Provider, Asset, User, Tag, Stage, Deploy,
     AbortError, UnconfiguredEnvError, Collection, APIError,
     IndexObject,
 } from "./index.js";
@@ -296,6 +296,18 @@ let rulesub = {
     },
 }
 
+let deploysub = {
+    async $tag(args) {
+        await Deploy.gh();
+    },
+    async $branch(args) {
+        await Deploy.makeRelease();
+    },
+    async unknown(arg, args){
+        log(chalk`Unknown action {red ${arg}} try '{white rally help rule}'`);
+    },
+}
+
 let jupytersub = {
     async before(args){
         this.input = args._.shift() || "main.ipynb";
@@ -561,6 +573,13 @@ let cli = {
     @arg("-e", "--env", "The enviornment you wish to perform the action on")
     async rule(args){
         return subCommand(rulesub)(args);
+    },
+
+    @helpText(`Deploy related actions`)
+    @usage(`rally deploy [action]`)
+    @param("action", "'tag' to update github labels, 'branch' to create release branch and merge all tagged branches")
+    async deploy(args){
+        return subCommand(deploysub)(args);
     },
 
     @helpText(`supply chain related actions`)
@@ -1199,7 +1218,6 @@ let cli = {
         }]);
     },
 
-
     async ["@"](args){
         args._.unshift("-");
         args._.unshift("make");
@@ -1390,7 +1408,7 @@ async function main(...args){
 
 // If this is an imported module, then we should exec the cli interface.
 // Oterwise just export everything.
-if(require.main === module){
+if(!module.parent){
     main();
 }else{
     loadConfig();

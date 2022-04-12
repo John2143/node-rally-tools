@@ -2,7 +2,7 @@ import {RallyBase, lib, AbortError, Collection, orderedObjectKeys} from  "./rall
 import {basename, resolve as pathResolve, dirname} from "path";
 import {cached, defineAssoc, spawn} from "./decorators.js";
 import {configObject} from "./config.js";
-import {loadLocals} from "./config-create";
+import {loadLocals} from "./config-create.js";
 import Provider from "./providers.js";
 import Asset from "./asset.js";
 

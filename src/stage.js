@@ -1,8 +1,8 @@
 import {RallyBase, lib, AbortError, Collection, sleep, zip} from  "./rally-tools.js";
 import {basename, resolve as pathResolve, dirname} from "path";
-import {cached, defineAssoc, spawn} from "./decorators.js";
+import {cached, defineAssoc, spawn, runGit} from "./decorators.js";
 import {configObject} from "./config.js";
-import {saveConfig, loadLocals, inquirer, addAutoCompletePrompt, askQuestion, selectPreset, selectLocalMenu, askInput} from "./config-create";
+import {saveConfig, loadLocals, inquirer, addAutoCompletePrompt, askQuestion, selectPreset, selectLocalMenu, askInput} from "./config-create.js";
 import Provider from "./providers.js";
 import Asset from "./asset.js";
 import Preset from "./preset.js";
@@ -190,23 +190,8 @@ let Stage = {
         return branchList;
     },
 
-    async runGit(oks, ...args) {
-        if(typeof(oks) === "number") {
-            oks = [oks];
-        }else if(typeof(oks) === "undefined") {
-            oks = [0];
-        }
-
-        let g = await spawn({noecho: true}, "git", args);
-        if(configObject.verbose) log(`git ${args.join(" ")}`);
-
-        if(!oks.includes(g.exitCode)) {
-            log(g.stderr);
-            log(g.stdout);
-            throw new AbortError(chalk`Failed to run git ${args} {red ${g.exitCode}}`);
-        }
-
-        return [g.stdout, g.stderr]
+    async runGit(...args) {
+        return await runGit(...args);
     },
 
     filterwith(list) {

@@ -42,7 +42,7 @@ const importLazy = require("import-lazy")(require);
             presets: [
                 ["@babel/env", {
                     "targets": {
-                        "node": "8.11.3",
+                        "node": "16.14.2",
                     },
                     "modules": false,
                 }]

@@ -1,3 +1,5 @@
+import { AbortError } from  "./rally-tools.js";
+import {configObject} from "./config.js";
 
 //these are the help entries for each command
 export let helpEntries = {};
@@ -161,4 +163,23 @@ export function spawn(options, ...args){
             resolve({stdout, stderr, exitCode: code, time, timestr});
         });
     });
+}
+
+export async function runGit(oks, ...args) {
+    if(typeof(oks) === "number") {
+        oks = [oks];
+    }else if(typeof(oks) === "undefined") {
+        oks = [0];
+    }
+
+    let g = await spawn({noecho: true}, "git", args);
+    if(configObject.verbose) log(`git ${args.join(" ")}`);
+
+    if(!oks.includes(g.exitCode)) {
+        log(g.stderr);
+        log(g.stdout);
+        throw new AbortError(chalk`Failed to run git ${args} {red ${g.exitCode}}`);
+    }
+
+    return [g.stdout, g.stderr]
 }

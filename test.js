@@ -1,26 +1,25 @@
 let rt = require("./bundle.js");
 
 rt.configObject.globalProgress = true;
+rt.configObject.dangerModify = true;
 
 async function main(){
-    let x = await rt.lib.indexPathFast({
+    let jobs = await rt.lib.indexPathFast({
         path: "/jobs", env: "PROD",
         qs: {
-            filter: `{"presetName": "omneon re-hash reference so replacements work","completedBefore": "${Date.now()}"}`,
+            filter: `{"presetName": "FW Finish ML","state": "Hold"}`,
         },
     });
-    log(JSON.stringify(x));
+
+    for(let job of jobs) {
+        let res = await rt.lib.makeAPIRequest({
+            path: `/jobs/${job.id}/actions/Release`,
+            env: "PROD",
+            method: "POST",
+        });
+        log(res);
+    }
+    log(x);
 }
 
-async function getName(id){
-    let x = await rt.Asset.getById("PROD", id)
-    log(x.name);
-}
-
-async function main2(){
-    let items = require("fs").readFileSync("nice.txt", "utf-8").trim().split("\n");
-
-    await rt.lib.keepalive(getName, items, {chunksize: 50});
-}
-
-main2();
+main();

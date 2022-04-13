@@ -4129,6 +4129,26 @@ nothing to commit, working tree clean`;
     await this.runRally(diff);
   },
 
+  async $restore(args) {
+    let getStdin = require("get-stdin");
+
+    let stdin = await getStdin();
+    let stagedLines = stdin.split("\n");
+    if (stagedLines[stagedLines.length - 1] === "") stagedLines.pop();
+    let oldStage = stagedLines.map((line, index) => {
+      let s = /(\S+)\s([a-f0-9]+)/.exec(line);
+      if (!s) throw new AbortError(chalk`Could not read commit+branch from line "${line}" (index ${index})`);
+      return {
+        branch: s[1],
+        commit: s[2]
+      };
+    });
+    this.args.a = oldStage.map(x => x.branch);
+    this.args.r = args._.pop();
+    this.args.y = true;
+    await this.$edit();
+  },
+
   async runRally(diffText) {
     let set = new Set();
 
@@ -6477,6 +6497,7 @@ const Octokit = Octokit$1.plugin(requestLog, legacyRestEndpointMethods, paginate
 
 let okit = null;
 const prodReadyLabel = "Ready For Release";
+const prodManualLabel = "Ready For Release (manual)";
 /* The deployment process is separated into two different parts:
  * `rally deploy prep` Links jira tickets to PRs and assigns labels based on their status
  * `rally deploy merge` Takes all the labeled PRs, changes their base branch to the release, and merges them
@@ -6610,7 +6631,7 @@ let Deploy = {
       let config = this.getOctokitConfig();
       config.pull_number = issue.number;
       config.labels = Array.from(labels);
-      log(chalk`${verb} label {green ${label}} on {blue ${issue.name}}`);
+      log(chalk`${verb} label {green ${label}} on {blue PR #${issue.number}}`);
       return await this.octokit.request("PATCH /repos/{owner}/{repo}/issues/{pull_number}", config);
     }
 
@@ -6662,7 +6683,7 @@ let Deploy = {
 
     for (let issue of issues) {
       let labels = new Set(issue.labels.map(x => x.name));
-      if (!labels.has(prodReadyLabel)) continue;
+      if (!labels.has(prodReadyLabel) && !labels.has(prodManualLabel)) continue;
       await this.setBase(issue, releaseBranchName);
       write(chalk`Changed base of ${issue.number} (${this.printJiraTicket(issue)}) to ${releaseBranchName}... `);
       let config = this.getOctokitConfig();
@@ -6804,7 +6825,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   orderedObjectKeys: orderedObjectKeys
 });
 
-var version = "5.1.3";
+var version = "5.2.0";
 
 var baseCode = {
   SdviContentMover: `{

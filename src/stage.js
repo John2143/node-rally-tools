@@ -517,6 +517,28 @@ nothing to commit, working tree clean`;
         await this.runRally(diff);
     },
 
+    async $restore(args) {
+        let getStdin = require("get-stdin");
+        let stdin = await getStdin();
+        let stagedLines = stdin.split("\n");
+        if(stagedLines[stagedLines.length - 1] === "") stagedLines.pop();
+
+        let oldStage = stagedLines.map((line, index) => {
+            let s = /(\S+)\s([a-f0-9]+)/.exec(line);
+            if(!s) throw new AbortError(chalk`Could not read commit+branch from line "${line}" (index ${index})`);
+            return {
+                branch: s[1],
+                commit: s[2],
+            }
+        });
+
+        this.args.a = oldStage.map(x => x.branch);
+        this.args.r = args._.pop();
+        this.args.y = true;
+
+        await this.$edit();
+    },
+
     async runRally(diffText) {
         let set = new Set();
         for(let file of diffText.trim().split("\n")){

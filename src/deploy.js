@@ -8,6 +8,7 @@ import {Octokit} from "@octokit/rest";
 let okit = null;
 
 export const prodReadyLabel = "Ready For Release";
+export const prodManualLabel = "Ready For Release (manual)";
 export const prodMergedLabel = "Release Merged";
 
 /* The deployment process is separated into two different parts:
@@ -140,7 +141,7 @@ let Deploy = {
             config.pull_number = issue.number;
             config.labels = Array.from(labels);
 
-            log(chalk`${verb} label {green ${label}} on {blue ${issue.name}}`)
+            log(chalk`${verb} label {green ${label}} on {blue PR #${issue.number}}`)
             return await this.octokit.request("PATCH /repos/{owner}/{repo}/issues/{pull_number}", config);
         }
 
@@ -186,7 +187,7 @@ let Deploy = {
         let issues = await this.getIssues();
         for(let issue of issues){
             let labels = new Set(issue.labels.map(x => x.name));
-            if(!labels.has(prodReadyLabel)) continue;
+            if(!labels.has(prodReadyLabel) && !labels.has(prodManualLabel)) continue;
 
             await this.setBase(issue, releaseBranchName);
             write(chalk`Changed base of ${issue.number} (${this.printJiraTicket(issue)}) to ${releaseBranchName}... `);

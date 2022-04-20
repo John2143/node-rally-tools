@@ -237,7 +237,7 @@ class Rule extends RallyBase{
     async constructWorkflowTransitions() {
         let transitions = [];
         let dynamicNexts = this.nexts?.data || [];
-        if(dynamicNexts.length == 0) return;
+        if(dynamicNexts.length == 0) return [];
 
         write(chalk`transition mapping: `);
 

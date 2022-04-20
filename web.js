@@ -1353,7 +1353,7 @@
 
       let transitions = [];
       let dynamicNexts = ((_this$nexts = this.nexts) === null || _this$nexts === void 0 ? void 0 : _this$nexts.data) || [];
-      if (dynamicNexts.length == 0) return;
+      if (dynamicNexts.length == 0) return [];
       write(chalk`transition mapping: `);
 
       for (let transition of dynamicNexts) {

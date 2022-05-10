@@ -173,16 +173,23 @@ let Deploy = {
         }
     },
 
-    async makeRelease(){
-        let dateCommand = await spawn({"noecho": true}, "date", ["+release-%y-%b-%d"]);
-        let releaseBranchName = dateCommand.stdout.trim();
+    async makeRelease(args){
+        let releaseBranchName = ""
+        if(args.date) {
+            releaseBranchName = args.date
+        } else {
+            let dateCommand = await spawn({"noecho": true}, "date", ["+release-%y-%b-%d"]);
+            releaseBranchName = dateCommand.stdout.trim();
+        }
 
         let makeBranch = await runGit([0, 128], "checkout", "-b", releaseBranchName);
         if(makeBranch[1].includes("already exists")){
             await runGit([0], "checkout", releaseBranchName);
+            await runGit([0], "pull", "origin", releaseBranchName);
+        }else{
+            await runGit([0], "push", "-u", "origin", "HEAD");
         }
 
-        await runGit([0], "push", "-u", "origin", "HEAD");
 
         let issues = await this.getIssues();
         for(let issue of issues){

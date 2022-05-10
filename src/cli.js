@@ -301,7 +301,7 @@ let deploysub = {
         await Deploy.gh();
     },
     async $branch(args) {
-        await Deploy.makeRelease();
+        await Deploy.makeRelease(args);
     },
     async unknown(arg, args){
         log(chalk`Unknown action {red ${arg}} try '{white rally help rule}'`);
@@ -1216,6 +1216,10 @@ let cli = {
                 }));
             },
         }]);
+    },
+
+    async analyzeAll(args){
+        let files = await getFilesFromArgs(args);
     },
 
     async ["@"](args){

@@ -6496,8 +6496,8 @@ nothing to commit, working tree clean`;
     async makeRelease(args) {
       let releaseBranchName = "";
 
-      if (args.date) {
-        releaseBranchName = args.date;
+      if (args.branch) {
+        releaseBranchName = args.branch;
       } else {
         let dateCommand = await spawn({
           "noecho": true

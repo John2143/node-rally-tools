@@ -298,7 +298,7 @@ let rulesub = {
 
 let deploysub = {
     async $tag(args) {
-        await Deploy.gh();
+        await Deploy.gh(args);
     },
     async $branch(args) {
         await Deploy.makeRelease(args);
@@ -578,6 +578,7 @@ let cli = {
     @helpText(`Deploy related actions`)
     @usage(`rally deploy [action]`)
     @param("action", "'tag' to update github labels, 'branch' to create release branch and merge all tagged branches")
+    @arg("~", "--branch", "(branch only) the release branch name (defaults to `date`)")
     async deploy(args){
         return subCommand(deploysub)(args);
     },

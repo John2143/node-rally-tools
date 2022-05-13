@@ -175,8 +175,8 @@ let Deploy = {
 
     async makeRelease(args){
         let releaseBranchName = ""
-        if(args.date) {
-            releaseBranchName = args.date
+        if(args.branch) {
+            releaseBranchName = args.branch;
         } else {
             let dateCommand = await spawn({"noecho": true}, "date", ["+release-%y-%b-%d"]);
             releaseBranchName = dateCommand.stdout.trim();

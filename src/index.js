@@ -84,7 +84,7 @@ export async function categorizeString(str, defaultSubproject=undefined){
                 case "metadata": return await Preset.fromMetadata(str, match[1]);
             }
         }catch(e){
-            log(e);
+            log(chalk`{red Error}: Failed to parse {blue ${match[2]}}\n    in {green ${str}}:\n   ${e}`);
         }
     }else{
         return null;

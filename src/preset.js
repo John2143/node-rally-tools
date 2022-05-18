@@ -614,6 +614,10 @@ class Preset extends RallyBase{
             }
         }
     }
+
+    async lint(linter) {
+        return await linter.lintPreset(this);
+    }
 }
 
 defineAssoc(Preset, "_nameInner", "data.attributes.providerSettings.PresetName");

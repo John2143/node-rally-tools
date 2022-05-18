@@ -4,7 +4,7 @@ import argparse from "minimist";
 import * as allIndexBundle from "./index.js"
 import {
     rallyFunctions as funcs,
-    Preset, Rule, SupplyChain, Provider, Asset, User, Tag, Stage, Deploy,
+    Preset, Rule, SupplyChain, Provider, Asset, User, Tag, Stage, Deploy, Lint,
     AbortError, UnconfiguredEnvError, Collection, APIError,
     IndexObject,
 } from "./index.js";
@@ -168,6 +168,16 @@ let presetsub = {
 
         let presets = this.files.map(path => new Preset({path, remote: false}));
         await funcs.uploadPresets(this.env, presets);
+    },
+    async $lint(args){
+        if(!this.files){
+            throw new AbortError("No files provided to upload (use --file argument)");
+        }
+
+        log(chalk`Linting {green ${this.files.length}} preset(s).`);
+
+        let presets = this.files.map(path => new Preset({path, remote: false}));
+        await Lint.defaultLinter().printLint(presets);
     },
     async $deleteRemote(args){
         let file = this.files[0];
@@ -462,6 +472,8 @@ let supplysub = {
             if(!anyDifferent) {
                 log("All presets are the same");
             }
+        } else if(args["lint"]) {
+            await this.chain.lint(Lint.defaultLinter());
 
         }else{
             return await this.chain.log();

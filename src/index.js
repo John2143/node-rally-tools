@@ -17,6 +17,8 @@ export {default as Stage} from "./stage.js";
 export {default as Deploy} from "./deploy.js";
 //TODO fix export from index
 export {default as Trace} from "./trace.js";
+import * as Lint from "./lint.js";
+export { Lint };
 
 import fs from "fs";
 import {configObject} from "./config.js";

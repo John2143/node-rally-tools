@@ -198,4 +198,8 @@ export default class SupplyChain{
 
         return finalErrors;
     }
+    async lint(linter){
+        let things = [...this.rules.arr, ...this.presets.arr];
+        await linter.printLint(things);
+    }
 }

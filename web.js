@@ -3129,6 +3129,10 @@ ${eLine.line}`);
       }
     }
 
+    async lint(linter) {
+      return await linter.lintPreset(this);
+    }
+
   }
 
   defineAssoc(Preset, "_nameInner", "data.attributes.providerSettings.PresetName");
@@ -3342,6 +3346,11 @@ ${eLine.line}`);
       }
 
       return finalErrors;
+    }
+
+    async lint(linter) {
+      let things = [...this.rules.arr, ...this.presets.arr];
+      await linter.printLint(things);
     }
 
   }
@@ -6533,6 +6542,74 @@ nothing to commit, working tree clean`;
 
   };
 
+  let _defaultLinter;
+
+  function defaultLinter(refresh = false) {
+    if (_defaultLinter && !refresh) return _defaultLinter;
+    return _defaultLinter = new Lint(exports.configObject);
+  }
+  class LintResults {
+    constructor(whatever) {}
+
+    chalkPrint() {
+      log(chalk`{green I am the lint results}`);
+    }
+
+  }
+  class Lint {
+    constructor(config) {
+      //config is the full rally config .rallyconfig
+      this.url = "link to rally lint url or whatever";
+    }
+
+    async linkRequest() {
+      let requestOptions = {
+        method: "GET",
+        headers: {
+          "Authorization": `asdf`
+        }
+      };
+      let response = await fetch("whatever url", requestOptions); //check response.statusCode and stuff
+
+      let lintResults = await response.json();
+    }
+
+    async lintPreset(preset) {
+      log(preset.name); //log(preset.code);
+
+      log(this);
+      log(exports.configObject.verbose);
+      log(exports.configObject.vverbose);
+
+      if (exports.configObject.verbose) {
+        log(chalk`print with {red colors}{blue !}`);
+      } //await this.linkRequest ...
+
+
+      return new LintResults();
+    }
+
+    async printLint(lintables) {
+      for (let x of lintables) {
+        if (!x.lint) {
+          log(chalk`Skipping ${x.chalkPrint(false)}`);
+          continue;
+        }
+
+        log(chalk`Linting ${x.chalkPrint(false)}`);
+        let res = await x.lint(this);
+        res.chalkPrint();
+      }
+    }
+
+  }
+
+  var lint = /*#__PURE__*/Object.freeze({
+    defaultLinter: defaultLinter,
+    LintResults: LintResults,
+    Lint: Lint
+  });
+
   require("source-map-support").install();
   const rallyFunctions = {
     async bestPagintation() {
@@ -6623,6 +6700,7 @@ nothing to commit, working tree clean`;
     }
   }
 
+  exports.Lint = lint;
   exports.rallyFunctions = rallyFunctions;
   exports.categorizeString = categorizeString;
   exports.SupplyChain = SupplyChain;

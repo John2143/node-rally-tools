@@ -6864,7 +6864,7 @@ async function categorizeString(str, defaultSubproject = undefined) {
           return await Preset.fromMetadata(str, match[1]);
       }
     } catch (e) {
-      log(chalk`{red Error}: Failed to parse {blue ${match[2]}}\n    in {green ${str}}:\n   ${e}`);
+      log(chalk`{red Error}: Failed to parse {blue ${match[2]}}\n   in {green ${str}}:\n   ${e}`);
     }
   } else {
     return null;
@@ -6907,7 +6907,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   orderedObjectKeys: orderedObjectKeys
 });
 
-var version = "6.0.3";
+var version = "6.0.4";
 
 var baseCode = {
   SdviContentMover: `{

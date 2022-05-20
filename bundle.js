@@ -7,20 +7,26 @@ const importLazy = require("import-lazy")(require);
 
 'use strict';
 
-function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
-
+var argparse = require('minimist');
+var chalk$1 = require('chalk');
 var os = require('os');
 var fs = require('fs');
-var fs__default = _interopDefault(fs);
 var child_process = require('child_process');
 var perf_hooks = require('perf_hooks');
-var chalk$1 = _interopDefault(require('chalk'));
-var rp = _interopDefault(require('request-promise'));
+var rp = require('request-promise');
 var path = require('path');
-var path__default = _interopDefault(path);
-var moment = _interopDefault(require('moment'));
-var fetch = _interopDefault(require('node-fetch'));
-var argparse = _interopDefault(require('minimist'));
+var moment = require('moment');
+var fetch = require('node-fetch');
+
+function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
+
+var argparse__default = /*#__PURE__*/_interopDefaultLegacy(argparse);
+var chalk__default = /*#__PURE__*/_interopDefaultLegacy(chalk$1);
+var fs__default = /*#__PURE__*/_interopDefaultLegacy(fs);
+var rp__default = /*#__PURE__*/_interopDefaultLegacy(rp);
+var path__default = /*#__PURE__*/_interopDefaultLegacy(path);
+var moment__default = /*#__PURE__*/_interopDefaultLegacy(moment);
+var fetch__default = /*#__PURE__*/_interopDefaultLegacy(fetch);
 
 function _asyncIterator(iterable) {
   var method;
@@ -313,10 +319,10 @@ function usage(usage) {
 }
 //function retuns obj.a.b.c
 
-function deepAccess(obj, path$$1) {
+function deepAccess(obj, path) {
   let o = obj;
 
-  for (let key of path$$1) {
+  for (let key of path) {
     if (!o) return [];
     o = o[key];
   }
@@ -326,16 +332,16 @@ function deepAccess(obj, path$$1) {
 //corresponds to an object in this.data
 
 
-function defineAssoc(classname, shortname, path$$1) {
-  path$$1 = path$$1.split(".");
-  let lastKey = path$$1.pop();
+function defineAssoc(classname, shortname, path) {
+  path = path.split(".");
+  let lastKey = path.pop();
   Object.defineProperty(classname.prototype, shortname, {
     get() {
-      return deepAccess(this, path$$1)[lastKey];
+      return deepAccess(this, path)[lastKey];
     },
 
     set(val) {
-      deepAccess(this, path$$1)[lastKey] = val;
+      deepAccess(this, path)[lastKey] = val;
     }
 
   });
@@ -408,7 +414,7 @@ async function runGit(oks, ...args) {
   return [g.stdout, g.stderr];
 }
 
-global.chalk = chalk$1;
+global.chalk = chalk__default["default"];
 
 global.log = (...text) => console.log(...text);
 
@@ -418,7 +424,7 @@ global.elog = (...text) => console.error(...text);
 
 global.ewrite = (...text) => process.stderr.write(...text);
 
-global.errorLog = (...text) => log(...text.map(chalk$1.red));
+global.errorLog = (...text) => log(...text.map(chalk__default["default"].red));
 
 class lib {
   //This function takes 2 required arguemnts:
@@ -441,7 +447,7 @@ class lib {
   //  not just the returned data.
   static async makeAPIRequest({
     env,
-    path: path$$1,
+    path,
     path_full,
     fullPath,
     payload,
@@ -472,11 +478,11 @@ class lib {
     let rally_api_key = config.key;
     let rally_api = config.url;
 
-    if (path$$1 && path$$1.startsWith("/v1.0/")) {
+    if (path && path.startsWith("/v1.0/")) {
       rally_api = rally_api.replace("/api/v2", "/api");
     }
 
-    path$$1 = path_full || rally_api + path$$1;
+    path = path_full || rally_api + path;
 
     if (payload) {
       body = JSON.stringify(payload, null, 4);
@@ -494,7 +500,7 @@ class lib {
     };
 
     if (configObject.vvverbose) {
-      log(`${method} @ ${path$$1}`);
+      log(`${method} @ ${path}`);
       log(JSON.stringify(fullHeaders, null, 4));
 
       if (body) {
@@ -508,7 +514,7 @@ class lib {
       method,
       body,
       qs,
-      uri: path$$1,
+      uri: path,
       timeout,
       auth: {
         bearer: rally_api_key
@@ -520,10 +526,10 @@ class lib {
     let response;
 
     try {
-      response = await rp(requestOptions);
+      response = await rp__default["default"](requestOptions);
 
       if (configObject.vverbose || configObject.vvverbose) {
-        log(chalk$1`${method} @ ${response.request.uri.href}`);
+        log(chalk__default["default"]`${method} @ ${response.request.uri.href}`);
       }
     } catch (e) {
       if ((e === null || e === void 0 ? void 0 : e.cause.code) === "ESOCKETTIMEDOUT") {
@@ -568,10 +574,10 @@ class lib {
   // - Observe: function to be called for each set of data from the api
 
 
-  static async indexPath(env, path$$1) {
+  static async indexPath(env, path) {
     let opts = typeof env === "string" ? {
       env,
-      path: path$$1
+      path
     } : env;
     opts.maxParallelRequests = 1;
     let index = new IndexObject(opts);
@@ -612,10 +618,10 @@ class lib {
   // - chunksize[10]: How often to break apart concurrent requests
 
 
-  static async indexPathFast(env, path$$1) {
+  static async indexPathFast(env, path) {
     let opts = typeof env === "string" ? {
       env,
-      path: path$$1
+      path
     } : env;
     let index = new IndexObject(opts);
     return await index.fullResults();
@@ -641,7 +647,7 @@ class AbortError extends Error {
 }
 class APIError extends Error {
   constructor(response, opts, body) {
-    super(chalk$1`
+    super(chalk__default["default"]`
 {reset Request returned} {yellow ${response === null || response === void 0 ? void 0 : response.statusCode}}{
 {green ${JSON.stringify(opts, null, 4)}}
 {green ${body}}
@@ -681,12 +687,12 @@ class FileTooLargeError extends Error {
 }
 class ResoultionError extends Error {
   constructor(name, env) {
-    super(chalk$1`Error during name resolution: '{blue ${name}}' is not mapped on {green ${env}}`);
+    super(chalk__default["default"]`Error during name resolution: '{blue ${name}}' is not mapped on {green ${env}}`);
     this.name = "Name Resoultion Error";
   }
 
 }
-class Collection {
+class Collection$1 {
   constructor(arr) {
     this.arr = arr;
   }
@@ -712,7 +718,7 @@ class Collection {
       if (d) {
         log(d.chalkPrint(true));
       } else {
-        log(chalk$1`{red (None)}`);
+        log(chalk__default["default"]`{red (None)}`);
       }
     }
   }
@@ -797,7 +803,7 @@ class RallyBase {
       }
     });
     datas = await this.getAllPreCollect(datas);
-    let all = new Collection(datas.map(data => new this({
+    let all = new Collection$1(datas.map(data => new this({
       data,
       remote: env
     })));
@@ -1137,68 +1143,66 @@ defineAssoc(Notification, "type", "data.attributes.type");
 defineAssoc(Notification, "remote", "meta.remote");
 Notification.endpoint = "notificationPresets";
 
-let home;
-
 if (os.homedir) {
-  home = os.homedir();
+  os.homedir();
 }
 
 const colon = /:/g;
 const siloLike = /(silo\-\w+?)s?\/([^\/]+)\.([\w1234567890]+)$/g;
-function pathTransform(path$$1) {
-  if (path$$1.includes(":")) {
+function pathTransform(path) {
+  if (path.includes(":")) {
     //Ignore the first colon in window-like filesystems
-    path$$1 = path$$1.slice(0, 3) + path$$1.slice(3).replace(colon, "--");
+    path = path.slice(0, 3) + path.slice(3).replace(colon, "--");
   }
 
   if (configObject.invertedPath) {
-    path$$1 = path$$1.replace(siloLike, "$2-$1.$3");
+    path = path.replace(siloLike, "$2-$1.$3");
   }
 
-  if (path$$1.includes("\\342\\200\\220")) {
-    path$$1 = path$$1.replace("\\342\\200\\220", "‐");
+  if (path.includes("\\342\\200\\220")) {
+    path = path.replace("\\342\\200\\220", "‐");
   }
 
-  return path$$1;
+  return path;
 }
-function readFileSync(path$$1, options) {
-  return fs__default.readFileSync(pathTransform(path$$1), options);
+function readFileSync(path, options) {
+  return fs__default["default"].readFileSync(pathTransform(path), options);
 } //Create writefilesync, with ability to create directory if it doesnt exist
 
-function writeFileSync(path$$1, data, options, dircreated = false) {
-  path$$1 = pathTransform(path$$1);
+function writeFileSync(path$1, data, options, dircreated = false) {
+  path$1 = pathTransform(path$1);
 
   try {
-    return fs__default.writeFileSync(path$$1, data, options);
+    return fs__default["default"].writeFileSync(path$1, data, options);
   } catch (e) {
     if (dircreated) throw e;
-    let directory = path.dirname(path$$1);
+    let directory = path.dirname(path$1);
 
     try {
-      fs__default.statSync(directory);
+      fs__default["default"].statSync(directory);
       throw e;
     } catch (nodir) {
-      fs__default.mkdirSync(directory);
-      return writeFileSync(path$$1, data, options, true);
+      fs__default["default"].mkdirSync(directory);
+      return writeFileSync(path$1, data, options, true);
     }
   }
 }
 
 class Rule extends RallyBase {
   constructor({
-    path: path$$1,
+    path: path$1,
     data,
     remote,
     subProject
   } = {}) {
     super();
 
-    if (path$$1) {
-      path$$1 = path.resolve(path$$1);
+    if (path$1) {
+      path$1 = path.resolve(path$1);
 
       try {
-        let f = readFileSync(path$$1, "utf-8");
-        data = JSON.parse(readFileSync(path$$1, "utf-8"));
+        let f = readFileSync(path$1, "utf-8");
+        data = JSON.parse(readFileSync(path$1, "utf-8"));
       } catch (e) {
         if (e.code === "ENOENT") {
           if (configObject.ignoreMissing) {
@@ -1208,7 +1212,7 @@ class Rule extends RallyBase {
             throw new AbortError("Could not load code of local file");
           }
         } else {
-          throw new AbortError(`Unreadable JSON in ${path$$1}. ${e}`);
+          throw new AbortError(`Unreadable JSON in ${path$1}. ${e}`);
         }
       }
     }
@@ -1243,14 +1247,14 @@ class Rule extends RallyBase {
 
   async acclimatize(env) {
     this.remote = env;
-    let preset = await this.resolveField(Preset, "preset", false, "specific");
-    let pNext = await this.resolveField(Rule, "passNext", false, "specific");
-    let eNext = await this.resolveField(Rule, "errorNext", false, "specific");
-    let proType = await this.resolveField(Provider, "providerType", false, "specific");
-    let dynamicNexts = await this.resolveField(Rule, "dynamicNexts", true, "specific");
-    let enterNotif = await this.resolveField(Notification, "enterNotifications", true, "specific");
-    let errorNotif = await this.resolveField(Notification, "errorNotifications", true, "specific");
-    let passNotif = await this.resolveField(Notification, "passNotifications", true, "specific");
+    await this.resolveField(Preset, "preset", false, "specific");
+    await this.resolveField(Rule, "passNext", false, "specific");
+    await this.resolveField(Rule, "errorNext", false, "specific");
+    await this.resolveField(Provider, "providerType", false, "specific");
+    await this.resolveField(Rule, "dynamicNexts", true, "specific");
+    await this.resolveField(Notification, "enterNotifications", true, "specific");
+    await this.resolveField(Notification, "errorNotifications", true, "specific");
+    await this.resolveField(Notification, "passNotifications", true, "specific");
   }
 
   async saveA(env) {
@@ -1663,16 +1667,16 @@ async function selectProvider(providers, autoDefault = false) {
     return q.provider;
   }
 }
-async function loadLocals(path$$1, Class) {
+async function loadLocals(path$1, Class) {
   let basePath = configObject.repodir;
-  let objs = (await readdir(basePath)).filter(name => name.includes(path$$1)).filter(name => !path.basename(name).startsWith(".")).map(name => new Class({
+  let objs = (await readdir(basePath)).filter(name => name.includes(path$1)).filter(name => !path.basename(name).startsWith(".")).map(name => new Class({
     path: name
   }));
   return objs;
 }
-async function selectLocal(path$$1, typeName, Class, canSelectNone = true) {
+async function selectLocal(path, typeName, Class, canSelectNone = true) {
   addAutoCompletePrompt();
-  let objs = await loadLocals(path$$1, Class);
+  let objs = await loadLocals(path, Class);
   let objsMap = objs.map(x => ({
     name: x.chalkPrint(true),
     value: x
@@ -1738,6 +1742,7 @@ async function saveConfig(newConfigObject, {
 }
 
 var configHelpers = /*#__PURE__*/Object.freeze({
+  __proto__: null,
   inquirer: inquirer,
   addAutoCompletePrompt: addAutoCompletePrompt,
   $api: $api,
@@ -1940,10 +1945,10 @@ function printOutLine(eLine) {
 ${eLine.line}`);
 }
 async function getArtifact(env, artifact, jobid) {
-  let path$$1 = `/jobs/${jobid}/artifacts/${artifact}`;
+  let path = `/jobs/${jobid}/artifacts/${artifact}`;
   let art = lib.makeAPIRequest({
     env,
-    path: path$$1
+    path
   }).catch(_ => null);
   return await art;
 }
@@ -2075,7 +2080,7 @@ class Asset extends RallyBase {
     }
 
     if (metadata.Metadata) {
-      let req = await lib.makeAPIRequest({
+      await lib.makeAPIRequest({
         env: this.remote,
         path: `/movies/${this.id}/metadata/Metadata`,
         method: "PATCH",
@@ -2129,7 +2134,7 @@ class Asset extends RallyBase {
   }
 
   async delete() {
-    let req = await lib.makeAPIRequest({
+    await lib.makeAPIRequest({
       env: this.remote,
       path: "/assets/" + this.id,
       method: "DELETE"
@@ -2144,7 +2149,7 @@ class Asset extends RallyBase {
       method: "GET"
     }); //return req;
 
-    return this._files = new Collection(req.map(x => new File({
+    return this._files = new Collection$1(req.map(x => new File({
       data: x,
       remote: this.remote,
       parent: this
@@ -2481,8 +2486,8 @@ class Asset extends RallyBase {
     let c = await file.getContent();
 
     if (destFolder) {
-      let filePath = path__default.join(destFolder, file.instancesList[0].name);
-      fs__default.writeFileSync(filePath, c);
+      let filePath = path__default["default"].join(destFolder, file.instancesList[0].name);
+      fs__default["default"].writeFileSync(filePath, c);
     } else {
       console.log(c);
     }
@@ -2619,7 +2624,7 @@ class Asset extends RallyBase {
           } else if (configObject.rawOutput) {
             console.log(matching.map(x => chalk`{red ${preset.name}}:${highlight(x.content, text)}`).join("\n"));
           } else {
-            log(chalk`{red ${preset.name}} ${e.id} ${moment(e.attributes.completedAt)}`);
+            log(chalk`{red ${preset.name}} ${e.id} ${moment__default["default"](e.attributes.completedAt)}`);
             log(matching.map(x => `  ${highlight(x.content, text)}`).join("\n"));
           }
         }
@@ -2670,7 +2675,7 @@ class Asset extends RallyBase {
 
         for (let request of trace.matchAll(worstRegexEver)) {
           //log(request);
-          {
+          if (true) {
             let r = request.groups;
             log(chalk`Request: ${r.type} ${r.url} returned ${colorRequest(r.statusCode)}`);
           }
@@ -2717,25 +2722,25 @@ let exists = {};
 
 class Preset extends RallyBase {
   constructor({
-    path: path$$1,
+    path: path$1,
     remote,
     data,
     subProject
   } = {}) {
     // Get full path if possible
-    if (path$$1) {
-      path$$1 = path.resolve(path$$1);
+    if (path$1) {
+      path$1 = path.resolve(path$1);
 
-      if (path.dirname(path$$1).includes("silo-metadata")) {
+      if (path.dirname(path$1).includes("silo-metadata")) {
         throw new AbortError("Constructing preset from metadata file");
       }
     }
 
     super(); // Cache by path
 
-    if (path$$1) {
-      if (exists[pathTransform(path$$1)]) return exists[pathTransform(path$$1)];
-      exists[pathTransform(path$$1)] = this;
+    if (path$1) {
+      if (exists[pathTransform(path$1)]) return exists[pathTransform(path$1)];
+      exists[pathTransform(path$1)] = this;
     }
 
     this.meta = {};
@@ -2743,8 +2748,8 @@ class Preset extends RallyBase {
     this.remote = remote;
 
     if (lib.isLocalEnv(this.remote)) {
-      if (path$$1) {
-        this.path = path$$1;
+      if (path$1) {
+        this.path = path$1;
         let pathspl = this.path.split(".");
         this.ext = pathspl[pathspl.length - 1];
 
@@ -2767,7 +2772,7 @@ class Preset extends RallyBase {
           this.isGeneric = true;
           name = this.name;
         } catch (e) {
-          log(chalk`{yellow Warning}: ${path$$1} does not have a readable metadata file! Looking for ${this.localmetadatapath}`);
+          log(chalk`{yellow Warning}: ${path$1} does not have a readable metadata file! Looking for ${this.localmetadatapath}`);
           this.data = Preset.newShell(name);
           this.isGeneric = false;
         }
@@ -2789,11 +2794,11 @@ class Preset extends RallyBase {
   } //Given a metadata file, get its actual file
 
 
-  static async fromMetadata(path$$1, subproject) {
+  static async fromMetadata(path, subproject) {
     let data;
 
     try {
-      data = JSON.parse(readFileSync(path$$1));
+      data = JSON.parse(readFileSync(path));
     } catch (e) {
       if (e.code === "ENOENT" && configObject.ignoreMissing) {
         return null;
@@ -2807,7 +2812,7 @@ class Preset extends RallyBase {
 
     if (!provider) {
       log(chalk`{red The provider type {green ${providerType}} does not exist}`);
-      log(chalk`{red Skipping {green ${path$$1}}.}`);
+      log(chalk`{red Skipping {green ${path}}.}`);
       return null;
     }
 
@@ -3016,7 +3021,7 @@ class Preset extends RallyBase {
   }
 
   static getLocalPath(name, ext, subproject) {
-    return this._localpath || path__default.join(configObject.repodir, subproject || "", "silo-presets", name + "." + ext);
+    return this._localpath || path__default["default"].join(configObject.repodir, subproject || "", "silo-presets", name + "." + ext);
   }
 
   get localpath() {
@@ -3053,7 +3058,7 @@ class Preset extends RallyBase {
       return this.path.replace("silo-presets", "silo-metadata").replace(new RegExp(this.ext + "$"), "json");
     }
 
-    return path__default.join(configObject.repodir, this.subproject || "", "silo-metadata", this.name + ".json");
+    return path__default["default"].join(configObject.repodir, this.subproject || "", "silo-metadata", this.name + ".json");
   }
 
   get immutable() {
@@ -3105,7 +3110,7 @@ class Preset extends RallyBase {
           stdout: headerText
         } = await spawn({
           noecho: true
-        }, "sh", [path__default.join(configObject.repodir, `bin/header.sh`), moment(Date.now()).format("ddd YYYY/MM/DD hh:mm:ssa"), localpath]);
+        }, "sh", [path__default["default"].join(configObject.repodir, `bin/header.sh`), moment__default["default"](Date.now()).format("ddd YYYY/MM/DD hh:mm:ssa"), localpath]);
         code = headerText + code;
         write(chalk`header ok, `);
       } catch (e) {
@@ -3295,9 +3300,9 @@ class Preset extends RallyBase {
       let date;
 
       if (isUTC) {
-        date = moment.utc(abs.built, format);
+        date = moment__default["default"].utc(abs.built, format);
       } else {
-        date = moment(abs.built, format);
+        date = moment__default["default"](abs.built, format);
       }
 
       if (!date.isValid()) continue;
@@ -3356,7 +3361,7 @@ class Preset extends RallyBase {
 
 
     if (!locals) {
-      locals = new Collection((await loadLocals("silo-presets", Preset)));
+      locals = new Collection$1((await loadLocals("silo-presets", Preset)));
     }
 
     log(Array(indent + 1).join(" ") + "- " + this.name);
@@ -3377,8 +3382,8 @@ class Preset extends RallyBase {
     }
   }
 
-  async lint(linter) {
-    return await linter.lintPreset(this);
+  async lint(linter, env, softFaults) {
+    return await linter.lintPreset(this, env, softFaults);
   }
 
 }
@@ -3435,7 +3440,7 @@ class SupplyChain {
     if (!this.startingRule) {
       this.rules = this.allRules;
       this.presets = this.allPresets;
-      this.notifications = new Collection([]);
+      this.notifications = new Collection$1([]);
       await this.downloadPresetCode();
       return;
     } else {
@@ -3504,10 +3509,10 @@ class SupplyChain {
     }
 
     log("Done!");
-    this.rules = new Collection(ruleQueue);
-    this.presets = new Collection(presetQueue);
+    this.rules = new Collection$1(ruleQueue);
+    this.presets = new Collection$1(presetQueue);
     requiredNotifications.delete(undefined);
-    this.notifications = new Collection([...requiredNotifications]);
+    this.notifications = new Collection$1([...requiredNotifications]);
   }
 
   async log() {
@@ -3698,7 +3703,7 @@ Tag.endpoint = "tagNames";
 
 let stagingEmsg = chalk`Not currently on a clean staging branch. Please move to staging or resolve the commits.
 Try {red git status} or {red rally stage edit --verbose} for more info.`;
-let Stage$$1 = {
+let Stage = {
   async before(args) {
     this.env = args.env;
     this.args = args;
@@ -3968,9 +3973,9 @@ let Stage$$1 = {
         return;
       }
     } else {
-      let asarray = arg$$1 => {
-        if (!arg$$1) return [];
-        return Array.isArray(arg$$1) ? arg$$1 : [arg$$1];
+      let asarray = arg => {
+        if (!arg) return [];
+        return Array.isArray(arg) ? arg : [arg];
       };
 
       for (let branch of [...asarray(this.args.a), ...asarray(this.args.add)]) {
@@ -4137,9 +4142,9 @@ nothing to commit, working tree clean`;
           branch,
           msg: a
         });
-        let [c, d] = await this.runGit([0, 1], "reset", "--hard", "HEAD");
+        await this.runGit([0, 1], "reset", "--hard", "HEAD");
       } else {
-        let [c, d] = await this.runGit([0, 1], "commit", "-m", `asdf`);
+        await this.runGit([0, 1], "commit", "-m", `asdf`);
       }
     }
 
@@ -4242,9 +4247,9 @@ nothing to commit, working tree clean`;
     let files = [...set];
     files = files.filter(f => f && !f.missing);
     let chain = new SupplyChain();
-    chain.rules = new Collection(files.filter(f => f instanceof Rule));
-    chain.presets = new Collection(files.filter(f => f instanceof Preset));
-    chain.notifications = new Collection([]);
+    chain.rules = new Collection$1(files.filter(f => f instanceof Rule));
+    chain.presets = new Collection$1(files.filter(f => f instanceof Preset));
+    chain.notifications = new Collection$1([]);
 
     if (chain.rules.arr.length + chain.presets.arr.length === 0) {
       log(chalk`{blue Info:} No changed prests, nothing to deploy`);
@@ -4272,8 +4277,8 @@ nothing to commit, working tree clean`;
     await chain.syncTo(this.env);
   },
 
-  async unknown(arg$$1, args) {
-    log(chalk`Unknown action {red ${arg$$1}} try '{white rally help stage}'`);
+  async unknown(arg, args) {
+    log(chalk`Unknown action {red ${arg}} try '{white rally help stage}'`);
   }
 
 };
@@ -4428,10 +4433,10 @@ var beforeAfterHook = Hook; // expose constructors as a named property for TypeS
 
 var Hook_1 = Hook;
 var Singular = Hook.Singular;
-var Collection$1 = Hook.Collection;
+var Collection = Hook.Collection;
 beforeAfterHook.Hook = Hook_1;
 beforeAfterHook.Singular = Singular;
-beforeAfterHook.Collection = Collection$1;
+beforeAfterHook.Collection = Collection;
 
 /*!
  * is-plain-object <https://github.com/jonschlinkert/is-plain-object>
@@ -4811,19 +4816,19 @@ function endpointWithDefaults(defaults, route, options) {
   return parse(merge(defaults, route, options));
 }
 
-function withDefaults(oldDefaults, newDefaults) {
+function withDefaults$2(oldDefaults, newDefaults) {
   const DEFAULTS = merge(oldDefaults, newDefaults);
   const endpoint = endpointWithDefaults.bind(null, DEFAULTS);
   return Object.assign(endpoint, {
     DEFAULTS,
-    defaults: withDefaults.bind(null, DEFAULTS),
+    defaults: withDefaults$2.bind(null, DEFAULTS),
     merge: merge.bind(null, DEFAULTS),
     parse
   });
 }
 
-const VERSION = "6.0.12";
-const userAgent = `octokit-endpoint.js/${VERSION} ${getUserAgent()}`; // DEFAULTS has all properties set that EndpointOptions has, except url.
+const VERSION$7 = "6.0.12";
+const userAgent = `octokit-endpoint.js/${VERSION$7} ${getUserAgent()}`; // DEFAULTS has all properties set that EndpointOptions has, except url.
 // So we use RequestParameters and add method as additional required property.
 
 const DEFAULTS = {
@@ -4838,7 +4843,7 @@ const DEFAULTS = {
     previews: []
   }
 };
-const endpoint = withDefaults(null, DEFAULTS);
+const endpoint = withDefaults$2(null, DEFAULTS);
 
 class Deprecation extends Error {
   constructor(message) {
@@ -4995,7 +5000,7 @@ class RequestError extends Error {
 
 }
 
-const VERSION$1 = "5.6.3";
+const VERSION$6 = "5.6.3";
 
 function getBufferResponse(response) {
   return response.arrayBuffer();
@@ -5011,8 +5016,8 @@ function fetchWrapper(requestOptions) {
   let headers = {};
   let status;
   let url;
-  const fetch$$1 = requestOptions.request && requestOptions.request.fetch || fetch;
-  return fetch$$1(requestOptions.url, Object.assign({
+  const fetch = requestOptions.request && requestOptions.request.fetch || fetch__default["default"];
+  return fetch(requestOptions.url, Object.assign({
     method: requestOptions.method,
     body: requestOptions.body,
     headers: requestOptions.headers,
@@ -5126,48 +5131,48 @@ function toErrorMessage(data) {
 }
 
 function withDefaults$1(oldEndpoint, newDefaults) {
-  const endpoint$$1 = oldEndpoint.defaults(newDefaults);
+  const endpoint = oldEndpoint.defaults(newDefaults);
 
   const newApi = function (route, parameters) {
-    const endpointOptions = endpoint$$1.merge(route, parameters);
+    const endpointOptions = endpoint.merge(route, parameters);
 
     if (!endpointOptions.request || !endpointOptions.request.hook) {
-      return fetchWrapper(endpoint$$1.parse(endpointOptions));
+      return fetchWrapper(endpoint.parse(endpointOptions));
     }
 
     const request = (route, parameters) => {
-      return fetchWrapper(endpoint$$1.parse(endpoint$$1.merge(route, parameters)));
+      return fetchWrapper(endpoint.parse(endpoint.merge(route, parameters)));
     };
 
     Object.assign(request, {
-      endpoint: endpoint$$1,
-      defaults: withDefaults$1.bind(null, endpoint$$1)
+      endpoint,
+      defaults: withDefaults$1.bind(null, endpoint)
     });
     return endpointOptions.request.hook(request, endpointOptions);
   };
 
   return Object.assign(newApi, {
-    endpoint: endpoint$$1,
-    defaults: withDefaults$1.bind(null, endpoint$$1)
+    endpoint,
+    defaults: withDefaults$1.bind(null, endpoint)
   });
 }
 
 const request = withDefaults$1(endpoint, {
   headers: {
-    "user-agent": `octokit-request.js/${VERSION$1} ${getUserAgent()}`
+    "user-agent": `octokit-request.js/${VERSION$6} ${getUserAgent()}`
   }
 });
 
-const VERSION$2 = "4.8.0";
+const VERSION$5 = "4.8.0";
 
 function _buildMessageForResponseErrors(data) {
   return `Request failed due to following response errors:\n` + data.errors.map(e => ` - ${e.message}`).join("\n");
 }
 
 class GraphqlResponseError extends Error {
-  constructor(request$$1, headers, response) {
+  constructor(request, headers, response) {
     super(_buildMessageForResponseErrors(response));
-    this.request = request$$1;
+    this.request = request;
     this.headers = headers;
     this.response = response;
     this.name = "GraphqlResponseError"; // Expose the errors and response data in their shorthand properties.
@@ -5188,7 +5193,7 @@ const NON_VARIABLE_OPTIONS = ["method", "baseUrl", "url", "headers", "request", 
 const FORBIDDEN_VARIABLE_OPTIONS = ["query", "method", "url"];
 const GHES_V3_SUFFIX_REGEX = /\/api\/v3\/?$/;
 
-function graphql(request$$1, query, options) {
+function graphql(request, query, options) {
   if (options) {
     if (typeof query === "string" && "query" in options) {
       return Promise.reject(new Error(`[@octokit/graphql] "query" cannot be used as variable name`));
@@ -5218,13 +5223,13 @@ function graphql(request$$1, query, options) {
   }, {}); // workaround for GitHub Enterprise baseUrl set with /api/v3 suffix
   // https://github.com/octokit/auth-app.js/issues/111#issuecomment-657610451
 
-  const baseUrl = parsedOptions.baseUrl || request$$1.endpoint.DEFAULTS.baseUrl;
+  const baseUrl = parsedOptions.baseUrl || request.endpoint.DEFAULTS.baseUrl;
 
   if (GHES_V3_SUFFIX_REGEX.test(baseUrl)) {
     requestOptions.url = baseUrl.replace(GHES_V3_SUFFIX_REGEX, "/api/graphql");
   }
 
-  return request$$1(requestOptions).then(response => {
+  return request(requestOptions).then(response => {
     if (response.data.errors) {
       const headers = {};
 
@@ -5239,7 +5244,7 @@ function graphql(request$$1, query, options) {
   });
 }
 
-function withDefaults$2(request$1, newDefaults) {
+function withDefaults(request$1, newDefaults) {
   const newRequest = request$1.defaults(newDefaults);
 
   const newApi = (query, options) => {
@@ -5247,21 +5252,21 @@ function withDefaults$2(request$1, newDefaults) {
   };
 
   return Object.assign(newApi, {
-    defaults: withDefaults$2.bind(null, newRequest),
+    defaults: withDefaults.bind(null, newRequest),
     endpoint: request.endpoint
   });
 }
 
-const graphql$1 = withDefaults$2(request, {
+withDefaults(request, {
   headers: {
-    "user-agent": `octokit-graphql.js/${VERSION$2} ${getUserAgent()}`
+    "user-agent": `octokit-graphql.js/${VERSION$5} ${getUserAgent()}`
   },
   method: "POST",
   url: "/graphql"
 });
 
 function withCustomRequest(customRequest) {
-  return withDefaults$2(customRequest, {
+  return withDefaults(customRequest, {
     method: "POST",
     url: "/graphql"
   });
@@ -5318,11 +5323,11 @@ const createTokenAuth = function createTokenAuth(token) {
   });
 };
 
-const VERSION$3 = "3.6.0";
+const VERSION$4 = "3.6.0";
 
-class Octokit {
+class Octokit$1 {
   constructor(options = {}) {
-    const hook = new Collection$1();
+    const hook = new Collection();
     const requestDefaults = {
       baseUrl: request.endpoint.DEFAULTS.baseUrl,
       headers: {},
@@ -5336,7 +5341,7 @@ class Octokit {
       }
     }; // prepend default user agent with `options.userAgent` if set
 
-    requestDefaults.headers["user-agent"] = [options.userAgent, `octokit-core.js/${VERSION$3} ${getUserAgent()}`].filter(Boolean).join(" ");
+    requestDefaults.headers["user-agent"] = [options.userAgent, `octokit-core.js/${VERSION$4} ${getUserAgent()}`].filter(Boolean).join(" ");
 
     if (options.baseUrl) {
       requestDefaults.baseUrl = options.baseUrl;
@@ -5442,10 +5447,10 @@ class Octokit {
 
 }
 
-Octokit.VERSION = VERSION$3;
-Octokit.plugins = [];
+Octokit$1.VERSION = VERSION$4;
+Octokit$1.plugins = [];
 
-const VERSION$4 = "1.0.4";
+const VERSION$3 = "1.0.4";
 /**
  * @param octokit Octokit instance
  * @param options Options passed to Octokit constructor
@@ -5456,20 +5461,20 @@ function requestLog(octokit) {
     octokit.log.debug("request", options);
     const start = Date.now();
     const requestOptions = octokit.request.endpoint.parse(options);
-    const path$$1 = requestOptions.url.replace(options.baseUrl, "");
+    const path = requestOptions.url.replace(options.baseUrl, "");
     return request(options).then(response => {
-      octokit.log.info(`${requestOptions.method} ${path$$1} - ${response.status} in ${Date.now() - start}ms`);
+      octokit.log.info(`${requestOptions.method} ${path} - ${response.status} in ${Date.now() - start}ms`);
       return response;
     }).catch(error => {
-      octokit.log.info(`${requestOptions.method} ${path$$1} - ${error.status} in ${Date.now() - start}ms`);
+      octokit.log.info(`${requestOptions.method} ${path} - ${error.status} in ${Date.now() - start}ms`);
       throw error;
     });
   });
 }
 
-requestLog.VERSION = VERSION$4;
+requestLog.VERSION = VERSION$3;
 
-const VERSION$5 = "2.17.0";
+const VERSION$2 = "2.17.0";
 /**
  * Some “list” response that can be paginated have a different response structure
  *
@@ -5596,7 +5601,7 @@ function gather(octokit, results, iterator, mapFn) {
   });
 }
 
-const composePaginateRest = Object.assign(paginate, {
+Object.assign(paginate, {
   iterator
 });
 /**
@@ -5613,7 +5618,7 @@ function paginateRest(octokit) {
   };
 }
 
-paginateRest.VERSION = VERSION$5;
+paginateRest.VERSION = VERSION$2;
 
 const Endpoints = {
   actions: {
@@ -6481,7 +6486,7 @@ const Endpoints = {
     updateAuthenticated: ["PATCH /user"]
   }
 };
-const VERSION$6 = "5.13.0";
+const VERSION$1 = "5.13.0";
 
 function endpointsToMethods(octokit, endpointsMap) {
   const newMethods = {};
@@ -6571,11 +6576,11 @@ function legacyRestEndpointMethods(octokit) {
   };
 }
 
-legacyRestEndpointMethods.VERSION = VERSION$6;
+legacyRestEndpointMethods.VERSION = VERSION$1;
 
-const VERSION$7 = "18.12.0";
-const Octokit$1 = Octokit.plugin(requestLog, legacyRestEndpointMethods, paginateRest).defaults({
-  userAgent: `octokit-rest.js/${VERSION$7}`
+const VERSION = "18.12.0";
+const Octokit = Octokit$1.plugin(requestLog, legacyRestEndpointMethods, paginateRest).defaults({
+  userAgent: `octokit-rest.js/${VERSION}`
 });
 
 let okit = null;
@@ -6594,7 +6599,7 @@ let Deploy = {
 
   get octokit() {
     if (okit) return okit;
-    return okit = new Octokit$1({
+    return okit = new Octokit({
       auth: configObject.deploy.github,
       userAgent: `rally-tools deploy ${configObject.appName}`
     });
@@ -6651,7 +6656,7 @@ let Deploy = {
       log(chalk`Checking jira board: {green ${this.printJiraTicket(issue)}}.`);
     }
 
-    let response = await fetch(cardLink, requestOptions);
+    let response = await fetch__default["default"](cardLink, requestOptions);
     let jiraInfo = await response.json();
     let parsedInfo = {
       assignee_qa: jiraInfo.fields.customfield_17250,
@@ -6680,7 +6685,7 @@ let Deploy = {
   async printIssue(issue) {
     if (!issue.jira) return;
     let j = issue.jira;
-    let f = issue.jiraInfoFull;
+    issue.jiraInfoFull;
     let format = chalk`PR #${issue.number}: ${issue.title}
     Dev: ${this.name(j.assignee_dev)}
     QA: ${this.name(j.assignee_qa)}
@@ -6797,55 +6802,87 @@ function defaultLinter(refresh = false) {
   return _defaultLinter = new Lint(configObject);
 }
 class LintResults {
-  constructor(whatever) {}
+  constructor(lintResults, softFaults) {
+    this.json = lintResults;
+    this.softFaults = softFaults;
+  }
 
   chalkPrint() {
-    log(chalk`{green I am the lint results}`);
+    if (this.json) {
+      let hard = this.json["hard-faults"];
+      let soft = this.json["soft-faults"];
+
+      if (this.softFaults) {
+        log(chalk`{bold {red ${hard.length} Hard Fault(s)}}`);
+        log(chalk.red`--------------------`);
+
+        for (let fault of hard) {
+          log(chalk`{red Line ${chalk(fault.line)}: ${chalk(fault.message)}}`);
+        }
+
+        log(chalk`{bold {yellow ${chalk(soft.length)} Soft Fault(s)}}`);
+        log(chalk.yellow`--------------------`);
+
+        for (let fault of soft) {
+          log(chalk`{yellow Line ${chalk(fault.line)}: ${chalk(fault.message)}}`);
+        }
+      } else {
+        log(chalk`{bold {red ${chalk(hard.length)} Hard Fault(s)}}`);
+        log(chalk.red`--------------------`);
+
+        for (let fault of hard) {
+          log(chalk`{red Line ${chalk(fault.line)}: ${chalk(fault.message)}}`);
+        }
+      }
+    }
   }
 
 }
 class Lint {
   constructor(config) {
-    //config is the full rally config .rallyconfig
-    this.url = "link to rally lint url or whatever";
+    this.url = config.lintServiceUrl;
   }
 
-  async linkRequest() {
-    let requestOptions = {
-      method: "GET",
-      headers: {
-        "Authorization": `asdf`
-      }
-    };
-    let response = await fetch("whatever url", requestOptions); //check response.statusCode and stuff
+  async linkRequest(url, method, headers, body) {
+    let response = await fetch__default["default"](url, {
+      method,
+      headers,
+      body
+    });
 
-    let lintResults = await response.json();
+    if (response.status != 200) {
+      log(chalk`{red Linting service error}`);
+      let error = await response.json();
+      console.log(error);
+    } else {
+      let lintResults = await response.json();
+      return lintResults;
+    }
   }
 
-  async lintPreset(preset) {
-    log(preset.name); //log(preset.code);
+  async lintPreset(preset, env, softFaults) {
+    let result;
 
-    log(this);
-    log(configObject.verbose);
-    log(configObject.vverbose);
+    if (this.url) {
+      result = await this.linkRequest(`${this.url}?silo=${env}`, "POST", {
+        "Content-Type": "text/plain"
+      }, preset.code);
+    } else {
+      log(chalk`{red Lint service url not configured}`);
+    }
 
-    if (configObject.verbose) {
-      log(chalk`print with {red colors}{blue !}`);
-    } //await this.linkRequest ...
-
-
-    return new LintResults();
+    return new LintResults(result, softFaults);
   }
 
-  async printLint(lintables) {
+  async printLint(lintables, env, softFaults) {
     for (let x of lintables) {
-      if (!x.lint) {
+      if (!x.lint || !x.path.endsWith(".py")) {
         log(chalk`Skipping ${x.chalkPrint(false)}`);
         continue;
       }
 
       log(chalk`Linting ${x.chalkPrint(false)}`);
-      let res = await x.lint(this);
+      let res = await x.lint(this, env, softFaults);
       res.chalkPrint();
     }
   }
@@ -6853,6 +6890,7 @@ class Lint {
 }
 
 var lint = /*#__PURE__*/Object.freeze({
+  __proto__: null,
   defaultLinter: defaultLinter,
   LintResults: LintResults,
   Lint: Lint
@@ -6865,7 +6903,7 @@ const rallyFunctions = {
 
     for (let i = 10; i <= 30; i += 5) {
       console.time("test with " + i);
-      let dl = await lib.indexPathFast("DEV", `/workflowRules?page=1p${i}`);
+      await lib.indexPathFast("DEV", `/workflowRules?page=1p${i}`);
       console.timeEnd("test with " + i);
     }
   },
@@ -6883,7 +6921,7 @@ const rallyFunctions = {
 
       if (repodir) {
         try {
-          fs__default.lstatSync(repodir).isDirectory();
+          fs__default["default"].lstatSync(repodir).isDirectory();
           return [true, 0];
         } catch (e) {
           return [false, 0];
@@ -6949,6 +6987,7 @@ async function categorizeString(str, defaultSubproject = undefined) {
 }
 
 var allIndexBundle = /*#__PURE__*/Object.freeze({
+  __proto__: null,
   Lint: lint,
   rallyFunctions: rallyFunctions,
   categorizeString: categorizeString,
@@ -6960,7 +6999,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   Asset: Asset,
   User: User,
   Tag: Tag,
-  Stage: Stage$$1,
+  Stage: Stage,
   Deploy: Deploy,
   Trace: Trace,
   get configFile () { return configFile; },
@@ -6975,7 +7014,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   ProtectedEnvError: ProtectedEnvError,
   FileTooLargeError: FileTooLargeError,
   ResoultionError: ResoultionError,
-  Collection: Collection,
+  Collection: Collection$1,
   RallyBase: RallyBase,
   sleep: sleep,
   zip: zip,
@@ -7074,7 +7113,7 @@ def eval_main(context):
 var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _dec10, _dec11, _dec12, _dec13, _dec14, _dec15, _dec16, _dec17, _dec18, _dec19, _dec20, _dec21, _dec22, _dec23, _dec24, _dec25, _dec26, _dec27, _dec28, _dec29, _dec30, _dec31, _dec32, _dec33, _dec34, _dec35, _dec36, _dec37, _dec38, _dec39, _dec40, _dec41, _dec42, _dec43, _dec44, _dec45, _dec46, _dec47, _dec48, _dec49, _dec50, _dec51, _dec52, _dec53, _dec54, _dec55, _dec56, _dec57, _dec58, _dec59, _dec60, _dec61, _dec62, _dec63, _dec64, _dec65, _dec66, _dec67, _obj;
 
 require("source-map-support").install();
-let argv = argparse(process.argv.slice(2), {
+let argv = argparse__default["default"](process.argv.slice(2), {
   string: ["file", "env"],
   //boolean: ["no-protect"],
   boolean: ["anon"],
@@ -7088,24 +7127,24 @@ let argv = argparse(process.argv.slice(2), {
 }); //help menu helper
 
 function printHelp(help, short) {
-  let helpText$$1 = chalk`
+  let helpText = chalk`
 {white ${help.name}}: ${help.text}
     Usage: ${help.usage || "<unknown>"}
 `; //Trim newlines
 
-  helpText$$1 = helpText$$1.substring(1, helpText$$1.length - 1);
+  helpText = helpText.substring(1, helpText.length - 1);
 
   if (!short) {
-    for (let param$$1 of help.params || []) {
-      helpText$$1 += chalk`\n    {blue ${param$$1.param}}: ${param$$1.desc}`;
+    for (let param of help.params || []) {
+      helpText += chalk`\n    {blue ${param.param}}: ${param.desc}`;
     }
 
-    for (let arg$$1 of help.args || []) {
-      helpText$$1 += chalk`\n    {blue ${arg$$1.short}}, {blue ${arg$$1.long}}: ${arg$$1.desc}`;
+    for (let arg of help.args || []) {
+      helpText += chalk`\n    {blue ${arg.short}}, {blue ${arg.long}}: ${arg.desc}`;
     }
   }
 
-  return helpText$$1;
+  return helpText;
 }
 
 async function getFilesFromArgs(args) {
@@ -7144,8 +7183,8 @@ let presetsub = {
     }
 
     log(chalk`Grabbing {green ${this.files.length}} preset(s) metadata from {green ${this.env}}.`);
-    let presets = this.files.map(path$$1 => new Preset({
-      path: path$$1,
+    let presets = this.files.map(path => new Preset({
+      path,
       remote: false
     }));
 
@@ -7164,7 +7203,7 @@ let presetsub = {
   },
 
   async $create(args) {
-    let provider, name$$1, ext;
+    let provider, name, ext;
 
     if (args.provider) {
       provider = {
@@ -7177,9 +7216,9 @@ let presetsub = {
     }
 
     if (args.name) {
-      name$$1 = args.name;
+      name = args.name;
     } else {
-      name$$1 = await askInput("Preset Name", "What is the preset name?");
+      name = await askInput("Preset Name", "What is the preset name?");
     }
 
     let preset = new Preset({
@@ -7189,11 +7228,11 @@ let presetsub = {
       name: provider.name
     };
     preset.isGeneric = true;
-    preset.name = name$$1;
+    preset.name = name;
     preset.ext = ext;
 
     if (baseCode[provider.name]) {
-      preset._code = baseCode[provider.name].replace("{name}", name$$1);
+      preset._code = baseCode[provider.name].replace("{name}", name);
     } else {
       preset._code = " ";
     }
@@ -7241,8 +7280,8 @@ let presetsub = {
     }
 
     log(chalk`Uploading {green ${this.files.length}} preset(s) to {green ${this.env}}.`);
-    let presets = this.files.map(path$$1 => new Preset({
-      path: path$$1,
+    let presets = this.files.map(path => new Preset({
+      path,
       remote: false
     }));
     await rallyFunctions.uploadPresets(this.env, presets);
@@ -7253,12 +7292,19 @@ let presetsub = {
       throw new AbortError("No files provided to upload (use --file argument)");
     }
 
-    log(chalk`Linting {green ${this.files.length}} preset(s).`);
-    let presets = this.files.map(path$$1 => new Preset({
-      path: path$$1,
-      remote: false
-    }));
-    await defaultLinter().printLint(presets);
+    let softFaults = args.soft ? true : false;
+    let presets = this.files.map(path => {
+      try {
+        return new Preset({
+          path,
+          remote: false
+        });
+      } catch (e) {
+        return void 0;
+      }
+    }).filter(preset => preset);
+    log(chalk`Linting {green ${presets.length}} preset(s).`);
+    await defaultLinter().printLint(presets, this.env, softFaults);
   },
 
   async $deleteRemote(args) {
@@ -7348,8 +7394,8 @@ let presetsub = {
     await preset.getInfo(args.env);
   },
 
-  async unknown(arg$$1, args) {
-    log(chalk`Unknown action {red ${arg$$1}} try '{white rally help preset}'`);
+  async unknown(arg, args) {
+    log(chalk`Unknown action {red ${arg}} try '{white rally help preset}'`);
   }
 
 };
@@ -7381,8 +7427,8 @@ let rulesub = {
     let errorNext = await selectRule({
       purpose: "'On Exit Error'"
     });
-    let name$$1 = await askInput("Rule Name", "What is the rule name?");
-    name$$1 = name$$1.replace("@", preset.name);
+    let name = await askInput("Rule Name", "What is the rule name?");
+    name = name.replace("@", preset.name);
     let desc = await askInput("Description", "Enter a description.");
     let dynamicNexts = [];
     let next;
@@ -7390,10 +7436,10 @@ let rulesub = {
     while (next = await selectRule({
       purpose: "dynamic next"
     })) {
-      let name$$1 = await askInput("Key", "Key name for dynamic next");
+      let name = await askInput("Key", "Key name for dynamic next");
       dynamicNexts.push({
         meta: {
-          transition: name$$1
+          transition: name
         },
         type: "workflowRules",
         name: next.name
@@ -7403,7 +7449,7 @@ let rulesub = {
     let rule = new Rule({
       subProject: configObject.project
     });
-    rule.name = name$$1;
+    rule.name = name;
     rule.description = desc;
     rule.relationships.preset = {
       data: {
@@ -7433,8 +7479,8 @@ let rulesub = {
     rule.saveB();
   },
 
-  async unknown(arg$$1, args) {
-    log(chalk`Unknown action {red ${arg$$1}} try '{white rally help rule}'`);
+  async unknown(arg, args) {
+    log(chalk`Unknown action {red ${arg}} try '{white rally help rule}'`);
   }
 
 };
@@ -7447,8 +7493,8 @@ let deploysub = {
     await Deploy.makeRelease(args);
   },
 
-  async unknown(arg$$1, args) {
-    log(chalk`Unknown action {red ${arg$$1}} try '{white rally help rule}'`);
+  async unknown(arg, args) {
+    log(chalk`Unknown action {red ${arg}} try '{white rally help rule}'`);
   }
 
 };
@@ -7512,26 +7558,26 @@ let supplysub = {
 
   //Calculate a supply chain based on a starting rule at the top of the stack
   async $calc(args) {
-    let name$$1 = args._.shift();
+    let name = args._.shift();
 
     let stopName = args._.shift();
 
-    if (!name$$1) {
+    if (!name) {
       throw new AbortError("No starting rule or @ supplied");
     }
 
-    if (name$$1 === "@") {
+    if (name === "@") {
       log(chalk`Silo clone started`);
       this.chain = new SupplyChain();
       this.chain.remote = args.env;
     } else {
       let rules = await Rule.getAll(this.env);
       let stop, start;
-      start = rules.findByNameContains(name$$1);
+      start = rules.findByNameContains(name);
       if (stopName) stop = rules.findByNameContains(stopName);
 
       if (!start) {
-        throw new AbortError(chalk`No starting rule found by name {blue ${name$$1}}`);
+        throw new AbortError(chalk`No starting rule found by name {blue ${name}}`);
       }
 
       log(chalk`Analzying supply chain: ${start.chalkPrint(false)} - ${stop ? stop.chalkPrint(false) : "(open)"}`);
@@ -7573,7 +7619,7 @@ let supplysub = {
       await Promise.all(this.chain.presets.arr.map(obj => obj.downloadCode()));
       await Promise.all(this.chain.presets.arr.map(obj => obj.resolve()));
       let otherPresets = await Promise.all(this.chain.presets.arr.map(obj => Preset.getByName(env, obj.name)));
-      otherPresets = new Collection(otherPresets.filter(x => x));
+      otherPresets = new Collection$1(otherPresets.filter(x => x));
       await Promise.all(otherPresets.arr.map(obj => obj.downloadCode()));
       await Promise.all(otherPresets.arr.map(obj => obj.resolve()));
 
@@ -7640,14 +7686,14 @@ let supplysub = {
     let files = [...set];
     files = files.filter(f => f && !f.missing);
     this.chain = new SupplyChain();
-    this.chain.rules = new Collection(files.filter(f => f instanceof Rule));
-    this.chain.presets = new Collection(files.filter(f => f instanceof Preset));
-    this.chain.notifications = new Collection([]);
+    this.chain.rules = new Collection$1(files.filter(f => f instanceof Rule));
+    this.chain.presets = new Collection$1(files.filter(f => f instanceof Preset));
+    this.chain.notifications = new Collection$1([]);
     return await this.postAction(args);
   },
 
-  async unknown(arg$$1, args) {
-    log(chalk`Unknown action {red ${arg$$1}} try '{white rally help supply}'`);
+  async unknown(arg, args) {
+    log(chalk`Unknown action {red ${arg}} try '{white rally help supply}'`);
   }
 
 };
@@ -7664,9 +7710,9 @@ function subCommand(object) {
   };
   return async function (args) {
     //Grab the next arg on the stack, find a function tied to it, and run
-    let arg$$1 = args._.shift();
+    let arg = args._.shift();
 
-    let key = "$" + arg$$1;
+    let key = "$" + arg;
     let ret;
 
     if (object[key]) {
@@ -7674,8 +7720,8 @@ function subCommand(object) {
       ret = await object[key](args);
       await object.after(args);
     } else {
-      if (arg$$1 === undefined) arg$$1 = "(None)";
-      object.unknown(arg$$1, args);
+      if (arg === undefined) arg = "(None)";
+      object.unknown(arg, args);
     }
 
     return ret;
@@ -7684,15 +7730,15 @@ function subCommand(object) {
 
 let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [subhelp]`), _dec3 = param("subhelp", "The name of the command to see help for"), _dec4 = helpText("Rally tools jupyter interface. Requires jupyter to be installed."), _dec5 = usage("rally jupyter build [in] [out]"), _dec6 = param("in/out", "input and output file for jupyter. By default main.ipyrb and main.py"), _dec7 = helpText("Prepare an environment to hold specific branches"), _dec8 = usage("rally help stage"), _dec9 = helpText(`Preset related actions`), _dec10 = usage(`rally preset [action] --env <enviornment> --file [file1] --file [file2] ...`), _dec11 = param("action", "The action to perform. Can be upload, diff, list, deleteRemote"), _dec12 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec13 = arg("-f", "--file", "A file to act on"), _dec14 = arg("~", "--command", "If the action is diff, this is the command to run instead of diff"), _dec15 = helpText(`Rule related actions`), _dec16 = usage(`rally rule [action] --env [enviornment]`), _dec17 = param("action", "The action to perform. Only list is supported right now"), _dec18 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec19 = helpText(`Deploy related actions`), _dec20 = usage(`rally deploy [action]`), _dec21 = param("action", "'tag' to update github labels, 'branch' to create release branch and merge all tagged branches"), _dec22 = arg("~", "--branch", "(branch only) the release branch name (defaults to `date`)"), _dec23 = helpText(`supply chain related actions`), _dec24 = usage(`rally supply [action] [identifier] --env [enviornment] [post actions]`), _dec25 = param("action", "The action to perform. Can be calc or make."), _dec26 = param("identifier", "If the action is calc, then this identifier should be the first rule in the chain. If this is make, then supply '-' to read from stdin"), _dec27 = param("post actions", "The action to perform on the created supply chain. See commands below"), _dec28 = arg("-e", "--env", "(calc only) environment to do the calculation on"), _dec29 = arg("~", "--diff", "(post action) Use as `--diff [env]`. List all files with differences on the given env."), _dec30 = arg("~", "--to", "(post action) Use as `--to [env]`. Upload all objects."), _dec31 = arg("~", "--delete", "(post action) Use as `--delete [env]`. The reverse of uploading. Only presets are supported right now."), _dec32 = helpText(`tags stuff`), _dec33 = usage(`rally tags [action]`), _dec34 = param("action", "The action to perform. Can be list, create, or curate."), _dec35 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec36 = helpText(`print out some trace info`), _dec37 = usage(`rally trace -e [env] [jobid]`), _dec38 = param("jobid", "a job id like b86d7d90-f0a5-4622-8754-486ca8e9ecbd"), _dec39 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec40 = helpText(`List all available providers, or find one by name/id`), _dec41 = usage(`rally providers [identifier] --env [env] --raw`), _dec42 = param("identifier", "Either the name or id of the provider"), _dec43 = arg("-e", "--env", "The enviornment you wish to perform the action on"), _dec44 = arg("~", "--raw", "Raw output of command. If [identifier] is given, then print editorConfig too"), _dec45 = helpText(`Change config for rally tools`), _dec46 = usage("rally config [key] --set [value] --raw"), _dec47 = param("key", chalk`Key you want to edit. For example, {green chalk} or {green api.DEV}`), _dec48 = arg("~", "--set", "If this value is given, no interactive prompt will launch and the config option will change."), _dec49 = arg("~", "--raw", "Raw output of json config"), _dec50 = helpText(`create/modify asset or files inside asset`), _dec51 = usage("rally asset [action] [action...]"), _dec52 = param("action", chalk`Actions are create, delete, launch, addfile, metadata, show, patchMetadata, and launchEvalute, deleteFile, downloadFile, grep, analyze. You can supply multiple actions to chain them.`), _dec53 = arg(`-i`, `--id`, chalk`MOVIE_ID of asset to select`), _dec54 = arg(`-n`, `--name`, chalk`MOVIE_NAME of asset. with {white create}, '{white #}' will be replaced with a uuid. Default is '{white TEST_#}'`), _dec55 = arg(`~`, `--anon`, chalk`Supply this if no asset is needed (used to lauch anonymous workflows)`), _dec56 = arg(`-j`, `--job-name`, chalk`Job name to start (used with launch and launchEvalute)`), _dec57 = arg(`~`, `--init-data`, chalk`Init data to use when launching job. can be string, or {white @path/to/file} for a file`), _dec58 = arg(`~`, `--file-label`, chalk`File label (used with addfile)`), _dec59 = arg(`~`, `--file-uri`, chalk`File s3 uri. Can use multiple uri's for the same label (used with addfile)`), _dec60 = arg(`~`, `--metadata`, chalk`Metadata to use with patchMetadata. Can be string, or {white @path/to/file} for a file. Data must contain a top level key Metadata, or Workflow. Metadata will be pached into METADATA. Workflow will be patched into WORKFLOW_METADATA(not currently available)`), _dec61 = arg(`~`, `--priority`, chalk`set the priority of all launched jobs`), _dec62 = arg(`~`, `--new-name`, chalk`set the new name`), _dec63 = arg(`~`, `--target-env`, chalk`migrate to the env (when using migrate)`), _dec64 = arg(`~`, `--to-folder`, chalk`Folder to download to when using downloadFile. If no folder is given, writes to stdout.`), _dec65 = arg(`~`, `--artifact`, chalk`This is the artifact to grep on. Defaults to trace. Values are "trace", "preset", "result", "error", "output"`), _dec66 = arg(`~`, `--on`, chalk`alias for artifact`), _dec67 = arg(`~`, `--name-only`, chalk`Only show preset name and number of matches when greping`), (_obj = {
   async help(args) {
-    let arg$$1 = args._.shift();
+    let arg = args._.shift();
 
-    if (arg$$1) {
-      let help = helpEntries[arg$$1];
+    if (arg) {
+      let help = helpEntries[arg];
 
       if (!help) {
-        log(chalk`No help found for '{red ${arg$$1}}'`);
+        log(chalk`No help found for '{red ${arg}}'`);
       } else {
-        log(printHelp(helpEntries[arg$$1]));
+        log(printHelp(helpEntries[arg]));
       }
     } else {
       for (let helpArg in helpEntries) {
@@ -7706,7 +7752,7 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
   },
 
   async stage(args) {
-    return subCommand(Stage$$1)(args);
+    return subCommand(Stage)(args);
   },
 
   //@helpText(`Print input args, for debugging`)
@@ -7859,23 +7905,23 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
       return String(Math.floor(Math.random() * Math.pow(10, digits))).padStart(digits, "0");
     }
 
-    let name$$1 = args.name || `TEST_#`;
+    let name = args.name || `TEST_#`;
     let env = args.env;
     let asset;
 
-    let arg$$1 = args._.shift();
+    let arg = args._.shift();
 
-    if (!arg$$1) {
+    if (!arg) {
       throw new AbortError(chalk`Missing arguments: see {white 'rally help asset'}`);
     }
 
     if (args.anon) {
-      args._.unshift(arg$$1);
-    } else if (arg$$1 == "create") {
-      name$$1 = name$$1.replace("#", uuid());
-      asset = await Asset.createNew(name$$1, env);
+      args._.unshift(arg);
+    } else if (arg == "create") {
+      name = name.replace("#", uuid());
+      asset = await Asset.createNew(name, env);
     } else {
-      args._.unshift(arg$$1);
+      args._.unshift(arg);
 
       if (args.id) {
         asset = Asset.lite(args.id, env);
@@ -7911,8 +7957,8 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
       return initData;
     }
 
-    while (arg$$1 = args._.shift()) {
-      if (arg$$1 === "launch") {
+    while (arg = args._.shift()) {
+      if (arg === "launch") {
         let initData = getInitData(args, launchArg);
         let jobName = arrayify(args["job-name"], launchArg);
         let p = await Rule.getByName(env, jobName);
@@ -7936,16 +7982,15 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
         }
 
         launchArg++;
-      } else if (arg$$1 === "launchEvaluate") {
+      } else if (arg === "launchEvaluate") {
         let initData = getInitData(args, launchArg);
         let jobName = arrayify(args["job-name"], launchArg);
-        let jobData;
         let ephemeralEval = false;
         let p;
 
         if (jobName.startsWith("@")) {
           ephemeralEval = true;
-          jobData = fs.readFileSync(jobName.slice(1));
+          fs.readFileSync(jobName.slice(1));
         } else {
           p = await Preset.getByName(env, jobName);
 
@@ -7958,13 +8003,12 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
 
         if (ephemeralEval) {
           throw new AbortError("could not start");
-          await Asset.startEphemeralEvaluateIdeal(env, p.id, initData);
         } else {
           await asset.startEvaluate(p.id, initData);
         }
 
         launchArg++;
-      } else if (arg$$1 === "addfile") {
+      } else if (arg === "addfile") {
         let label = arrayify(args["file-label"], fileArg);
         let uri = arrayify(args["file-uri"], fileArg);
 
@@ -7975,18 +8019,18 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
         await asset.addFile(label, uri);
         log(chalk`Added file ${label}`);
         fileArg++;
-      } else if (arg$$1 === "delete") {
+      } else if (arg === "delete") {
         await asset.delete();
-      } else if (arg$$1 === "create") {
+      } else if (arg === "create") {
         throw new AbortError(`Cannot have more than 1 create/get per asset call`);
-      } else if (arg$$1 === "show" || arg$$1 == "load") {
+      } else if (arg === "show" || arg == "load") {
         if (asset.lite) asset = await Asset.getById(env, asset.id);
-        if (arg$$1 == "show") log(asset);
-      } else if (arg$$1 === "metadata" || arg$$1 === "md") {
+        if (arg == "show") log(asset);
+      } else if (arg === "metadata" || arg === "md") {
         log((await asset.getMetadata(true)));
-      } else if (arg$$1 === "migrate") {
+      } else if (arg === "migrate") {
         await asset.migrate(args["target-env"]);
-      } else if (arg$$1 === "patchMetadata") {
+      } else if (arg === "patchMetadata") {
         let initData = arrayify(args["metadata"], launchArg);
 
         if (initData && initData.startsWith("@")) {
@@ -7996,12 +8040,12 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
 
         initData = JSON.parse(initData);
         await asset.patchMetadata(initData);
-      } else if (arg$$1 === "rename") {
+      } else if (arg === "rename") {
         let newName = args["new-name"];
         let oldName = asset.name;
         await asset.rename(newName);
         log(chalk`Rename: {green ${oldName}} -> {green ${newName}}`);
-      } else if (arg$$1 === "downloadfile" || arg$$1 === "downloadFile") {
+      } else if (arg === "downloadfile" || arg === "downloadFile") {
         let label = arrayify(args["file-label"], fileArg);
 
         if (!label) {
@@ -8010,7 +8054,7 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
 
         fileArg++;
         await asset.downloadFile(label, args["to-folder"]);
-      } else if (arg$$1 === "deletefile" || arg$$1 === "deleteFile" || arg$$1 === "removefile" || arg$$1 === "removeFile") {
+      } else if (arg === "deletefile" || arg === "deleteFile" || arg === "removefile" || arg === "removeFile") {
         let label = arrayify(args["file-label"], fileArg);
 
         if (!label) {
@@ -8023,20 +8067,20 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
         if (!result) {
           log(`Failed to delete file ${label}`);
         }
-      } else if (arg$$1 === "grep") {
+      } else if (arg === "grep") {
         await asset.grep(args._.pop(), {
           artifact: args.on || args.artifact || "trace",
           nameOnly: args["name-only"],
           ordering: null
         });
-      } else if (arg$$1 === "viewapi") {
+      } else if (arg === "viewapi") {
         await asset.replay();
-      } else if (arg$$1 === "analyze") {
+      } else if (arg === "analyze") {
         await asset.analyze();
-      } else if (arg$$1 === "listJobs") {
+      } else if (arg === "listJobs") {
         await asset.listJobs();
       } else {
-        log(`No usage found for ${arg$$1}`);
+        log(`No usage found for ${arg}`);
       }
     }
 
@@ -8046,9 +8090,9 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
   async pullList(args) {
     let list = await getFilesFromArgs(args);
     let chain = new SupplyChain();
-    chain.rules = new Collection([]);
-    chain.presets = new Collection([]);
-    chain.notifications = new Collection([]);
+    chain.rules = new Collection$1([]);
+    chain.presets = new Collection$1([]);
+    chain.notifications = new Collection$1([]);
     let files = await spawn({
       noecho: true
     }, "git", ["ls-files"]);
@@ -8057,17 +8101,17 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
     let parse = /(\w+) (.+)/;
 
     for (let item of list) {
-      let [_, type, name$$1] = parse.exec(item);
+      let [_, type, name] = parse.exec(item);
 
       if (type == "Rule") {
-        let rule = await Rule.getByName("UAT", name$$1);
-        rule._localpath = files.filter(x => x.includes(name$$1) && x.includes("rules"))[0];
+        let rule = await Rule.getByName("UAT", name);
+        rule._localpath = files.filter(x => x.includes(name) && x.includes("rules"))[0];
         rule.path = rule._localpath;
         log(rule._localpath);
         chain.rules.arr.push(rule);
       } else if (type == "Preset") {
-        let preset = await Preset.getByName("UAT", name$$1);
-        preset._localpath = files.filter(x => x.includes(name$$1) && x.includes("presets"))[0];
+        let preset = await Preset.getByName("UAT", name);
+        preset._localpath = files.filter(x => x.includes(name) && x.includes("presets"))[0];
         preset.path = preset._localpath;
         log(preset._localpath);
         chain.presets.arr.push(preset);
@@ -8087,7 +8131,7 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
       path: `/movies/${asset}/metadata/Metadata`
     });
     let segments = res.data.attributes.metadata.userMetaData.segments.segments;
-    let r = segments.reduce((lastSegment, val, ind) => {
+    segments.reduce((lastSegment, val, ind) => {
       let curSegment = val.startTime;
 
       if (curSegment < lastSegment) {
@@ -8316,7 +8360,7 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
     for (let event of r.data) {
       var _event$user;
 
-      let evtime = moment(event.createdAt);
+      let evtime = moment__default["default"](event.createdAt);
       let date = evtime.format("ddd YYYY/MM/DD hh:mm:ssa");
       let timedist = evtime.fromNow();
       log(chalk`${date} {yellow ${timedist}} {green ${(_event$user = event.user) === null || _event$user === void 0 ? void 0 : _event$user.name}} ${event.event}`);
@@ -8348,7 +8392,7 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
     }
   },
 
-  async getAssets(env, name$$1) {
+  async getAssets(env, name) {
     if (!this.callid) this.callid = 0;
     this.callid++;
     let callid = this.callid;
@@ -8357,8 +8401,8 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
     let req = await lib.makeAPIRequest({
       env,
       path: `/assets`,
-      qs: name$$1 ? {
-        filter: `nameContains=${name$$1}`
+      qs: name ? {
+        filter: `nameContains=${name}`
       } : undefined
     });
     this.lastCall = Date.now();
@@ -8367,7 +8411,7 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
 
   async content(args) {
     addAutoCompletePrompt();
-    let q = await inquirer.prompt([{
+    await inquirer.prompt([{
       type: "autocomplete",
       name: "what",
       message: `What asset do you want?`,
@@ -8386,7 +8430,7 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
   },
 
   async analyzeAll(args) {
-    let files = await getFilesFromArgs(args);
+    await getFilesFromArgs(args);
   },
 
   async ["@"](args) {
@@ -8557,7 +8601,7 @@ async function $main() {
 
       if (ret) {
         write(chalk.white("CLI returned: "));
-        if (ret instanceof Collection) ret = ret.arr; //Directly use console.log so that --raw works as intended.
+        if (ret instanceof Collection$1) ret = ret.arr; //Directly use console.log so that --raw works as intended.
 
         if (typeof ret === "object") {
           console.log(JSON.stringify(ret, null, 4));
@@ -8580,7 +8624,7 @@ async function $main() {
   process.exit(0);
 }
 
-async function main$1(...args) {
+async function main(...args) {
   //Catch all for errors to avoid ugly default node promise catcher
   try {
     await $main(...args);
@@ -8593,7 +8637,7 @@ async function main$1(...args) {
 
 
 if (!module.parent) {
-  main$1();
+  main();
 } else {
   loadConfig();
   module.exports = allIndexBundle;

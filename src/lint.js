@@ -12,57 +12,81 @@ export function defaultLinter(refresh = false) {
 }
 
 export class LintResults {
-    constructor(whatever) {
+    constructor(lintResults,softFaults) {
+        this.json = lintResults
+        this.softFaults = softFaults
     }
-
     chalkPrint() {
-        log(chalk`{green I am the lint results}`);
+        if (this.json)
+        {
+            let hard = this.json["hard-faults"]
+            let soft = this.json["soft-faults"]
+            if (this.softFaults)
+            {
+                log(chalk`{bold {red ${hard.length} Hard Fault(s)}}`);
+                log(chalk.red`--------------------`);
+                for (let fault of hard)
+                {
+                    log(chalk`{red Line ${chalk(fault.line)}: ${chalk(fault.message)}}`); 
+                }
+                log(chalk`{bold {yellow ${chalk(soft.length)} Soft Fault(s)}}`);
+                log(chalk.yellow`--------------------`);
+                for (let fault of soft)
+                {
+                    log(chalk`{yellow Line ${chalk(fault.line)}: ${chalk(fault.message)}}`); 
+                }
+            }
+            else
+            {
+                log(chalk`{bold {red ${chalk(hard.length)} Hard Fault(s)}}`);
+                log(chalk.red`--------------------`);
+                for (let fault of hard)
+                {
+                    log(chalk`{red Line ${chalk(fault.line)}: ${chalk(fault.message)}}`); 
+                }
+            }
+        }
     }
 }
 
 export class Lint {
     constructor(config){
-        //config is the full rally config .rallyconfig
-        this.url = "link to rally lint url or whatever";
+        this.url = config.lintServiceUrl
     }
 
-    async linkRequest() {
-        let requestOptions = {
-            method: "GET",
-            headers: {
-                "Authorization": `asdf`,
-            }
-        };
-
-        let response = await fetch("whatever url", requestOptions);
-        //check response.statusCode and stuff
-        let lintResults = await response.json();
-    }
-
-    async lintPreset(preset) {
-        log(preset.name);
-        //log(preset.code);
-        log(this);
-        log(configObject.verbose);
-        log(configObject.vverbose);
-
-        if(configObject.verbose) {
-            log(chalk`print with {red colors}{blue !}`);
+    async linkRequest(url,method,headers,body) {
+        let response = await fetch(url,{method,headers,body});
+        if (response.status != 200) {
+            log(chalk`{red Linting service error}`);
+            let error = await response.json()
+            console.log(error)
         }
-
-        //await this.linkRequest ...
-        return new LintResults();
+        else{
+            let lintResults = await response.json();
+            return lintResults
+        }
     }
 
-    async printLint(lintables) {
+    async lintPreset(preset,env,softFaults) {
+        let result
+        if (this.url){
+            result = await this.linkRequest(`${this.url}?silo=${env}`,"POST",{"Content-Type":"text/plain"},preset.code)
+        }
+        else{
+            log(chalk`{red Lint service url not configured}`)
+        }
+        return new LintResults(result,softFaults);
+    }
+
+    async printLint(lintables,env,softFaults) {
         for(let x of lintables) {
-            if(!x.lint) {
+            if(!x.lint || !x.path.endsWith(".py")) {
                 log(chalk`Skipping ${x.chalkPrint(false)}`)
                 continue;
             }
 
             log(chalk`Linting ${x.chalkPrint(false)}`);
-            let res = await x.lint(this);
+            let res = await x.lint(this,env,softFaults);
             res.chalkPrint();
         }
     }

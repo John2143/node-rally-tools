@@ -226,7 +226,7 @@ class Preset extends RallyBase{
         let headerRegex = /(^# .+[\r\n]+)+#+[\r\n]+/gim;
         let hasHeader = headerRegex.exec(code);
 
-        if(hasHeader){
+        if(hasHeader && code.startsWith(hasHeader[0])){
             this.header = code.substring(0, hasHeader[0].length - 1);
             code = code.substring(hasHeader[0].length);
         }

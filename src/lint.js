@@ -75,7 +75,7 @@ export class Lint {
             result = await this.linkRequest(`${this.url}?silo=${this.env}`,"POST",{"Content-Type":"text/plain"},preset.code)
         }
         else{
-            log(chalk`{red Lint service url not configured}`)
+            throw new AbortError(chalk`Lint service url not configured (lintServiceUrl)`)
         }
         return new LintResults(result,this.softFaults);
     }

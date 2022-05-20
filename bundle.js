@@ -4120,6 +4120,17 @@ nothing to commit, working tree clean`;
 
   async findConflict(newStagedBranches, brokeBranch) {
     await this.runGit([0], "reset", "--hard", "HEAD");
+    await this.runGit([0], "checkout", "staging");
+    let [a, b] = await this.runGit([0, 1], "merge", "--squash", `origin/${brokeBranch}`);
+
+    if (a.includes("merge failed")) {
+      return [{
+        branch: chalk`{yellow !! against staging !!} {white for} ${brokeBranch}`,
+        msg: a
+      }];
+    }
+
+    await this.runGit([0], "reset", "--hard", "HEAD");
     let conflicting = [];
 
     for (let branch of newStagedBranches) {
@@ -4160,7 +4171,15 @@ nothing to commit, working tree clean`;
   async $tfc() {
     await this.runGit([0], "reset", "--hard", "HEAD");
     await this.runGit([0], "checkout", "staging");
-    let a = await this.findConflict(["fix-tc_adjust_planb", "test-too_many_markers_fix", "audio_rectifier_updates_ASR-69", "getIbmsMediaIdFix", "ASR-393_WrongTimecodesBlackSegmentDetection", "ASR-390_BadWooPartNums", "ASXT-Audio-QC-Baton-DLAPost", "ASR-293", "ASR-383_tiktok_rectifier"], "ASR-383_tiktok_rectifier");
+    let a = await this.findConflict(["ASR-106_Vidchecker8.1.5", "test-too_many_markers_fix", "regression-fix_weird_durations", "ASXT-Video-QC-Vidcheck-USPOST", "GATEWAY-CSDNAPConversion-ASR-411", "ONRAMP-audioNormalization-ASR-69", "ASR-389_addelement", "TECHDEBT-addIconForGConversionLauncher", "ASR-402_DDU_metadata", "ASR-300-DDU-NZ-ADS-tracks", "ASR-454_PCDNAP_IBMS_Prefix", "ASXT-Mediator-Publisher", "ASXT-Deal-Logic", "uat-only-ADS-use-correct-AQC-Job", "ASXT-44-and-22", "509-rebase", "ASR-514-ML-QC-Proxy-oversized", "ONRAMP-captionProxyAudio-ASR-516", "ASXT-Rally-Panel", "ASR-513"], "regression-fix_weird_durations"); //], "ONRAMP-audioNormalization-ASR-69");
+    //let a = await this.findConflict([
+    //"fix-tc_adjust_planb", "test-too_many_markers_fix",
+    //"audio_rectifier_updates_ASR-69", "getIbmsMediaIdFix",
+    //"ASR-393_WrongTimecodesBlackSegmentDetection",
+    //"ASR-390_BadWooPartNums", "ASXT-Audio-QC-Baton-DLAPost", "ASR-293",
+    //"ASR-383_tiktok_rectifier"
+    //], "ASR-383_tiktok_rectifier");
+
     await this.printConflicts(a);
   },
 
@@ -7022,7 +7041,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   orderedObjectKeys: orderedObjectKeys
 });
 
-var version = "6.0.5";
+var version = "6.0.6";
 
 var baseCode = {
   SdviContentMover: `{

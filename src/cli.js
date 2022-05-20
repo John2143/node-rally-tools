@@ -173,11 +173,16 @@ let presetsub = {
         if(!this.files){
             throw new AbortError("No files provided to upload (use --file argument)");
         }
-
-        log(chalk`Linting {green ${this.files.length}} preset(s).`);
-
-        let presets = this.files.map(path => new Preset({path, remote: false}));
-        await Lint.defaultLinter().printLint(presets);
+        let presets = this.files.map(path => {
+            try{
+                return new Preset({path, remote: false})
+            }
+            catch (e){
+                return void 0
+            }
+        }).filter(preset => preset);
+        log(chalk`Linting {green ${presets.length}} preset(s).`);
+        await Lint.defaultLinter(args).printLint(presets);
     },
     async $deleteRemote(args){
         let file = this.files[0];
@@ -473,7 +478,7 @@ let supplysub = {
                 log("All presets are the same");
             }
         } else if(args["lint"]) {
-            await this.chain.lint(Lint.defaultLinter());
+            await this.chain.lint(Lint.defaultLinter(args));
 
         }else{
             return await this.chain.log();

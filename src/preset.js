@@ -615,8 +615,8 @@ class Preset extends RallyBase{
         }
     }
 
-    async lint(linter,env,softFaults) {
-        return await linter.lintPreset(this,env,softFaults);
+    async lint(linter) {
+        return await linter.lintPreset(this);
     }
 }
 

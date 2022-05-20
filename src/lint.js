@@ -5,10 +5,10 @@ import Preset from "./preset.js";
 import fetch from "node-fetch";
 
 let _defaultLinter;
-export function defaultLinter(refresh = false) {
+export function defaultLinter(args,refresh = false) {
     if(_defaultLinter && !refresh) return _defaultLinter;
 
-    return _defaultLinter = new Lint(configObject);
+    return _defaultLinter = new Lint(args,configObject);
 }
 
 export class LintResults {
@@ -50,8 +50,10 @@ export class LintResults {
 }
 
 export class Lint {
-    constructor(config){
+    constructor({soft, env}, config){
         this.url = config.lintServiceUrl
+        this.softFaults = soft ? true : false
+        this.env = env
     }
 
     async linkRequest(url,method,headers,body) {
@@ -67,18 +69,18 @@ export class Lint {
         }
     }
 
-    async lintPreset(preset,env,softFaults) {
+    async lintPreset(preset) {
         let result
         if (this.url){
-            result = await this.linkRequest(`${this.url}?silo=${env}`,"POST",{"Content-Type":"text/plain"},preset.code)
+            result = await this.linkRequest(`${this.url}?silo=${this.env}`,"POST",{"Content-Type":"text/plain"},preset.code)
         }
         else{
             log(chalk`{red Lint service url not configured}`)
         }
-        return new LintResults(result,softFaults);
+        return new LintResults(result,this.softFaults);
     }
 
-    async printLint(lintables,env,softFaults) {
+    async printLint(lintables) {
         for(let x of lintables) {
             if(!x.lint || !x.path.endsWith(".py")) {
                 log(chalk`Skipping ${x.chalkPrint(false)}`)
@@ -86,7 +88,7 @@ export class Lint {
             }
 
             log(chalk`Linting ${x.chalkPrint(false)}`);
-            let res = await x.lint(this,env,softFaults);
+            let res = await x.lint(this);
             res.chalkPrint();
         }
     }

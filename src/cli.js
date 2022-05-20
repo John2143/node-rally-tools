@@ -173,7 +173,6 @@ let presetsub = {
         if(!this.files){
             throw new AbortError("No files provided to upload (use --file argument)");
         }
-        let softFaults = args.soft ? true : false
         let presets = this.files.map(path => {
             try{
                 return new Preset({path, remote: false})
@@ -183,7 +182,7 @@ let presetsub = {
             }
         }).filter(preset => preset);
         log(chalk`Linting {green ${presets.length}} preset(s).`);
-        await Lint.defaultLinter().printLint(presets,this.env,softFaults);
+        await Lint.defaultLinter(args).printLint(presets);
     },
     async $deleteRemote(args){
         let file = this.files[0];
@@ -479,7 +478,7 @@ let supplysub = {
                 log("All presets are the same");
             }
         } else if(args["lint"]) {
-            await this.chain.lint(Lint.defaultLinter());
+            await this.chain.lint(Lint.defaultLinter(args));
 
         }else{
             return await this.chain.log();

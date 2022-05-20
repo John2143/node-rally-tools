@@ -3129,8 +3129,8 @@ ${eLine.line}`);
       }
     }
 
-    async lint(linter, env, softFaults) {
-      return await linter.lintPreset(this, env, softFaults);
+    async lint(linter) {
+      return await linter.lintPreset(this);
     }
 
   }
@@ -6544,9 +6544,9 @@ nothing to commit, working tree clean`;
 
   let _defaultLinter;
 
-  function defaultLinter(refresh = false) {
+  function defaultLinter(args, refresh = false) {
     if (_defaultLinter && !refresh) return _defaultLinter;
-    return _defaultLinter = new Lint(exports.configObject);
+    return _defaultLinter = new Lint(args, exports.configObject);
   }
   class LintResults {
     constructor(lintResults, softFaults) {
@@ -6586,8 +6586,13 @@ nothing to commit, working tree clean`;
 
   }
   class Lint {
-    constructor(config) {
+    constructor({
+      soft,
+      env
+    }, config) {
       this.url = config.lintServiceUrl;
+      this.softFaults = soft ? true : false;
+      this.env = env;
     }
 
     async linkRequest(url, method, headers, body) {
@@ -6607,21 +6612,21 @@ nothing to commit, working tree clean`;
       }
     }
 
-    async lintPreset(preset, env, softFaults) {
+    async lintPreset(preset) {
       let result;
 
       if (this.url) {
-        result = await this.linkRequest(`${this.url}?silo=${env}`, "POST", {
+        result = await this.linkRequest(`${this.url}?silo=${this.env}`, "POST", {
           "Content-Type": "text/plain"
         }, preset.code);
       } else {
         log(chalk`{red Lint service url not configured}`);
       }
 
-      return new LintResults(result, softFaults);
+      return new LintResults(result, this.softFaults);
     }
 
-    async printLint(lintables, env, softFaults) {
+    async printLint(lintables) {
       for (let x of lintables) {
         if (!x.lint || !x.path.endsWith(".py")) {
           log(chalk`Skipping ${x.chalkPrint(false)}`);
@@ -6629,7 +6634,7 @@ nothing to commit, working tree clean`;
         }
 
         log(chalk`Linting ${x.chalkPrint(false)}`);
-        let res = await x.lint(this, env, softFaults);
+        let res = await x.lint(this);
         res.chalkPrint();
       }
     }

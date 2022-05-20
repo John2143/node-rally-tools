@@ -3382,8 +3382,8 @@ class Preset extends RallyBase {
     }
   }
 
-  async lint(linter, env, softFaults) {
-    return await linter.lintPreset(this, env, softFaults);
+  async lint(linter) {
+    return await linter.lintPreset(this);
   }
 
 }
@@ -6797,9 +6797,9 @@ let Deploy = {
 
 let _defaultLinter;
 
-function defaultLinter(refresh = false) {
+function defaultLinter(args, refresh = false) {
   if (_defaultLinter && !refresh) return _defaultLinter;
-  return _defaultLinter = new Lint(configObject);
+  return _defaultLinter = new Lint(args, configObject);
 }
 class LintResults {
   constructor(lintResults, softFaults) {
@@ -6839,8 +6839,13 @@ class LintResults {
 
 }
 class Lint {
-  constructor(config) {
+  constructor({
+    soft,
+    env
+  }, config) {
     this.url = config.lintServiceUrl;
+    this.softFaults = soft ? true : false;
+    this.env = env;
   }
 
   async linkRequest(url, method, headers, body) {
@@ -6860,21 +6865,21 @@ class Lint {
     }
   }
 
-  async lintPreset(preset, env, softFaults) {
+  async lintPreset(preset) {
     let result;
 
     if (this.url) {
-      result = await this.linkRequest(`${this.url}?silo=${env}`, "POST", {
+      result = await this.linkRequest(`${this.url}?silo=${this.env}`, "POST", {
         "Content-Type": "text/plain"
       }, preset.code);
     } else {
       log(chalk`{red Lint service url not configured}`);
     }
 
-    return new LintResults(result, softFaults);
+    return new LintResults(result, this.softFaults);
   }
 
-  async printLint(lintables, env, softFaults) {
+  async printLint(lintables) {
     for (let x of lintables) {
       if (!x.lint || !x.path.endsWith(".py")) {
         log(chalk`Skipping ${x.chalkPrint(false)}`);
@@ -6882,7 +6887,7 @@ class Lint {
       }
 
       log(chalk`Linting ${x.chalkPrint(false)}`);
-      let res = await x.lint(this, env, softFaults);
+      let res = await x.lint(this);
       res.chalkPrint();
     }
   }
@@ -7292,7 +7297,6 @@ let presetsub = {
       throw new AbortError("No files provided to upload (use --file argument)");
     }
 
-    let softFaults = args.soft ? true : false;
     let presets = this.files.map(path => {
       try {
         return new Preset({
@@ -7304,7 +7308,7 @@ let presetsub = {
       }
     }).filter(preset => preset);
     log(chalk`Linting {green ${presets.length}} preset(s).`);
-    await defaultLinter().printLint(presets, this.env, softFaults);
+    await defaultLinter(args).printLint(presets);
   },
 
   async $deleteRemote(args) {
@@ -7662,7 +7666,7 @@ let supplysub = {
         log("All presets are the same");
       }
     } else if (args["lint"]) {
-      await this.chain.lint(defaultLinter());
+      await this.chain.lint(defaultLinter(args));
     } else {
       return await this.chain.log();
     }

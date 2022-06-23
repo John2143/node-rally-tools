@@ -19,6 +19,8 @@ export {default as Deploy} from "./deploy.js";
 export {default as Trace} from "./trace.js";
 import * as Lint from "./lint.js";
 export { Lint };
+import * as UnitTest from "./unit-test.js";
+export { UnitTest };
 
 import fs from "fs";
 import {configObject} from "./config.js";

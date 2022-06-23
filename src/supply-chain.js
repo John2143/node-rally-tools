@@ -202,4 +202,9 @@ export default class SupplyChain{
         let things = [...this.rules.arr, ...this.presets.arr];
         await linter.printLint(things);
     }
+
+    async unitTest(unitTester){
+        let things = [...this.rules.arr, ...this.presets.arr];
+        await unitTester.printUnitTest(things);
+    }
 }

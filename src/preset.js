@@ -513,6 +513,12 @@ class Preset extends RallyBase{
         return readFileSync(this.path, "utf-8");
     }
 
+    getLocalUnitTestCode(){
+        let unitTestName = this.path.split("/").slice(-1)[0].replace(".py",".test.py")
+        let unitTestPath = `${configObject.unitTestDir || `${configObject.repodir}/tests`}/${unitTestName}`
+        return readFileSync(unitTestPath, "utf-8");
+    }
+
     parseHeaderInfo(){
         if(!this.header) return null;
         let abs = {
@@ -617,6 +623,10 @@ class Preset extends RallyBase{
 
     async lint(linter) {
         return await linter.lintPreset(this);
+    }
+
+    async unitTest(unitTester) {
+        return await unitTester.unitTestPreset(this);
     }
 }
 

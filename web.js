@@ -3029,9 +3029,8 @@ ${eLine.line}`);
     }
 
     getLocalUnitTestCode() {
-      //todo fixup for binary presets, see uploadPresetData
-      let presetName = this.path.split("/").slice(-1)[0].replace(".py", ".test.py");
-      let unitTestPath = `${exports.configObject.unitTestDir || `${exports.configObject.repodir}/tests`}/${presetName}`;
+      let unitTestName = this.path.split("/").slice(-1)[0].replace(".py", ".test.py");
+      let unitTestPath = `${exports.configObject.unitTestDir || `${exports.configObject.repodir}/tests`}/${unitTestName}`;
       return readFileSync(unitTestPath, "utf-8");
     }
 

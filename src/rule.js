@@ -226,7 +226,7 @@ class Rule extends RallyBase{
         if(this.subproject){
             sub = chalk`{yellow ${this.subproject}}`;
         }
-        if(pad) id = id.padStart(10);
+        if(pad) id = id.padStart(13);
         try{
             return chalk`{green ${id}}: ${sub}{blue ${this.name}}`;
         }catch(e){

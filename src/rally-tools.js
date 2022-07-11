@@ -309,7 +309,9 @@ export class RallyBase{
     static async getByName(env, name, qs){
         this.handleCaching();
         for(let item of this.cache){
-            if(item.name === name && item.remote === env) return item;
+            if(item.name === name && item.remote === env){
+                return item;
+            }
         }
 
         let data = await lib.makeAPIRequest({

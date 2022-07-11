@@ -170,6 +170,8 @@ class Preset extends RallyBase{
 
         let proType = await this.resolveField(Provider, "providerType");
 
+        if(!proType) return;
+
         this.ext = await proType.getFileExtension();
 
         this.isGeneric = true;
@@ -245,7 +247,7 @@ class Preset extends RallyBase{
         if(this.subproject){
             sub = chalk`{yellow ${this.subproject}}`;
         }
-        if(pad) id = id.padStart(10);
+        if(pad) id = id.padStart(13);
         if(this.name == undefined){
             return chalk`{green ${id}}: ${sub}{red ${this.path}}`;
         }else if(this.meta.proType){
@@ -281,7 +283,12 @@ class Preset extends RallyBase{
     static getLocalPath(name, ext, subproject){
         return this._localpath || path.join(configObject.repodir, subproject || "", "silo-presets", name + "." + ext);
     }
-    get localpath(){return Preset.getLocalPath(this.name, this.ext, this.subproject)}
+    get localpath(){
+        if(this._path) {
+            return this._path;
+        }
+        return Preset.getLocalPath(this.name, this.ext, this.subproject)
+    }
 
     get path(){
         if(this._path) return this._path;
@@ -391,6 +398,7 @@ class Preset extends RallyBase{
     }
     async grabMetadata(env){
         let remote = await Preset.getByName(env, this.name);
+
         this.isGeneric = false;
         if(!remote){
             throw new AbortError(`No file found on remote ${env} with name ${this.name}`);

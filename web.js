@@ -676,7 +676,9 @@
       this.handleCaching();
 
       for (let item of this.cache) {
-        if (item.name === name && item.remote === env) return item;
+        if (item.name === name && item.remote === env) {
+          return item;
+        }
       }
 
       let data = await lib.makeAPIRequest({
@@ -1339,7 +1341,7 @@
         sub = chalk`{yellow ${this.subproject}}`;
       }
 
-      if (pad) id = id.padStart(10);
+      if (pad) id = id.padStart(13);
 
       try {
         return chalk`{green ${id}}: ${sub}{blue ${this.name}}`;
@@ -2647,6 +2649,7 @@ ${eLine.line}`);
     async resolve() {
       if (this.isGeneric) return;
       let proType = await this.resolveField(Provider, "providerType");
+      if (!proType) return;
       this.ext = await proType.getFileExtension();
       this.isGeneric = true;
       return {
@@ -2736,7 +2739,7 @@ ${eLine.line}`);
         sub = chalk`{yellow ${this.subproject}}`;
       }
 
-      if (pad) id = id.padStart(10);
+      if (pad) id = id.padStart(13);
 
       if (this.name == undefined) {
         return chalk`{green ${id}}: ${sub}{red ${this.path}}`;
@@ -2772,6 +2775,10 @@ ${eLine.line}`);
     }
 
     get localpath() {
+      if (this._path) {
+        return this._path;
+      }
+
       return Preset.getLocalPath(this.name, this.ext, this.subproject);
     }
 

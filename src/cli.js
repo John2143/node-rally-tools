@@ -96,11 +96,13 @@ let presetsub = {
             await preset.grabMetadata(this.env);
             await preset.saveLocalMetadata();
 
+            Preset.cache = [];
+
             if(args.full){
                 let remo = await Preset.getByName(this.env, preset.name);
-                await remo.resolve();
                 await remo.downloadCode();
-                await remo.saveLocalFile();
+                preset.code = remo.code;
+                await preset.saveLocalFile();
             }
         }
     },
@@ -468,6 +470,11 @@ let supplysub = {
 
             for(let preset of this.chain.presets){
                 let otherPreset = otherPresets.arr.find(x => x.name === preset.name) || {};
+                if(!preset.code || !otherPreset.code) {
+                    printPresets(preset, otherPreset);
+                    log("Could not analyze")
+                    continue;
+                }
 
                 preset.code      = preset.code.replace(/[\r\n ]/, "");
                 otherPreset.code = (otherPreset.code || "").replace(/[\r\n ]/, "");
@@ -492,6 +499,21 @@ let supplysub = {
             if(!anyDifferent) {
                 log("All presets are the same");
             }
+
+        }else if(args["swap"]){
+            let env = args["swap"];
+            await Promise.all(this.chain.presets.arr.map(obj => obj.downloadCode()));
+            await Promise.all(this.chain.presets.arr.map(obj => obj.resolve()));
+
+            let otherPresets = await Promise.all(this.chain.presets.arr.map(obj => Preset.getByName(env, obj.name)));
+            otherPresets = new Collection(otherPresets.filter(x => x));
+            this.chain.presets = otherPresets;
+
+            let otherRules = await Promise.all(this.chain.rules.arr.map(obj => Rule.getByName(env, obj.name)));
+            otherRules = new Collection(otherRules.filter(x => x));
+            this.chain.rules = otherRules;
+
+            return await this.chain.log();
         } else if(args["lint"]) {
             await this.chain.lint(Lint.defaultLinter(args));
 

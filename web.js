@@ -3808,6 +3808,69 @@ Try {red git status} or {red rally stage edit --verbose} for more info.`;
       }
     },
 
+    async $forceRemove() {
+      if (!(await this.checkCurrentBranch())) {
+        log(stagingEmsg);
+        return;
+      }
+
+      try {
+        return await this.forceRemove();
+      } finally {
+        await this.runGit([0], "checkout", "staging");
+      }
+    },
+
+    async forceRemove() {
+      let badBranches = this.args._;
+
+      if (!badBranches || badBranches.length === 0) {
+        throw new AbortError(chalk`No branch given to force remove`);
+      }
+
+      if (await this.downloadStage()) return; //First, create new stage without broken branches to check if it's valid
+
+      let newStage = this.stageData.stage.filter(x => !badBranches.includes(x.branch));
+
+      if (this.stageData.stage.length - newStage.length < badBranches.length) {
+        throw new AbortError(chalk`Not all given branches are currently staged.`);
+      } //Next, get all the presets of the removed branch
+
+
+      let allDiffs = "";
+
+      for (let branch of badBranches) {
+        let diff = await spawn({
+          noecho: true
+        }, "git", ["diff", `staging...origin/${branch}`, "--name-only"]);
+
+        if (diff.exitCode !== 0) {
+          log(diff);
+          throw new AbortError(`Could not diff "staging..origin/${branch}"`);
+        }
+
+        allDiffs += diff.stdout;
+      } //Finally, make a new stage and deploy all the presets from the old branches
+
+
+      let newStageBranches = newStage.map(x => x.branch);
+      let x = await this.makeNewStage(newStageBranches); //log("Current stage: ");
+      //for(let branch of newStageBranches){
+      //log(chalk` - ${branch}`);
+      //}
+
+      log("Force removing the following branches:");
+
+      for (let branch of badBranches) {
+        log(chalk` - {red ${branch}}`);
+      } //Deploy to env and upload changes
+
+
+      await this.runRally(allDiffs);
+      this.stageData.stage = newStage;
+      await this.uploadStage();
+    },
+
     async $pull() {
       if (await this.downloadStage()) return;
       await this.makeOldStage(this.stageData.stage.map(x => x.commit), `rallystage-${this.env}`);

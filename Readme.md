@@ -271,6 +271,31 @@ changeA
 changeB
 ```
 
+### Troubleshooting
+
+Sometimes, the stage may become broken. Updating the base branch or pushing
+conflicting changes without deploying can cause rally tools to be unable to
+combine all the branches correctly. Without that core function, no branches
+can be added or removed.
+
+If the problem branch/commit is known, it can be removed with  `rally stage
+forceRemove [branch]`. Multiple branches can be removed at once with `rally
+stage forceRemove A B C D`.
+
+If that doesn't work, then the stage can be manually edited. Each environment
+and stage has a file representing the current state of the environment in json.
+For example, to fix the `onramp` stage on `UAT`, look for the preset
+`onramp.json`. This file is loaded from the environment at the start of every
+`stage` command, so editing this file is the ultimate failsafe.
+
+It's important to note that editing the stage file will *NOT* automatically
+deploy anything. It is up to the user to manually deploy the changes using a
+combination of `rally stage pull` and `git diff [...] | rally @`. In theory,
+`rally stage pull; git ls-files | rally @ --to [ENV]` should always be able to
+restore `[ENV]` back to a known state, but it should always be used with
+caution.
+
+
 ## `rally preset`
 
 This command deals with preset actions such as creating, uploading, and

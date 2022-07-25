@@ -7246,7 +7246,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   orderedObjectKeys: orderedObjectKeys
 });
 
-var version = "6.0.9";
+var version = "6.1.0";
 
 var baseCode = {
   SdviContentMover: `{

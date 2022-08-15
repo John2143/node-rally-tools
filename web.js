@@ -3929,6 +3929,12 @@ Try {red git status} or {red rally stage edit --verbose} for more info.`;
           if (this.args.force) {
             await this.runGit([0], "merge", "--abort");
           } else {
+            try {
+              let [a] = await this.runGit([0], "branch", "-a", "--color=never", "--contains", branch);
+              a = a.trim();
+              log(chalk`{yellow Hint}: Full name of conflict branch: {green ${a}}`);
+            } catch (e) {}
+
             throw new AbortError("Not trying to merge other branches");
           }
         }

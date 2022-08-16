@@ -1,0 +1,5 @@
+omd_microservice:
+  name: rallydev-rally-tools
+omd_service:
+- name: sc-orchestration
+inventory_id: 980162270ee0cf69c2e3a0a0a87dd93d-e8e885e0931c2c609d3059f840c02b70

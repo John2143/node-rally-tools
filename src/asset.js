@@ -338,7 +338,8 @@ class Asset extends RallyBase{
         await targetAsset.patchMetadata(this.md);
 
         let fileCreations = [];
-        for(let file of await this.getFiles()){
+        let files = await this.getFiles();
+        for(let file of files){
 
             let possibleInstances = {};
             //Check for any valid copy-able instances
@@ -363,7 +364,16 @@ class Asset extends RallyBase{
             }
 
         }
-        await Promise.all(fileCreations.map(x => x()));
+
+        if(fileCreations.length > 30) {
+            //too many parallel creations can crash the script, so don't do it in parallel
+            log("Adding files sequentially")
+            for(let c of fileCreations) {
+                await c();
+            }
+        }else{
+            await Promise.all(fileCreations.map(x => x()));
+        }
     }
 
     async addFileInstance(file, inst, tagList = []){

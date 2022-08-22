@@ -2402,8 +2402,9 @@ class Asset extends RallyBase {
     log("Adding asset metadata");
     await targetAsset.patchMetadata(this.md);
     let fileCreations = [];
+    let files = await this.getFiles();
 
-    for (let file of await this.getFiles()) {
+    for (let file of files) {
       let possibleInstances = {}; //Check for any valid copy-able instances
 
       for (let inst of file.instancesList) {
@@ -2427,7 +2428,16 @@ class Asset extends RallyBase {
       }
     }
 
-    await Promise.all(fileCreations.map(x => x()));
+    if (fileCreations.length > 30) {
+      //too many parallel creations can crash the script, so don't do it in parallel
+      log("Adding files sequentially");
+
+      for (let c of fileCreations) {
+        await c();
+      }
+    } else {
+      await Promise.all(fileCreations.map(x => x()));
+    }
   }
 
   async addFileInstance(file, inst, tagList = []) {
@@ -7252,7 +7262,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   orderedObjectKeys: orderedObjectKeys
 });
 
-var version = "6.1.0";
+var version = "6.1.1";
 
 var baseCode = {
   SdviContentMover: `{

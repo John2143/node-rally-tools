@@ -3179,6 +3179,282 @@ ${eLine.line}`);
   defineAssoc(Preset, "providerName", "relationships.providerType.data.name");
   Preset.endpoint = "presets";
 
+  let exists$1 = {};
+
+  class UserDefinedConnector extends RallyBase {
+    constructor({
+      path: path$$1,
+      remote,
+      data,
+      subProject,
+      included,
+      ...rest
+    } = {}) {
+      // Get full path if possible
+      if (path$$1) {
+        path$$1 = path.resolve(path$$1);
+      }
+
+      if (Object.values(rest).length > 0) {
+        log(chalk`{yellow Warning}: Internal error, got rest param in UDC`);
+        log(rest);
+      }
+
+      super(); // Cache by path
+
+      if (path$$1) {
+        if (exists$1[pathTransform(path$$1)]) return exists$1[pathTransform(path$$1)];
+        exists$1[pathTransform(path$$1)] = this;
+      }
+
+      this.meta = {};
+      this.subproject = subProject;
+      this.remote = remote;
+      this.ext = "py";
+
+      if (lib.isLocalEnv(this.remote)) {
+        if (!path$$1) {
+          throw new AbortError("Need either path or remote env + data for UDC constructor");
+        }
+
+        this.data = {
+          attributes: {
+            name: null
+          }
+        };
+        this.path = path$$1;
+        this.code = this.getLocalCode();
+        this.loadFromCode();
+        this.isGeneric = true;
+      } else {
+        this.data = data;
+        this.isGeneric = false;
+      }
+
+      this.data.relationships = this.data.relationships || {};
+    }
+
+    loadFromCode() {
+      var _$exec$, _$exec$2, _$exec$3;
+
+      let headerRegex = /^"""$/gim;
+      let hasHeaderStart = headerRegex.exec(this.code);
+      let hasHeaderEnd = headerRegex.exec(this.code);
+
+      if (hasHeaderEnd) {
+        this.header = this.code.substring(hasHeaderStart[0].length, hasHeaderEnd.index).trim();
+        let helpTextRegex = /======$/gim;
+        let k = helpTextRegex.exec(this.header);
+        this.helpText = this.header.substring(k.index + 7);
+      }
+
+      let abs = {
+        provider: (_$exec$ = /Provider:(.+)/.exec(this.header)[1]) === null || _$exec$ === void 0 ? void 0 : _$exec$.trim(),
+        langauge: (_$exec$2 = /Preset Language:(.+)/.exec(this.header)[1]) === null || _$exec$2 === void 0 ? void 0 : _$exec$2.trim(),
+        library: (_$exec$3 = /Library:(.+)/.exec(this.header)[1]) === null || _$exec$3 === void 0 ? void 0 : _$exec$3.trim()
+      };
+      this.name = abs.provider;
+      this.library = abs.library;
+      this.language = abs.langauge;
+    }
+
+    cleanup() {
+      super.cleanup();
+    }
+
+    async saveLocalFile() {
+      writeFileSync(this.localpath, this.code || "");
+    }
+
+    async save(env, shouldTest = true) {
+      this.saved = true;
+
+      if (!this.isGeneric) {
+        await this.downloadCode();
+      }
+
+      this.cleanup();
+
+      if (lib.isLocalEnv(env)) {
+        log(chalk`Saving provider {green ${this.name}} to {blue ${lib.envName(env)}}.`);
+
+        if (exports.configObject.verbose) {
+          log(chalk`Path: ${this.localpath}`);
+        }
+
+        await this.saveLocalFile();
+      } else {
+        await this.uploadCodeToEnv(env, {}, shouldTest);
+      }
+    }
+
+    async downloadCode() {
+      var _this$data$links;
+
+      if (!this.remote || this.code) return this.code;
+      let pdlink = (_this$data$links = this.data.links) === null || _this$data$links === void 0 ? void 0 : _this$data$links.userConnCode;
+      if (!pdlink) return this.code = "";
+      let code = await lib.makeAPIRequest({
+        env: this.remote,
+        path_full: pdlink,
+        json: false
+      });
+      this.code = code;
+      this.loadFromCode();
+      return code;
+    }
+
+    get code() {
+      if (this._code) return this._code;
+    }
+
+    set code(v) {
+      this._code = v;
+    }
+
+    chalkPrint(pad = true) {
+      let id = String("C-" + (this.remote && this.remote + "-" + this.id || "LOCAL"));
+      let sub = "";
+
+      if (this.subproject) {
+        sub = chalk`{yellow ${this.subproject}}`;
+      }
+
+      if (pad) id = id.padStart(11);
+
+      if (this.name == undefined) {
+        return chalk`{green ${id}}: ${sub}{red ${this.path}}`;
+      } else {
+        return chalk`{green ${id}}: ${sub}{blue ${this.name}}`;
+      }
+    }
+
+    static getLocalPath(name, ext, subproject) {
+      return this._localpath || path__default.join(exports.configObject.repodir, subproject || "", "silo-providers", name + "." + ext);
+    }
+
+    get localpath() {
+      if (this._path) {
+        return this._path;
+      }
+
+      return UserDefinedConnector.getLocalPath(this.name, this.ext, this.subproject);
+    }
+
+    get path() {
+      if (this._path) return this._path;
+    }
+
+    set path(val) {
+      this._path = val;
+    }
+
+    get localmetadatapath() {
+      if (this.path) {
+        return this.path.replace("silo-presets", "silo-metadata").replace(new RegExp(this.ext + "$"), "json");
+      }
+
+      return path__default.join(exports.configObject.repodir, this.subproject || "", "silo-metadata", this.name + ".json");
+    }
+
+    async uploadPresetData(env, id, {
+      skipcode = false,
+      skiphelp = false,
+      skipmetadata = false
+    } = {}) {
+      let code = this.code;
+      write(chalk`id {green ${id}}... `);
+
+      let a = async () => {
+        if (skipcode) return;
+        let res = await lib.makeAPIRequest({
+          env,
+          path: `/providerTypes/${id}/userConnCode`,
+          body: code,
+          method: "PUT",
+          fullResponse: true,
+          timeout: 10000
+        });
+        write(chalk`code up {yellow ${res.statusCode}}, `);
+      };
+
+      let b = async () => {
+        if (skiphelp) return;
+        let res = await lib.makeAPIRequest({
+          env,
+          path: `/providerTypes/${id}/userConnHelp`,
+          body: this.helpText || "No help text available",
+          method: "PUT",
+          fullResponse: true,
+          timeout: 10000
+        });
+        write(chalk`help up {yellow ${res.statusCode}}, `);
+      };
+
+      let c = async () => {
+        if (skipmetadata) return;
+        let res = await lib.makeAPIRequest({
+          env,
+          path: `/providerTypes/${id}`,
+          json: true,
+          payload: {
+            "data": {
+              "attributes": {
+                "userConnPackage": this.library,
+                "userConnPresetLang": this.language
+              },
+              "type": "providerTypes"
+            }
+          },
+          method: "PATCH",
+          fullResponse: true,
+          timeout: 10000
+        });
+        write(chalk`metadata up {yellow ${res.statusCode}}, `);
+      };
+
+      await Promise.all([a(), b(), c()]);
+      write("Done.");
+    }
+
+    async uploadCodeToEnv(env, includeMetadata, shouldTest = true) {
+      write(chalk`Uploading provider {green ${this.name}} to {green ${env}}: `); //First query the api to see if this already exists.
+
+      let remote = await UserDefinedConnector.getByName(env, this.name);
+
+      if (!remote) {
+        throw new AbortError("Initial provider file does not exist, please see SDVI");
+      }
+
+      return await this.uploadPresetData(env, remote.id);
+    }
+
+    getLocalCode() {
+      return readFileSync(this.path, "utf-8");
+    }
+
+  } //defineAssoc(UserDefinedConnector, "_nameInner", "data.attributes.providerSettings.PresetName");
+  //defineAssoc(UserDefinedConnector, "_nameOuter", "data.attributes.name");
+  //defineAssoc(UserDefinedConnector, "_nameE2", "data.attributes.providerDataFilename");
+
+
+  defineAssoc(UserDefinedConnector, "id", "data.id"); //defineAssoc(UserDefinedConnector, "importName", "data.attributes.providerDataFilename");
+
+  defineAssoc(UserDefinedConnector, "attributes", "data.attributes");
+  defineAssoc(UserDefinedConnector, "name", "data.attributes.name");
+  defineAssoc(UserDefinedConnector, "relationships", "data.relationships");
+  defineAssoc(UserDefinedConnector, "remote", "meta.remote"); //defineAssoc(UserDefinedConnector, "_code", "meta.code");
+  //defineAssoc(UserDefinedConnector, "_path", "meta.path");
+
+  defineAssoc(UserDefinedConnector, "isGeneric", "meta.isGeneric");
+  defineAssoc(UserDefinedConnector, "ext", "meta.ext");
+  defineAssoc(UserDefinedConnector, "subproject", "meta.project");
+  defineAssoc(UserDefinedConnector, "language", "meta.language");
+  defineAssoc(UserDefinedConnector, "library", "meta.library"); //defineAssoc(UserDefinedConnector, "metastring", "meta.metastring");
+  //defineAssoc(UserDefinedConnector, "providerName", "relationships.providerType.data.name");
+
+  UserDefinedConnector.endpoint = "providerTypes";
+
   //Move project into silo metadata
   //move autotest into silo metadata
   //
@@ -3190,6 +3466,11 @@ ${eLine.line}`);
         this.stopRule = stopRule;
         this.remote = startingRule.remote;
       }
+
+      this.presets = new Collection([]);
+      this.rules = new Collection([]);
+      this.providers = new Collection([]);
+      this.notifications = new Collection([]);
     }
 
     async downloadPresetCode(objs = this.allPresets) {
@@ -3307,6 +3588,12 @@ ${eLine.line}`);
         this.presets.log();
       }
 
+      if (this.providers.arr.length > 0) {
+        write("Required providers: ");
+        log(this.providers.arr.length);
+        this.providers.log();
+      }
+
       if (exports.configObject.rawOutput) {
         return {
           presets: this.presets.arr,
@@ -3364,11 +3651,25 @@ ${eLine.line}`);
         }
       }
 
+      for (let provider of this.providers) {
+        try {
+          fails.push([provider, await provider.save(env), "provider"]);
+        } catch (e) {
+          log(chalk`{red Error}`);
+          fails.push([provider, e, "provider upload"]);
+        }
+      }
+
       let finalErrors = [];
 
       for (let [item, error, stage] of fails) {
         if (!error) continue;
         log(chalk`Error during {blue ${stage}}: ${item.chalkPrint(false)} {red ${error}}`);
+
+        if (exports.configObject.verbose) {
+          log(error);
+        }
+
         finalErrors.push([item, error, stage]);
       }
 
@@ -6947,6 +7248,8 @@ nothing to commit, working tree clean`;
         return ret;
       } else if (match[1] === "R") {
         return await Rule.getById(match[2], match[3]);
+      } else if (match[1] === "C") {
+        return await UserDefinedConnector.getById(match[2], match[3]);
       } else {
         return null;
       }
@@ -6967,6 +7270,12 @@ nothing to commit, working tree clean`;
 
           case "metadata":
             return await Preset.fromMetadata(str, match[1]);
+
+          case "providers":
+            return new UserDefinedConnector({
+              path: str,
+              subProject: match[1]
+            });
         }
       } catch (e) {
         log(chalk`{red Error}: Failed to parse {blue ${match[2]}}\n   in {green ${str}}:\n   ${e}`);
@@ -6990,6 +7299,7 @@ nothing to commit, working tree clean`;
   exports.Tag = Tag;
   exports.Stage = Stage$$1;
   exports.Deploy = Deploy;
+  exports.UserDefinedConnector = UserDefinedConnector;
   exports.Trace = Trace;
   exports.loadConfig = loadConfig;
   exports.loadConfigFromArgs = loadConfigFromArgs;

@@ -18,6 +18,10 @@ export default class SupplyChain{
             this.stopRule = stopRule
             this.remote = startingRule.remote;
         }
+        this.presets = new Collection([]);
+        this.rules  = new Collection([]);
+        this.providers = new Collection([]);
+        this.notifications = new Collection([]);
     }
     async downloadPresetCode(objs = this.allPresets){
         log("Downloading code... ");
@@ -142,6 +146,12 @@ export default class SupplyChain{
             this.presets.log();
         }
 
+        if(this.providers.arr.length > 0){
+            write("Required providers: ");
+            log(this.providers.arr.length);
+            this.providers.log();
+        }
+
         if(configObject.rawOutput){
             return {presets: this.presets.arr, rules: this.rules.arr, notifications: this.notifications.arr};
         }
@@ -189,10 +199,22 @@ export default class SupplyChain{
             }
         }
 
+        for(let provider of this.providers){
+            try{
+                fails.push([provider, await provider.save(env), "provider"]);
+            }catch(e){
+                log(chalk`{red Error}`);
+                fails.push([provider, e, "provider upload"]);
+            }
+        }
+
         let finalErrors = [];
         for(let [item, error, stage] of fails){
             if(!error) continue;
             log(chalk`Error during {blue ${stage}}: ${item.chalkPrint(false)} {red ${error}}`);
+            if(configObject.verbose){
+                log(error);
+            }
             finalErrors.push([item, error, stage]);
         }
 

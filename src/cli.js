@@ -4,7 +4,7 @@ import argparse from "minimist";
 import * as allIndexBundle from "./index.js"
 import {
     rallyFunctions as funcs,
-    Preset, Rule, SupplyChain, Provider, Asset, User, Tag, Stage, Deploy, Lint, UnitTest,
+    Preset, Rule, SupplyChain, Provider, Asset, User, Tag, Stage, Deploy, Lint, UnitTest, UserDefinedConnector,
     AbortError, UnconfiguredEnvError, Collection, APIError,
     IndexObject,
 } from "./index.js";
@@ -539,12 +539,14 @@ let supplysub = {
         for(let file of this.files){
             set.add(await allIndexBundle.categorizeString(file));
         }
+
         let files = [...set];
         files = files.filter(f => f && !f.missing);
         this.chain = new SupplyChain();
 
         this.chain.rules = new Collection(files.filter(f => f instanceof Rule));
         this.chain.presets = new Collection(files.filter(f => f instanceof Preset));
+        this.chain.providers = new Collection(files.filter(f => f instanceof UserDefinedConnector));
         this.chain.notifications = new Collection([]);
 
         return await this.postAction(args);

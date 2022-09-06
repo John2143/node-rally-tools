@@ -4,6 +4,7 @@ import {lib, UnconfiguredEnvError, IndexObject} from "./rally-tools.js";
 import {cached} from "./decorators.js";
 import {default as Preset} from "./preset.js";
 import {default as Rule} from "./rule.js";
+import {default as UserDefinedConnector} from "./udc.js";
 
 export {default as SupplyChain} from "./supply-chain.js";
 export {default as Preset} from "./preset.js";
@@ -15,6 +16,7 @@ export {default as User} from "./user.js";
 export {default as Tag} from "./tag.js";
 export {default as Stage} from "./stage.js";
 export {default as Deploy} from "./deploy.js";
+export {default as UserDefinedConnector} from "./udc.js";
 //TODO fix export from index
 export {default as Trace} from "./trace.js";
 import * as Lint from "./lint.js";
@@ -77,6 +79,8 @@ export async function categorizeString(str, defaultSubproject=undefined){
             return ret;
         }else if(match[1] === "R"){
             return await Rule.getById(match[2], match[3]);
+        }else if(match[1] === "C"){
+            return await UserDefinedConnector.getById(match[2], match[3]);
         }else{
             return null;
         }
@@ -86,6 +90,7 @@ export async function categorizeString(str, defaultSubproject=undefined){
                 case "presets": return new Preset({path: str, subProject: match[1]});
                 case "rules": return new Rule({path: str, subProject: match[1]});
                 case "metadata": return await Preset.fromMetadata(str, match[1]);
+                case "providers": return new UserDefinedConnector({path: str, subProject: match[1]});
             }
         }catch(e){
             log(chalk`{red Error}: Failed to parse {blue ${match[2]}}\n   in {green ${str}}:\n   ${e}`);

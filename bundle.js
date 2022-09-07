@@ -4057,7 +4057,7 @@ let Stage$$1 = {
     await preset.downloadCode();
     this.stageData = JSON.parse(preset.code);
     this.stagePreset = preset;
-    log(chalk`Stage loaded: {green ${this.stagePreset.name}}`);
+    log(chalk`Stage loaded: {green ${this.env}}/{green ${this.stagePreset.name}}`);
   },
 
   async uploadStage() {
@@ -7683,7 +7683,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   orderedObjectKeys: orderedObjectKeys
 });
 
-var version = "6.3.0";
+var version = "7.0.0";
 
 var baseCode = {
   SdviContentMover: `{

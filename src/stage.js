@@ -47,7 +47,7 @@ let Stage = {
         this.stageData = JSON.parse(preset.code);
         this.stagePreset = preset;
 
-        log(chalk`Stage loaded: {green ${this.stagePreset.name}}`);
+        log(chalk`Stage loaded: {green ${this.env}}/{green ${this.stagePreset.name}}`);
     },
 
     async uploadStage() {

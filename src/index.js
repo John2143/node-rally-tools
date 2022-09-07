@@ -17,13 +17,13 @@ export {default as Tag} from "./tag.js";
 export {default as Stage} from "./stage.js";
 export {default as Deploy} from "./deploy.js";
 export {default as UserDefinedConnector} from "./udc.js";
-export {getSQSMessages} from "./sqs.js";
 //TODO fix export from index
 export {default as Trace} from "./trace.js";
+
 import * as Lint from "./lint.js";
-export { Lint };
+import * as SQS from "./sqs.js";
 import * as UnitTest from "./unit-test.js";
-export { UnitTest };
+export { UnitTest, SQS, Lint };
 
 import fs from "fs";
 import {configObject} from "./config.js";

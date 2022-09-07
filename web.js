@@ -6963,89 +6963,6 @@ nothing to commit, working tree clean`;
 
   };
 
-  /* Example:
-  * let AWS = require("aws-sdk");
-  * let credentials = new AWS.SharedIniFileCredentials({profile: "taskhandler"});
-  * AWS.config.credentials = credentials;
-  * 
-  * let sq = new AWS.SQS({
-  *     region: "us-east-1",
-  * });
-  * 
-  * for await (let m of getMessage(sq, "https://sqs.us-east-1.amazonaws.com/12345/your-queue-here)){
-  *     let o = JSON.parse(m.Body);
-  *     ...
-  * }
-  *
-  */
-  function getMessageList(sq, QueueUrl) {
-    return new Promise((resolve, reject) => {
-      sq.receiveMessage({
-        QueueUrl,
-        MaxNumberOfMessages: 10
-      }, function (err, data) {
-        if (err) return reject(err);
-        let messages = data.Messages || [];
-
-        if (messages.length > 0) {
-          sq.deleteMessageBatch({
-            QueueUrl,
-            Entries: messages.map(x => ({
-              Id: x.MessageId,
-              ReceiptHandle: x.ReceiptHandle
-            }))
-          }, function (delerr, _) {
-            if (delerr) {
-              return reject(delerr);
-            }
-
-            return resolve(messages);
-          });
-        } else {
-          return resolve(messages);
-        }
-      });
-    });
-  }
-
-  let sleep$1 = (time = 1000) => new Promise((resolve, _) => {
-    setTimeout(resolve, time);
-  });
-
-  function getSQSMessages(_x, _x2) {
-    return _getSQSMessages.apply(this, arguments);
-  }
-
-  function _getSQSMessages() {
-    _getSQSMessages = _wrapAsyncGenerator(function* (sqsClient, queueUrl) {
-      let currMessages = [];
-      let gml = getMessageList.bind(null, sqsClient, queueUrl);
-
-      for (;;) {
-        if (currMessages.length === 0) {
-          //get 100 messages at a time
-          let currMessagesList = yield _awaitAsyncGenerator(Promise.all([gml(), gml(), gml(), gml(), gml(), gml(), gml(), gml(), gml(), gml()]));
-
-          for (let curMsg of currMessagesList) {
-            currMessages = currMessages.concat(curMsg);
-          }
-
-          currMessages = currMessages.reverse();
-          log(currMessages.length);
-        }
-
-        if (currMessages.length === 0) {
-          yield _awaitAsyncGenerator(sleep$1(2000));
-          log("Hit end");
-          continue;
-        }
-
-        yield currMessages.pop();
-      }
-    });
-    return _getSQSMessages.apply(this, arguments);
-  }
-
   let _defaultLinter;
 
   function defaultLinter(args, refresh = false) {
@@ -7149,6 +7066,116 @@ nothing to commit, working tree clean`;
     defaultLinter: defaultLinter,
     LintResults: LintResults,
     Lint: Lint
+  });
+
+  /* Example:
+  * let AWS = require("aws-sdk");
+  * let credentials = new AWS.SharedIniFileCredentials({profile: "taskhandler"});
+  * AWS.config.credentials = credentials;
+  * 
+  * let sq = new AWS.SQS({
+  *     region: "us-east-1",
+  * });
+  * 
+  * for await (let m of getMessage(sq, "https://sqs.us-east-1.amazonaws.com/12345/your-queue-here")){
+  *     let o = JSON.parse(m.Body);
+  *     ...
+  * }
+  *
+  */
+  async function getMessageList(sq, QueueUrl) {
+    return await new Promise((resolve, reject) => {
+      sq.receiveMessage({
+        QueueUrl,
+        MaxNumberOfMessages: 10
+      }, function (err, data) {
+        if (err) return reject(err);
+        let messages = data.Messages || [];
+
+        if (messages.length > 0) {
+          sq.deleteMessageBatch({
+            QueueUrl,
+            Entries: messages.map(x => ({
+              Id: x.MessageId,
+              ReceiptHandle: x.ReceiptHandle
+            }))
+          }, function (delerr, _) {
+            if (delerr) {
+              return reject(delerr);
+            }
+
+            return resolve(messages);
+          });
+        } else {
+          return resolve(messages);
+        }
+      });
+    });
+  }
+
+  let sleep$1 = (time = 1000) => new Promise((resolve, _) => {
+    setTimeout(resolve, time);
+  });
+
+  function getSQSMessages(_x, _x2) {
+    return _getSQSMessages.apply(this, arguments);
+  }
+
+  function _getSQSMessages() {
+    _getSQSMessages = _wrapAsyncGenerator(function* (sqsClient, queueUrl, {
+      messageBuffer = 100
+    } = {}) {
+      let currMessages = [];
+      let gml = getMessageList.bind(null, sqsClient, queueUrl);
+
+      for (;;) {
+        if (currMessages.length === 0) {
+          let messagePromises = [];
+
+          for (let i = 0; i < messageBuffer / 10; i++) {
+            messagePromises.push(gml());
+          } //get 100 messages at a time
+
+
+          let currMessagesList = yield _awaitAsyncGenerator(Promise.all(messagePromises));
+
+          for (let curMsgs of currMessagesList) {
+            currMessages = currMessages.concat(curMsgs);
+          }
+
+          currMessages = currMessages.reverse();
+        }
+
+        if (currMessages.length === 0) {
+          yield ["info", "No messages since last read"];
+          yield _awaitAsyncGenerator(sleep$1(2000));
+          continue;
+        }
+
+        yield ["message", currMessages.pop()];
+      }
+    });
+    return _getSQSMessages.apply(this, arguments);
+  }
+
+  async function getNumMessages(sqsClient, QueueUrl) {
+    return await new Promise((resolve, reject) => {
+      sqsClient.getQueueAttributes({
+        QueueUrl,
+        AttributeNames: ["ApproximateNumberOfMessages", "ApproximateNumberOfMessagesDelayed"]
+      }, (err, data) => {
+        if (err) {
+          return reject(err);
+        }
+
+        return resolve(data.Attributes);
+      });
+    });
+  }
+
+  var sqs = /*#__PURE__*/Object.freeze({
+    getSQSMessages: getSQSMessages,
+    getNumMessages: getNumMessages
   });
 
   let _defaultUnitTester;
@@ -7368,8 +7395,9 @@ nothing to commit, working tree clean`;
     }
   }
 
-  exports.Lint = lint;
   exports.UnitTest = unitTest;
+  exports.SQS = sqs;
+  exports.Lint = lint;
   exports.rallyFunctions = rallyFunctions;
   exports.categorizeString = categorizeString;
   exports.SupplyChain = SupplyChain;
@@ -7383,7 +7411,6 @@ nothing to commit, working tree clean`;
   exports.Stage = Stage$$1;
   exports.Deploy = Deploy;
   exports.UserDefinedConnector = UserDefinedConnector;
-  exports.getSQSMessages = getSQSMessages;
   exports.Trace = Trace;
   exports.loadConfig = loadConfig;
   exports.loadConfigFromArgs = loadConfigFromArgs;

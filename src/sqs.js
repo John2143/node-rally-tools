@@ -7,15 +7,15 @@
 *     region: "us-east-1",
 * });
 * 
-* for await (let m of getMessage(sq, "https://sqs.us-east-1.amazonaws.com/12345/your-queue-here)){
+* for await (let m of getMessage(sq, "https://sqs.us-east-1.amazonaws.com/12345/your-queue-here")){
 *     let o = JSON.parse(m.Body);
 *     ...
 * }
 *
 */
 
-function getMessageList(sq, QueueUrl){
-    return new Promise((resolve, reject) => {
+async function getMessageList(sq, QueueUrl){
+    return await new Promise((resolve, reject) => {
         sq.receiveMessage({
             QueueUrl,
             MaxNumberOfMessages: 10,
@@ -47,31 +47,48 @@ function getMessageList(sq, QueueUrl){
 
 let sleep = (time = 1000) => new Promise((resolve, _) => {setTimeout(resolve, time)});
 
-export async function* getSQSMessages(sqsClient, queueUrl){
+export async function* getSQSMessages(sqsClient, queueUrl, {messageBuffer = 100} = {}){
     let currMessages = [];
     let gml = getMessageList.bind(null, sqsClient, queueUrl);
 
     for(;;){
         if(currMessages.length === 0){
+            let messagePromises = [];
+            for(let i = 0; i < messageBuffer / 10; i++) {
+                messagePromises.push(gml());
+            }
             //get 100 messages at a time
-            let currMessagesList = await Promise.all([
-                gml(), gml(), gml(), gml(), gml(), gml(), gml(), gml(), gml(), gml(),
-            ]);
+            let currMessagesList = await Promise.all(messagePromises)
 
-            for(let curMsg of currMessagesList){
-                currMessages = currMessages.concat(curMsg);
+            for(let curMsgs of currMessagesList){
+                currMessages = currMessages.concat(curMsgs);
             }
 
             currMessages = currMessages.reverse();
-            log(currMessages.length);
         }
 
         if(currMessages.length === 0){
+            yield ["info", "No messages since last read"];
             await sleep(2000);
-            log("Hit end");
             continue;
         }
 
-        yield currMessages.pop();
+        yield ["message", currMessages.pop()];
     }
+}
+
+
+export async function getNumMessages(sqsClient, QueueUrl) {
+    return await new Promise((resolve, reject) => {
+        sqsClient.getQueueAttributes({ 
+            QueueUrl,
+            AttributeNames: ["ApproximateNumberOfMessages", "ApproximateNumberOfMessagesDelayed"],
+        }, (err, data) => {
+            if(err) {
+                return reject(err);
+            }
+
+            return resolve(data.Attributes);
+        });
+    });
 }

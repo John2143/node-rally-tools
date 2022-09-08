@@ -420,6 +420,14 @@ global.ewrite = (...text) => process.stderr.write(...text);
 
 global.errorLog = (...text) => log(...text.map(chalk$1.red));
 
+const logging = {
+  log,
+  write,
+  elog,
+  ewrite,
+  errorLog,
+  chalk: chalk$1
+};
 class lib {
   //This function takes 2 required arguemnts:
   // env: the enviornment you wish to use
@@ -7667,6 +7675,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   loadConfigFromArgs: loadConfigFromArgs,
   setConfig: setConfig,
   get configObject () { return configObject; },
+  logging: logging,
   lib: lib,
   AbortError: AbortError,
   APIError: APIError,
@@ -7684,7 +7693,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   orderedObjectKeys: orderedObjectKeys
 });
 
-var version = "7.0.1";
+var version = "7.0.2";
 
 var baseCode = {
   SdviContentMover: `{

@@ -336,6 +336,14 @@
 
   global.errorLog = (...text) => log(...text.map(chalk$1.red));
 
+  const logging = {
+    log,
+    write,
+    elog,
+    ewrite,
+    errorLog,
+    chalk: chalk$1
+  };
   class lib {
     //This function takes 2 required arguemnts:
     // env: the enviornment you wish to use
@@ -7416,6 +7424,7 @@ nothing to commit, working tree clean`;
   exports.loadConfig = loadConfig;
   exports.loadConfigFromArgs = loadConfigFromArgs;
   exports.setConfig = setConfig;
+  exports.logging = logging;
   exports.lib = lib;
   exports.AbortError = AbortError;
   exports.APIError = APIError;

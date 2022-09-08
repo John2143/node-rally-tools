@@ -10,6 +10,8 @@ global.elog     = (...text) => console.error(...text);
 global.ewrite   = (...text) => process.stderr.write(...text);
 global.errorLog = (...text) => log(...text.map(chalk.red));
 
+export const logging = { log, write, elog, ewrite, errorLog, chalk };
+
 export class lib{
     //This function takes 2 required arguemnts:
     // env: the enviornment you wish to use

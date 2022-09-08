@@ -7371,7 +7371,8 @@ function getSQSMessages(_x, _x2) {
 
 function _getSQSMessages() {
   _getSQSMessages = _wrapAsyncGenerator(function* (sqsClient, queueUrl, {
-    messageBuffer = 100
+    messageBuffer = 100,
+    sleepTime = 2000
   } = {}) {
     let currMessages = [];
     let gml = getMessageList.bind(null, sqsClient, queueUrl);
@@ -7396,7 +7397,7 @@ function _getSQSMessages() {
 
       if (currMessages.length === 0) {
         yield ["info", "No messages since last read"];
-        yield _awaitAsyncGenerator(sleep$1(2000));
+        yield _awaitAsyncGenerator(sleep$1(sleepTime));
         continue;
       }
 
@@ -7683,7 +7684,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   orderedObjectKeys: orderedObjectKeys
 });
 
-var version = "7.0.0";
+var version = "7.0.1";
 
 var baseCode = {
   SdviContentMover: `{

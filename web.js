@@ -7123,7 +7123,8 @@ nothing to commit, working tree clean`;
 
   function _getSQSMessages() {
     _getSQSMessages = _wrapAsyncGenerator(function* (sqsClient, queueUrl, {
-      messageBuffer = 100
+      messageBuffer = 100,
+      sleepTime = 2000
     } = {}) {
       let currMessages = [];
       let gml = getMessageList.bind(null, sqsClient, queueUrl);
@@ -7148,7 +7149,7 @@ nothing to commit, working tree clean`;
 
         if (currMessages.length === 0) {
           yield ["info", "No messages since last read"];
-          yield _awaitAsyncGenerator(sleep$1(2000));
+          yield _awaitAsyncGenerator(sleep$1(sleepTime));
           continue;
         }
 

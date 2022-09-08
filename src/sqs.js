@@ -47,7 +47,7 @@ async function getMessageList(sq, QueueUrl){
 
 let sleep = (time = 1000) => new Promise((resolve, _) => {setTimeout(resolve, time)});
 
-export async function* getSQSMessages(sqsClient, queueUrl, {messageBuffer = 100} = {}){
+export async function* getSQSMessages(sqsClient, queueUrl, {messageBuffer = 100, sleepTime = 2000} = {}){
     let currMessages = [];
     let gml = getMessageList.bind(null, sqsClient, queueUrl);
 
@@ -69,7 +69,7 @@ export async function* getSQSMessages(sqsClient, queueUrl, {messageBuffer = 100}
 
         if(currMessages.length === 0){
             yield ["info", "No messages since last read"];
-            await sleep(2000);
+            await sleep(sleepTime);
             continue;
         }
 

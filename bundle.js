@@ -7721,7 +7721,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   orderedObjectKeys: orderedObjectKeys
 });
 
-var version = "7.0.3";
+var version = "7.0.4";
 
 var baseCode = {
   SdviContentMover: `{
@@ -9375,7 +9375,7 @@ async function main$1(...args) {
 // Oterwise just export everything.
 
 
-if (!module.parent) {
+if (require.main == module) {
   main$1();
 } else {
   loadConfig();

@@ -1472,7 +1472,7 @@ async function main(...args){
 
 // If this is an imported module, then we should exec the cli interface.
 // Oterwise just export everything.
-if(!module.parent){
+if(require.main == module){
     main();
 }else{
     loadConfig();

@@ -310,15 +310,18 @@
       oks = [0];
     }
 
+    if (exports.configObject.verbose) write(`git ${args.join(" ")}`);
     let g = await spawn({
       noecho: true
     }, "git", args);
-    if (exports.configObject.verbose) log(`git ${args.join(" ")}`);
 
     if (!oks.includes(g.exitCode)) {
+      if (exports.configObject.verbose) log(chalk`{red ${g.exitCode}}`);
       log(g.stderr);
       log(g.stdout);
       throw new AbortError(chalk`Failed to run git ${args} {red ${g.exitCode}}`);
+    } else if (exports.configObject.verbose) {
+      log(chalk`{green ${g.exitCode}}`);
     }
 
     return [g.stdout, g.stderr];
@@ -4195,22 +4198,46 @@ Try {red git status} or {red rally stage edit --verbose} for more info.`;
       await this.makeOldStage(this.stageData.stage.map(x => x.commit), `rallystage-${this.env}`);
     },
 
+    async $gitFix() {
+      await this.runGit([0], "reset", "--hard", "HEAD");
+      await this.runGit([0], "checkout", "staging");
+    },
+
+    logProgress(cur, len, name, clearSpace) {
+      let dots = cur + 1;
+      let spaces = len - dots;
+      write(chalk`\r[${".".repeat(dots)}${" ".repeat(spaces)}] {yellow ${cur + 1}} / ${len} ${name}${" ".repeat(clearSpace - name.length)}`);
+    },
+
     async makeNewStage(newStagedBranches) {
       let newStagedCommits = [];
+      let longestBranchName = newStagedBranches.reduce((longest, branch) => Math.max(branch.length, longest), 0);
       await this.runGit([0, 1], "branch", "-D", "RALLYNEWSTAGE");
       await this.runGit([0], "checkout", "-b", "RALLYNEWSTAGE");
+      log(chalk`Merging {blue ${newStagedBranches.length}} branches:`);
 
-      for (let branch of newStagedBranches) {
+      for (let [i, branch] of newStagedBranches.entries()) {
+        this.logProgress(i, newStagedBranches.length, branch, longestBranchName);
         let originName = `origin/${branch}`;
+        if (exports.configObject.verbose) log(chalk`About to merge {green ${originName}}`);
         let mergeinfo = await spawn({
           noecho: true
         }, "git", ["merge", "--squash", originName]);
 
         if (mergeinfo.exitCode == 1) {
+          log("Error", e.stdout);
+
+          if (e.stderr.includes("resolve your current index")) {
+            log(chalk`{red Error}: Merge conflict when merging ${branch}`);
+          } else {
+            log(chalk`{red Error}: Unknown error when merging ${branch}:`);
+          }
+
           let e = new AbortError(`Failed to merge ${branch}`);
           e.branch = branch;
           throw e;
         } else if (mergeinfo.exitCode != 0) {
+          log(chalk`{red Error}: Unknown error when merging ${branch}`);
           throw new AbortError(`Failed to merge for unknown reason ${branch}: {red ${mergeinfo}}`);
         }
 
@@ -4231,6 +4258,7 @@ Try {red git status} or {red rally stage edit --verbose} for more info.`;
         newStagedCommits.push(hash.stdout.split(" ")[0]);
       }
 
+      log("");
       return newStagedCommits;
     },
 

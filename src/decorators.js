@@ -172,13 +172,16 @@ export async function runGit(oks, ...args) {
         oks = [0];
     }
 
+    if(configObject.verbose) write(`git ${args.join(" ")}`);
     let g = await spawn({noecho: true}, "git", args);
-    if(configObject.verbose) log(`git ${args.join(" ")}`);
 
     if(!oks.includes(g.exitCode)) {
+        if(configObject.verbose) log(chalk`{red ${g.exitCode}}`);
         log(g.stderr);
         log(g.stdout);
         throw new AbortError(chalk`Failed to run git ${args} {red ${g.exitCode}}`);
+    } else if(configObject.verbose) {
+        log(chalk`{green ${g.exitCode}}`);
     }
 
     return [g.stdout, g.stderr]

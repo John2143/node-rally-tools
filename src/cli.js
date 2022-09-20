@@ -1403,6 +1403,10 @@ async function $main(){
         configObject.skipHeader = true;
     }
 
+    if(argv["no-replacer"]){
+        configObject.noReplacer = true;
+    }
+
     configObject.globalProgress = argv["show-progress"] || false;
 
     //Default enviornment should normally be from config, but it can be

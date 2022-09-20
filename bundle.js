@@ -2739,6 +2739,8 @@ Asset.endpoint = "movies";
 let exists = {};
 
 function replacementTransforms(input, env) {
+  if (rt.configObject.noReplacer) return input;
+
   if (typeof input == "object" && input != null) {
     let x = {};
 
@@ -9323,6 +9325,10 @@ async function $main() {
 
   if (argv["skip-header"]) {
     configObject.skipHeader = true;
+  }
+
+  if (argv["no-replacer"]) {
+    configObject.noReplacer = true;
   }
 
   configObject.globalProgress = argv["show-progress"] || false; //Default enviornment should normally be from config, but it can be

@@ -14,6 +14,8 @@ import moment from "moment";
 let exists = {};
 
 function replacementTransforms(input, env) {
+    if(rt.configObject.noReplacer) return input;
+
     if(typeof(input) == "object" && input != null) {
         let x = {};
         for(let [k, v] of Object.entries(input)){

@@ -2738,6 +2738,22 @@ Asset.endpoint = "movies";
 
 let exists = {};
 
+function replacementTransforms(input, env) {
+  if (typeof input == "object" && input != null) {
+    let x = {};
+
+    for (let [k, v] of Object.entries(input)) {
+      x[k] = replacementTransforms(v, env);
+    }
+
+    return x;
+  } else if (typeof input == "string") {
+    return input.replaceAll("**CURRENT_SILO**", env.toLowerCase());
+  }
+
+  return input;
+}
+
 class Preset extends RallyBase {
   constructor({
     path: path$$1,
@@ -2816,9 +2832,7 @@ class Preset extends RallyBase {
     let data;
 
     try {
-      let code = readFileSync(path$$1);
-      code = code.replaceAll("**CURRENT_SILO**", env.toLowerCase());
-      data = JSON.parse(code);
+      data = JSON.parse(readFileSync(path$$1));
     } catch (e) {
       if (e.code === "ENOENT" && configObject.ignoreMissing) {
         return null;
@@ -3148,7 +3162,7 @@ class Preset extends RallyBase {
       code = Buffer.from(code).toString("base64");
       headers["Content-Transfer-Encoding"] = "base64";
     } else {
-      code = code.replaceAll("**CURRENT_SILO**", env.toLowerCase());
+      code = replacementTransforms(code, env);
     }
 
     let res = await lib.makeAPIRequest({
@@ -3217,6 +3231,7 @@ class Preset extends RallyBase {
 
 
     let remote = await Preset.getByName(env, this.name);
+    let data = replacementTransforms(this.data, env);
     let uploadResult = null;
 
     if (remote) {
@@ -3224,7 +3239,7 @@ class Preset extends RallyBase {
       if (includeMetadata) {
         let payload = {
           data: {
-            attributes: this.data.attributes,
+            attributes: data.attributes,
             type: "presets"
           }
         };
@@ -3269,7 +3284,7 @@ class Preset extends RallyBase {
     } else {
       write("create, ");
       let metadata = {
-        data: this.data
+        data
       };
 
       if (!this.relationships["providerType"]) {

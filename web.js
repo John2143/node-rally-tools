@@ -2490,6 +2490,22 @@ ${eLine.line}`);
 
   let exists = {};
 
+  function replacementTransforms(input, env) {
+    if (typeof input == "object" && input != null) {
+      let x = {};
+
+      for (let [k, v] of Object.entries(input)) {
+        x[k] = replacementTransforms(v, env);
+      }
+
+      return x;
+    } else if (typeof input == "string") {
+      return input.replaceAll("**CURRENT_SILO**", env.toLowerCase());
+    }
+
+    return input;
+  }
+
   class Preset extends RallyBase {
     constructor({
       path: path$$1,
@@ -2568,9 +2584,7 @@ ${eLine.line}`);
       let data;
 
       try {
-        let code = readFileSync(path$$1);
-        code = code.replaceAll("**CURRENT_SILO**", env.toLowerCase());
-        data = JSON.parse(code);
+        data = JSON.parse(readFileSync(path$$1));
       } catch (e) {
         if (e.code === "ENOENT" && exports.configObject.ignoreMissing) {
           return null;
@@ -2900,7 +2914,7 @@ ${eLine.line}`);
         code = Buffer.from(code).toString("base64");
         headers["Content-Transfer-Encoding"] = "base64";
       } else {
-        code = code.replaceAll("**CURRENT_SILO**", env.toLowerCase());
+        code = replacementTransforms(code, env);
       }
 
       let res = await lib.makeAPIRequest({
@@ -2969,6 +2983,7 @@ ${eLine.line}`);
 
 
       let remote = await Preset.getByName(env, this.name);
+      let data = replacementTransforms(this.data, env);
       let uploadResult = null;
 
       if (remote) {
@@ -2976,7 +2991,7 @@ ${eLine.line}`);
         if (includeMetadata) {
           let payload = {
             data: {
-              attributes: this.data.attributes,
+              attributes: data.attributes,
               type: "presets"
             }
           };
@@ -3021,7 +3036,7 @@ ${eLine.line}`);
       } else {
         write("create, ");
         let metadata = {
-          data: this.data
+          data
         };
 
         if (!this.relationships["providerType"]) {

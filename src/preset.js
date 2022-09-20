@@ -13,6 +13,21 @@ import moment from "moment";
 
 let exists = {};
 
+function replacementTransforms(input, env) {
+    if(typeof(input) == "object" && input != null) {
+        let x = {};
+        for(let [k, v] of Object.entries(input)){
+            x[k] = replacementTransforms(v, env);
+        }
+        return x;
+    }else if(typeof(input) == "string") {
+        return input
+            .replaceAll("**CURRENT_SILO**", env.toLowerCase());
+    }
+    return input;
+}
+
+
 class Preset extends RallyBase{
     constructor({path, remote, data, subProject} = {}){
         // Get full path if possible
@@ -79,9 +94,7 @@ class Preset extends RallyBase{
     static async fromMetadata(path, subproject){
         let data;
         try{
-            let code = readFileSync(path)
-            code = code.replaceAll("**CURRENT_SILO**", env.toLowerCase());
-            data = JSON.parse(code);
+            data = JSON.parse(readFileSync(path));
         }catch(e){
             if(e.code === "ENOENT" && configObject.ignoreMissing){
                 return null;
@@ -390,7 +403,7 @@ class Preset extends RallyBase{
             code = Buffer.from(code).toString("base64");
             headers["Content-Transfer-Encoding"] = "base64";
         }else{
-            code = code.replaceAll("**CURRENT_SILO**", env.toLowerCase());
+            code = replacementTransforms(code, env);
         }
 
 
@@ -453,11 +466,13 @@ class Preset extends RallyBase{
         //First query the api to see if this already exists.
         let remote = await Preset.getByName(env, this.name);
 
+        let data = replacementTransforms(this.data, env);
+
         let uploadResult = null;
         if(remote){
             //If it exists we can replace it
             if(includeMetadata){
-                let payload = {data: {attributes: this.data.attributes, type: "presets"}};
+                let payload = {data: {attributes: data.attributes, type: "presets"}};
                 payload.data.relationships = {};
                 if (this.relationships.providerType) {
                     payload.data.relationships.providerType = this.relationships.providerType;
@@ -494,7 +509,7 @@ class Preset extends RallyBase{
             uploadResult = await this.uploadPresetData(env, remote.id);
         }else{
             write("create, ");
-            let metadata = {data: this.data};
+            let metadata = {data};
             if(!this.relationships["providerType"]){
                 throw new AbortError("Cannot acclimatize shelled presets. (try creating it on the env first)");
             }

@@ -2491,7 +2491,7 @@ ${eLine.line}`);
   let exists = {};
 
   function replacementTransforms(input, env) {
-    if (rt.configObject.noReplacer) return input;
+    if (exports.configObject.noReplacer) return input;
 
     if (typeof input == "object" && input != null) {
       let x = {};

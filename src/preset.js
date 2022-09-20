@@ -14,7 +14,7 @@ import moment from "moment";
 let exists = {};
 
 function replacementTransforms(input, env) {
-    if(rt.configObject.noReplacer) return input;
+    if(configObject.noReplacer) return input;
 
     if(typeof(input) == "object" && input != null) {
         let x = {};

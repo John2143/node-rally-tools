@@ -2739,7 +2739,7 @@ Asset.endpoint = "movies";
 let exists = {};
 
 function replacementTransforms(input, env) {
-  if (rt.configObject.noReplacer) return input;
+  if (configObject.noReplacer) return input;
 
   if (typeof input == "object" && input != null) {
     let x = {};
@@ -7742,7 +7742,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   orderedObjectKeys: orderedObjectKeys
 });
 
-var version = "7.0.5";
+var version = "7.0.6";
 
 var baseCode = {
   SdviContentMover: `{

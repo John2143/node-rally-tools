@@ -440,8 +440,8 @@ let Stage = {
             if(configObject.verbose) log(chalk`About to merge {green ${originName}}`);
             let mergeinfo = await spawn({noecho: true}, "git", ["merge", "--squash", originName]);
             if(mergeinfo.exitCode == 1){
-                log("Error", e.stdout);
-                if(e.stderr.includes("resolve your current index")) {
+                log("Error", mergeinfo.stdout);
+                if(mergeinfo.stderr.includes("resolve your current index")) {
                     log(chalk`{red Error}: Merge conflict when merging ${branch}`);
                 }else{
                     log(chalk`{red Error}: Unknown error when merging ${branch}:`);

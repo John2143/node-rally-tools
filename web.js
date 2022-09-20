@@ -2568,7 +2568,9 @@ ${eLine.line}`);
       let data;
 
       try {
-        data = JSON.parse(readFileSync(path$$1));
+        let code = readFileSync(path$$1);
+        code = code.replaceAll("**CURRENT_SILO**", env.toLowerCase());
+        data = JSON.parse(code);
       } catch (e) {
         if (e.code === "ENOENT" && exports.configObject.ignoreMissing) {
           return null;
@@ -2897,6 +2899,8 @@ ${eLine.line}`);
       if (this.providerName == "Vantage") {
         code = Buffer.from(code).toString("base64");
         headers["Content-Transfer-Encoding"] = "base64";
+      } else {
+        code = code.replaceAll("**CURRENT_SILO**", env.toLowerCase());
       }
 
       let res = await lib.makeAPIRequest({
@@ -2994,7 +2998,7 @@ ${eLine.line}`);
             let oldName = this.attributes.providerDataFilename;
 
             if (!oldName) {
-              this.attributes.providerDataFilename = this.name + ".py";
+              this.attributes.providerDataFilename = this.name.replaceAll(" ", "_") + ".py";
             }
           }
 
@@ -4225,9 +4229,9 @@ Try {red git status} or {red rally stage edit --verbose} for more info.`;
         }, "git", ["merge", "--squash", originName]);
 
         if (mergeinfo.exitCode == 1) {
-          log("Error", e.stdout);
+          log("Error", mergeinfo.stdout);
 
-          if (e.stderr.includes("resolve your current index")) {
+          if (mergeinfo.stderr.includes("resolve your current index")) {
             log(chalk`{red Error}: Merge conflict when merging ${branch}`);
           } else {
             log(chalk`{red Error}: Unknown error when merging ${branch}:`);

@@ -79,7 +79,9 @@ class Preset extends RallyBase{
     static async fromMetadata(path, subproject){
         let data;
         try{
-            data = JSON.parse(readFileSync(path));
+            let code = readFileSync(path)
+            code = code.replaceAll("**CURRENT_SILO**", env.toLowerCase());
+            data = JSON.parse(code);
         }catch(e){
             if(e.code === "ENOENT" && configObject.ignoreMissing){
                 return null;
@@ -387,7 +389,10 @@ class Preset extends RallyBase{
         if(this.providerName == "Vantage"){
             code = Buffer.from(code).toString("base64");
             headers["Content-Transfer-Encoding"] = "base64";
+        }else{
+            code = code.replaceAll("**CURRENT_SILO**", env.toLowerCase());
         }
+
 
         let res = await lib.makeAPIRequest({
             env, path: `/presets/${id}/providerData`,
@@ -469,7 +474,7 @@ class Preset extends RallyBase{
                     log("givin it a name,");
                     let oldName = this.attributes.providerDataFilename;
                     if(!oldName){
-                        this.attributes.providerDataFilename = this.name + ".py";
+                        this.attributes.providerDataFilename = this.name.replaceAll(" ", "_") + ".py";
                     }
                 }
 

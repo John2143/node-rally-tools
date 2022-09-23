@@ -138,12 +138,12 @@ class Preset extends RallyBase{
     }
     async acclimatize(env){
         if(!this.isGeneric) throw new AbortError("Cannot acclimatize non-generics or shells");
-        let providers = await Provider.getAll(env);
+
         let ptype = this.relationships["providerType"];
             ptype = ptype.data;
 
-        let provider = providers.findByName(ptype.name);
-        ptype.id = provider.id;
+        let provider = await Provider.getByName(env, ptype.name);
+        ptype.id = provider.data.id;
     }
     get test(){
         if(!this.code) return [];
@@ -468,13 +468,13 @@ class Preset extends RallyBase{
         //First query the api to see if this already exists.
         let remote = await Preset.getByName(env, this.name);
 
-        let data = replacementTransforms(this.data, env);
 
         let uploadResult = null;
         if(remote){
             //If it exists we can replace it
             if(includeMetadata){
-                let payload = {data: {attributes: data.attributes, type: "presets"}};
+
+                let payload = {data: {attributes: this.data.attributes, type: "presets"}};
                 payload.data.relationships = {};
                 if (this.relationships.providerType) {
                     payload.data.relationships.providerType = this.relationships.providerType;
@@ -498,7 +498,7 @@ class Preset extends RallyBase{
 
                 let res = await lib.makeAPIRequest({
                     env, path: `/presets/${remote.id}`, method: "PUT",
-                    payload,
+                    payload: replacementTransforms(payload, env),
                     fullResponse: true,
                 });
                 write(chalk`metadata {yellow ${res.statusCode}}, `);
@@ -511,7 +511,6 @@ class Preset extends RallyBase{
             uploadResult = await this.uploadPresetData(env, remote.id);
         }else{
             write("create, ");
-            let metadata = {data};
             if(!this.relationships["providerType"]){
                 throw new AbortError("Cannot acclimatize shelled presets. (try creating it on the env first)");
             }
@@ -520,7 +519,9 @@ class Preset extends RallyBase{
             write("Posting to create preset... ");
             let res = await lib.makeAPIRequest({
                 env, path: `/presets`, method: "POST",
-                payload: metadata, timeout: 5000,
+                payload: {
+                    data: replacementTransforms(this.data, env),
+                }, timeout: 5000,
             });
             let id = res.data.id;
             write(chalk`Created id {green ${id}}... Uploading Code... `);

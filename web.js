@@ -2633,11 +2633,10 @@ ${eLine.line}`);
 
     async acclimatize(env) {
       if (!this.isGeneric) throw new AbortError("Cannot acclimatize non-generics or shells");
-      let providers = await Provider.getAll(env);
       let ptype = this.relationships["providerType"];
       ptype = ptype.data;
-      let provider = providers.findByName(ptype.name);
-      ptype.id = provider.id;
+      let provider = await Provider.getByName(env, ptype.name);
+      ptype.id = provider.data.id;
     }
 
     get test() {
@@ -2985,7 +2984,6 @@ ${eLine.line}`);
 
 
       let remote = await Preset.getByName(env, this.name);
-      let data = replacementTransforms(this.data, env);
       let uploadResult = null;
 
       if (remote) {
@@ -2993,7 +2991,7 @@ ${eLine.line}`);
         if (includeMetadata) {
           let payload = {
             data: {
-              attributes: data.attributes,
+              attributes: this.data.attributes,
               type: "presets"
             }
           };
@@ -3023,7 +3021,7 @@ ${eLine.line}`);
             env,
             path: `/presets/${remote.id}`,
             method: "PUT",
-            payload,
+            payload: replacementTransforms(payload, env),
             fullResponse: true
           });
           write(chalk`metadata {yellow ${res.statusCode}}, `);
@@ -3037,9 +3035,6 @@ ${eLine.line}`);
         uploadResult = await this.uploadPresetData(env, remote.id);
       } else {
         write("create, ");
-        let metadata = {
-          data
-        };
 
         if (!this.relationships["providerType"]) {
           throw new AbortError("Cannot acclimatize shelled presets. (try creating it on the env first)");
@@ -3051,7 +3046,9 @@ ${eLine.line}`);
           env,
           path: `/presets`,
           method: "POST",
-          payload: metadata,
+          payload: {
+            data: replacementTransforms(this.data, env)
+          },
           timeout: 5000
         });
         let id = res.data.id;

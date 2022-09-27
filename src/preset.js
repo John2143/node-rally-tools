@@ -13,7 +13,7 @@ import moment from "moment";
 
 let exists = {};
 
-function replacementTransforms(input, env) {
+export function replacementTransforms(input, env) {
     if(configObject.noReplacer) return input;
 
     if(typeof(input) == "object" && input != null) {
@@ -24,7 +24,7 @@ function replacementTransforms(input, env) {
         return x;
     }else if(typeof(input) == "string") {
         return input
-            .replaceAll("**CURRENT_SILO**", env.toLowerCase());
+            .replace(/\*\*CURRENT_SILO\*\*/g, env.toLowerCase());
     }
     return input;
 }
@@ -491,7 +491,7 @@ class Preset extends RallyBase{
                     log("givin it a name,");
                     let oldName = this.attributes.providerDataFilename;
                     if(!oldName){
-                        this.attributes.providerDataFilename = this.name.replaceAll(" ", "_") + ".py";
+                        this.attributes.providerDataFilename = this.name.replace(/ /g, "_") + ".py";
                     }
                 }
 

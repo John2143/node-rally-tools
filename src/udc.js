@@ -6,6 +6,7 @@ import {configObject} from "./config.js";
 // pathtransform for hotfix
 import {writeFileSync, readFileSync, pathTransform} from "./fswrap.js";
 import path from "path";
+import { replacementTransforms } from "./preset.js";
 //import moment from "moment";
 
 let exists = {};
@@ -171,7 +172,8 @@ class UserDefinedConnector extends RallyBase{
 
             let res = await lib.makeAPIRequest({
                 env, path: `/providerTypes/${id}/userConnCode`,
-                body: code, method: "PUT", fullResponse: true, timeout: 10000,
+                body: replacementTransforms(code, env),
+                method: "PUT", fullResponse: true, timeout: 10000,
             });
             write(chalk`code up {yellow ${res.statusCode}}, `);
         }
@@ -192,7 +194,7 @@ class UserDefinedConnector extends RallyBase{
             let res = await lib.makeAPIRequest({
                 env, path: `/providerTypes/${id}`,
                 json: true,
-                payload: {
+                payload: replacementTransforms({
                     "data": {
                         "attributes": {
                             "userConnPackage": this.library,
@@ -200,7 +202,8 @@ class UserDefinedConnector extends RallyBase{
                         },
                         "type": "providerTypes"
                     }
-                }, method: "PATCH", fullResponse: true, timeout: 10000,
+                }, env),
+                method: "PATCH", fullResponse: true, timeout: 10000,
             });
             write(chalk`metadata up {yellow ${res.statusCode}}, `);
         }

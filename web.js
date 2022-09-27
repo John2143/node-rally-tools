@@ -2489,7 +2489,6 @@ ${eLine.line}`);
   Asset.endpoint = "movies";
 
   let exists = {};
-
   function replacementTransforms(input, env) {
     if (exports.configObject.noReplacer) return input;
 
@@ -2502,7 +2501,7 @@ ${eLine.line}`);
 
       return x;
     } else if (typeof input == "string") {
-      return input.replaceAll("**CURRENT_SILO**", env.toLowerCase());
+      return input.replace(/\*\*CURRENT_SILO\*\*/g, env.toLowerCase());
     }
 
     return input;
@@ -3013,7 +3012,7 @@ ${eLine.line}`);
             let oldName = this.attributes.providerDataFilename;
 
             if (!oldName) {
-              this.attributes.providerDataFilename = this.name.replaceAll(" ", "_") + ".py";
+              this.attributes.providerDataFilename = this.name.replace(/ /g, "_") + ".py";
             }
           }
 
@@ -3399,7 +3398,7 @@ ${eLine.line}`);
         let res = await lib.makeAPIRequest({
           env,
           path: `/providerTypes/${id}/userConnCode`,
-          body: code,
+          body: replacementTransforms(code, env),
           method: "PUT",
           fullResponse: true,
           timeout: 10000
@@ -3426,7 +3425,7 @@ ${eLine.line}`);
           env,
           path: `/providerTypes/${id}`,
           json: true,
-          payload: {
+          payload: replacementTransforms({
             "data": {
               "attributes": {
                 "userConnPackage": this.library,
@@ -3434,7 +3433,7 @@ ${eLine.line}`);
               },
               "type": "providerTypes"
             }
-          },
+          }, env),
           method: "PATCH",
           fullResponse: true,
           timeout: 10000

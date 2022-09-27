@@ -2737,7 +2737,6 @@ defineAssoc(Asset, "lite", "meta.lite");
 Asset.endpoint = "movies";
 
 let exists = {};
-
 function replacementTransforms(input, env) {
   if (configObject.noReplacer) return input;
 
@@ -2750,7 +2749,7 @@ function replacementTransforms(input, env) {
 
     return x;
   } else if (typeof input == "string") {
-    return input.replaceAll("**CURRENT_SILO**", env.toLowerCase());
+    return input.replace(/\*\*CURRENT_SILO\*\*/g, env.toLowerCase());
   }
 
   return input;
@@ -3261,7 +3260,7 @@ class Preset extends RallyBase {
           let oldName = this.attributes.providerDataFilename;
 
           if (!oldName) {
-            this.attributes.providerDataFilename = this.name.replaceAll(" ", "_") + ".py";
+            this.attributes.providerDataFilename = this.name.replace(/ /g, "_") + ".py";
           }
         }
 
@@ -3647,7 +3646,7 @@ class UserDefinedConnector extends RallyBase {
       let res = await lib.makeAPIRequest({
         env,
         path: `/providerTypes/${id}/userConnCode`,
-        body: code,
+        body: replacementTransforms(code, env),
         method: "PUT",
         fullResponse: true,
         timeout: 10000
@@ -3674,7 +3673,7 @@ class UserDefinedConnector extends RallyBase {
         env,
         path: `/providerTypes/${id}`,
         json: true,
-        payload: {
+        payload: replacementTransforms({
           "data": {
             "attributes": {
               "userConnPackage": this.library,
@@ -3682,7 +3681,7 @@ class UserDefinedConnector extends RallyBase {
             },
             "type": "providerTypes"
           }
-        },
+        }, env),
         method: "PATCH",
         fullResponse: true,
         timeout: 10000
@@ -7739,7 +7738,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   orderedObjectKeys: orderedObjectKeys
 });
 
-var version = "7.0.7";
+var version = "7.0.8";
 
 var baseCode = {
   SdviContentMover: `{

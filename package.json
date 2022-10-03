@@ -39,7 +39,7 @@
     "build": "rollup -c",
     "watch": "rollup -cw"
   },
-  "repository": "github:discovery-cs/node-rally-tools",
+  "repository": "github:John2143/node-rally-tools",
   "bin": {
     "rally": "bundle.js"
   },

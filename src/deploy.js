@@ -198,6 +198,10 @@ let Deploy = {
 
             await this.setBase(issue, releaseBranchName);
             write(chalk`Changed base of ${issue.number} (${this.printJiraTicket(issue)}) to ${releaseBranchName}... `);
+            if(!issue.parsedTitle){
+                log();
+                write(chalk`Full title ^^: ${issue.title}...`);
+            }
             let config = this.getOctokitConfig();
             config.merge_method = "squash";
             config.pull_number = issue.number;

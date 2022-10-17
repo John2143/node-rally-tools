@@ -1,17 +1,15 @@
 (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('chalk'), require('os'), require('fs'), require('child_process'), require('perf_hooks'), require('request-promise'), require('path'), require('moment'), require('node-fetch')) :
-  typeof define === 'function' && define.amd ? define(['exports', 'chalk', 'os', 'fs', 'child_process', 'perf_hooks', 'request-promise', 'path', 'moment', 'node-fetch'], factory) :
-  (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.RallyTools = {}, global.chalk$1, global.os, global.fs, global.child_process, global.perf_hooks, global.rp, global.path, global.moment, global.fetch));
-})(this, (function (exports, chalk$1, os, fs, child_process, perf_hooks, rp, path, moment, fetch) { 'use strict';
+  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('os'), require('fs'), require('child_process'), require('perf_hooks'), require('chalk'), require('request-promise'), require('path'), require('moment'), require('node-fetch')) :
+  typeof define === 'function' && define.amd ? define(['exports', 'os', 'fs', 'child_process', 'perf_hooks', 'chalk', 'request-promise', 'path', 'moment', 'node-fetch'], factory) :
+  (factory((global.RallyTools = {}),global.os,global.fs,global.child_process,global.perf_hooks,global.chalk$1,global.rp,global.path,global.moment,global.fetch));
+}(this, (function (exports,os,fs,child_process,perf_hooks,chalk$1,rp,path,moment,fetch) { 'use strict';
 
-  function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
-
-  var chalk__default = /*#__PURE__*/_interopDefaultLegacy(chalk$1);
-  var fs__default = /*#__PURE__*/_interopDefaultLegacy(fs);
-  var rp__default = /*#__PURE__*/_interopDefaultLegacy(rp);
-  var path__default = /*#__PURE__*/_interopDefaultLegacy(path);
-  var moment__default = /*#__PURE__*/_interopDefaultLegacy(moment);
-  var fetch__default = /*#__PURE__*/_interopDefaultLegacy(fetch);
+  var fs__default = 'default' in fs ? fs['default'] : fs;
+  chalk$1 = chalk$1 && chalk$1.hasOwnProperty('default') ? chalk$1['default'] : chalk$1;
+  rp = rp && rp.hasOwnProperty('default') ? rp['default'] : rp;
+  var path__default = 'default' in path ? path['default'] : path;
+  moment = moment && moment.hasOwnProperty('default') ? moment['default'] : moment;
+  fetch = fetch && fetch.hasOwnProperty('default') ? fetch['default'] : fetch;
 
   function _asyncIterator(iterable) {
     var method;
@@ -198,7 +196,7 @@
     exports.configFile = os.homedir() + "/.rallyconfig";
   }
 
-  exports.configObject = void 0;
+
   function loadConfig(file) {
     if (file) exports.configFile = file;
     if (!exports.configFile) return;
@@ -231,10 +229,10 @@
 
   //function retuns obj.a.b.c
 
-  function deepAccess(obj, path) {
+  function deepAccess(obj, path$$1) {
     let o = obj;
 
-    for (let key of path) {
+    for (let key of path$$1) {
       if (!o) return [];
       o = o[key];
     }
@@ -244,18 +242,27 @@
   //corresponds to an object in this.data
 
 
-  function defineAssoc(classname, shortname, path) {
-    path = path.split(".");
-    let lastKey = path.pop();
+  function defineAssoc(classname, shortname, path$$1) {
+    path$$1 = path$$1.split(".");
+    let lastKey = path$$1.pop();
     Object.defineProperty(classname.prototype, shortname, {
       get() {
-        return deepAccess(this, path)[lastKey];
+        return deepAccess(this, path$$1)[lastKey];
       },
 
       set(val) {
-        deepAccess(this, path)[lastKey] = val;
+        deepAccess(this, path$$1)[lastKey] = val;
       }
 
+    });
+  }
+  function runCommand(command) {
+    return new Promise(function (resolve, reject) {
+      child_process.exec(command, {
+        maxBuffer: Infinity
+      }, async function (err, stdout, stderr) {
+        resolve(stdout);
+      });
     });
   }
 
@@ -326,7 +333,7 @@
     return [g.stdout, g.stderr];
   }
 
-  global.chalk = chalk__default["default"];
+  global.chalk = chalk$1;
 
   global.log = (...text) => console.log(...text);
 
@@ -336,7 +343,7 @@
 
   global.ewrite = (...text) => process.stderr.write(...text);
 
-  global.errorLog = (...text) => log(...text.map(chalk__default["default"].red));
+  global.errorLog = (...text) => log(...text.map(chalk$1.red));
 
   class lib {
     //This function takes 2 required arguemnts:
@@ -359,7 +366,7 @@
     //  not just the returned data.
     static async makeAPIRequest({
       env,
-      path,
+      path: path$$1,
       path_full,
       fullPath,
       payload,
@@ -390,11 +397,11 @@
       let rally_api_key = config.key;
       let rally_api = config.url;
 
-      if (path && path.startsWith("/v1.0/")) {
+      if (path$$1 && path$$1.startsWith("/v1.0/")) {
         rally_api = rally_api.replace("/api/v2", "/api");
       }
 
-      path = path_full || rally_api + path;
+      path$$1 = path_full || rally_api + path$$1;
 
       if (payload) {
         body = JSON.stringify(payload, null, 4);
@@ -412,7 +419,7 @@
       };
 
       if (exports.configObject.vvverbose) {
-        log(`${method} @ ${path}`);
+        log(`${method} @ ${path$$1}`);
         log(JSON.stringify(fullHeaders, null, 4));
 
         if (body) {
@@ -426,7 +433,7 @@
         method,
         body,
         qs,
-        uri: path,
+        uri: path$$1,
         timeout,
         auth: {
           bearer: rally_api_key
@@ -438,10 +445,10 @@
       let response;
 
       try {
-        response = await rp__default["default"](requestOptions);
+        response = await rp(requestOptions);
 
         if (exports.configObject.vverbose || exports.configObject.vvverbose) {
-          log(chalk__default["default"]`${method} @ ${response.request.uri.href}`);
+          log(chalk$1`${method} @ ${response.request.uri.href}`);
         }
       } catch (e) {
         if ((e === null || e === void 0 ? void 0 : e.cause.code) === "ESOCKETTIMEDOUT") {
@@ -486,10 +493,10 @@
     // - Observe: function to be called for each set of data from the api
 
 
-    static async indexPath(env, path) {
+    static async indexPath(env, path$$1) {
       let opts = typeof env === "string" ? {
         env,
-        path
+        path: path$$1
       } : env;
       opts.maxParallelRequests = 1;
       let index = new IndexObject(opts);
@@ -530,10 +537,10 @@
     // - chunksize[10]: How often to break apart concurrent requests
 
 
-    static async indexPathFast(env, path) {
+    static async indexPathFast(env, path$$1) {
       let opts = typeof env === "string" ? {
         env,
-        path
+        path: path$$1
       } : env;
       let index = new IndexObject(opts);
       return await index.fullResults();
@@ -559,7 +566,7 @@
   }
   class APIError extends Error {
     constructor(response, opts, body) {
-      super(chalk__default["default"]`
+      super(chalk$1`
 {reset Request returned} {yellow ${response === null || response === void 0 ? void 0 : response.statusCode}}{
 {green ${JSON.stringify(opts, null, 4)}}
 {green ${body}}
@@ -599,12 +606,12 @@
   }
   class ResoultionError extends Error {
     constructor(name, env) {
-      super(chalk__default["default"]`Error during name resolution: '{blue ${name}}' is not mapped on {green ${env}}`);
+      super(chalk$1`Error during name resolution: '{blue ${name}}' is not mapped on {green ${env}}`);
       this.name = "Name Resoultion Error";
     }
 
   }
-  class Collection$1 {
+  class Collection {
     constructor(arr) {
       this.arr = arr;
     }
@@ -630,7 +637,7 @@
         if (d) {
           log(d.chalkPrint(true));
         } else {
-          log(chalk__default["default"]`{red (None)}`);
+          log(chalk$1`{red (None)}`);
         }
       }
     }
@@ -715,7 +722,7 @@
         }
       });
       datas = await this.getAllPreCollect(datas);
-      let all = new Collection$1(datas.map(data => new this({
+      let all = new Collection(datas.map(data => new this({
         data,
         remote: env
       })));
@@ -1055,66 +1062,68 @@
   defineAssoc(Notification, "remote", "meta.remote");
   Notification.endpoint = "notificationPresets";
 
+  let home;
+
   if (os.homedir) {
-    os.homedir();
+    home = os.homedir();
   }
 
   const colon = /:/g;
   const siloLike = /(silo\-\w+?)s?\/([^\/]+)\.([\w1234567890]+)$/g;
-  function pathTransform(path) {
-    if (path.includes(":")) {
+  function pathTransform(path$$1) {
+    if (path$$1.includes(":")) {
       //Ignore the first colon in window-like filesystems
-      path = path.slice(0, 3) + path.slice(3).replace(colon, "--");
+      path$$1 = path$$1.slice(0, 3) + path$$1.slice(3).replace(colon, "--");
     }
 
     if (exports.configObject.invertedPath) {
-      path = path.replace(siloLike, "$2-$1.$3");
+      path$$1 = path$$1.replace(siloLike, "$2-$1.$3");
     }
 
-    if (path.includes("\\342\\200\\220")) {
-      path = path.replace("\\342\\200\\220", "‐");
+    if (path$$1.includes("\\342\\200\\220")) {
+      path$$1 = path$$1.replace("\\342\\200\\220", "‐");
     }
 
-    return path;
+    return path$$1;
   }
-  function readFileSync(path, options) {
-    return fs__default["default"].readFileSync(pathTransform(path), options);
+  function readFileSync(path$$1, options) {
+    return fs__default.readFileSync(pathTransform(path$$1), options);
   } //Create writefilesync, with ability to create directory if it doesnt exist
 
-  function writeFileSync(path$1, data, options, dircreated = false) {
-    path$1 = pathTransform(path$1);
+  function writeFileSync(path$$1, data, options, dircreated = false) {
+    path$$1 = pathTransform(path$$1);
 
     try {
-      return fs__default["default"].writeFileSync(path$1, data, options);
+      return fs__default.writeFileSync(path$$1, data, options);
     } catch (e) {
       if (dircreated) throw e;
-      let directory = path.dirname(path$1);
+      let directory = path.dirname(path$$1);
 
       try {
-        fs__default["default"].statSync(directory);
+        fs__default.statSync(directory);
         throw e;
       } catch (nodir) {
-        fs__default["default"].mkdirSync(directory);
-        return writeFileSync(path$1, data, options, true);
+        fs__default.mkdirSync(directory);
+        return writeFileSync(path$$1, data, options, true);
       }
     }
   }
 
   class Rule extends RallyBase {
     constructor({
-      path: path$1,
+      path: path$$1,
       data,
       remote,
       subProject
     } = {}) {
       super();
 
-      if (path$1) {
-        path$1 = path.resolve(path$1);
+      if (path$$1) {
+        path$$1 = path.resolve(path$$1);
 
         try {
-          let f = readFileSync(path$1, "utf-8");
-          data = JSON.parse(readFileSync(path$1, "utf-8"));
+          let f = readFileSync(path$$1, "utf-8");
+          data = JSON.parse(readFileSync(path$$1, "utf-8"));
         } catch (e) {
           if (e.code === "ENOENT") {
             if (exports.configObject.ignoreMissing) {
@@ -1124,7 +1133,7 @@
               throw new AbortError("Could not load code of local file");
             }
           } else {
-            throw new AbortError(`Unreadable JSON in ${path$1}. ${e}`);
+            throw new AbortError(`Unreadable JSON in ${path$$1}. ${e}`);
           }
         }
       }
@@ -1159,14 +1168,14 @@
 
     async acclimatize(env) {
       this.remote = env;
-      await this.resolveField(Preset, "preset", false, "specific");
-      await this.resolveField(Rule, "passNext", false, "specific");
-      await this.resolveField(Rule, "errorNext", false, "specific");
-      await this.resolveField(Provider, "providerType", false, "specific");
-      await this.resolveField(Rule, "dynamicNexts", true, "specific");
-      await this.resolveField(Notification, "enterNotifications", true, "specific");
-      await this.resolveField(Notification, "errorNotifications", true, "specific");
-      await this.resolveField(Notification, "passNotifications", true, "specific");
+      let preset = await this.resolveField(Preset, "preset", false, "specific");
+      let pNext = await this.resolveField(Rule, "passNext", false, "specific");
+      let eNext = await this.resolveField(Rule, "errorNext", false, "specific");
+      let proType = await this.resolveField(Provider, "providerType", false, "specific");
+      let dynamicNexts = await this.resolveField(Rule, "dynamicNexts", true, "specific");
+      let enterNotif = await this.resolveField(Notification, "enterNotifications", true, "specific");
+      let errorNotif = await this.resolveField(Notification, "errorNotifications", true, "specific");
+      let passNotif = await this.resolveField(Notification, "passNotifications", true, "specific");
     }
 
     async saveA(env) {
@@ -1442,16 +1451,16 @@
     hasAutoCompletePrompt = true;
     inquirer.registerPrompt("autocomplete", require("inquirer-autocomplete-prompt"));
   }
-  async function loadLocals(path$1, Class) {
+  async function loadLocals(path$$1, Class) {
     let basePath = exports.configObject.repodir;
-    let objs = (await readdir(basePath)).filter(name => name.includes(path$1)).filter(name => !path.basename(name).startsWith(".")).map(name => new Class({
+    let objs = (await readdir(basePath)).filter(name => name.includes(path$$1)).filter(name => !path.basename(name).startsWith(".")).map(name => new Class({
       path: name
     }));
     return objs;
   }
-  async function selectLocal(path, typeName, Class, canSelectNone = true) {
+  async function selectLocal(path$$1, typeName, Class, canSelectNone = true) {
     addAutoCompletePrompt();
-    let objs = await loadLocals(path, Class);
+    let objs = await loadLocals(path$$1, Class);
     let objsMap = objs.map(x => ({
       name: x.chalkPrint(true),
       value: x
@@ -1498,7 +1507,7 @@
   async function saveConfig(newConfigObject, {
     ask = true,
     print = true
-  }) {
+  } = {}) {
     //Create readable json and make sure the user is ok with it
     let newConfig = JSON.stringify(newConfigObject, null, 4);
     if (print) log(newConfig); //-y or --set will make this not prompt
@@ -1692,10 +1701,10 @@
 ${eLine.line}`);
   }
   async function getArtifact(env, artifact, jobid) {
-    let path = `/jobs/${jobid}/artifacts/${artifact}`;
+    let path$$1 = `/jobs/${jobid}/artifacts/${artifact}`;
     let art = lib.makeAPIRequest({
       env,
-      path
+      path: path$$1
     }).catch(_ => null);
     return await art;
   }
@@ -1827,7 +1836,7 @@ ${eLine.line}`);
       }
 
       if (metadata.Metadata) {
-        await lib.makeAPIRequest({
+        let req = await lib.makeAPIRequest({
           env: this.remote,
           path: `/movies/${this.id}/metadata/Metadata`,
           method: "PATCH",
@@ -1881,7 +1890,7 @@ ${eLine.line}`);
     }
 
     async delete() {
-      await lib.makeAPIRequest({
+      let req = await lib.makeAPIRequest({
         env: this.remote,
         path: "/assets/" + this.id,
         method: "DELETE"
@@ -1896,7 +1905,7 @@ ${eLine.line}`);
         method: "GET"
       }); //return req;
 
-      return this._files = new Collection$1(req.map(x => new File({
+      return this._files = new Collection(req.map(x => new File({
         data: x,
         remote: this.remote,
         parent: this
@@ -2233,8 +2242,8 @@ ${eLine.line}`);
       let c = await file.getContent();
 
       if (destFolder) {
-        let filePath = path__default["default"].join(destFolder, file.instancesList[0].name);
-        fs__default["default"].writeFileSync(filePath, c);
+        let filePath = path__default.join(destFolder, file.instancesList[0].name);
+        fs__default.writeFileSync(filePath, c);
       } else {
         console.log(c);
       }
@@ -2371,7 +2380,7 @@ ${eLine.line}`);
             } else if (exports.configObject.rawOutput) {
               console.log(matching.map(x => chalk`{red ${preset.name}}:${highlight(x.content, text)}`).join("\n"));
             } else {
-              log(chalk`{red ${preset.name}} ${e.id} ${moment__default["default"](e.attributes.completedAt)}`);
+              log(chalk`{red ${preset.name}} ${e.id} ${moment(e.attributes.completedAt)}`);
               log(matching.map(x => `  ${highlight(x.content, text)}`).join("\n"));
             }
           }
@@ -2422,7 +2431,7 @@ ${eLine.line}`);
 
           for (let request of trace.matchAll(worstRegexEver)) {
             //log(request);
-            if (true) {
+            {
               let r = request.groups;
               log(chalk`Request: ${r.type} ${r.url} returned ${colorRequest(r.statusCode)}`);
             }
@@ -2469,25 +2478,25 @@ ${eLine.line}`);
 
   class Preset extends RallyBase {
     constructor({
-      path: path$1,
+      path: path$$1,
       remote,
       data,
       subProject
     } = {}) {
       // Get full path if possible
-      if (path$1) {
-        path$1 = path.resolve(path$1);
+      if (path$$1) {
+        path$$1 = path.resolve(path$$1);
 
-        if (path.dirname(path$1).includes("silo-metadata")) {
+        if (path.dirname(path$$1).includes("silo-metadata")) {
           throw new AbortError("Constructing preset from metadata file");
         }
       }
 
       super(); // Cache by path
 
-      if (path$1) {
-        if (exists[pathTransform(path$1)]) return exists[pathTransform(path$1)];
-        exists[pathTransform(path$1)] = this;
+      if (path$$1) {
+        if (exists[pathTransform(path$$1)]) return exists[pathTransform(path$$1)];
+        exists[pathTransform(path$$1)] = this;
       }
 
       this.meta = {};
@@ -2495,8 +2504,8 @@ ${eLine.line}`);
       this.remote = remote;
 
       if (lib.isLocalEnv(this.remote)) {
-        if (path$1) {
-          this.path = path$1;
+        if (path$$1) {
+          this.path = path$$1;
           let pathspl = this.path.split(".");
           this.ext = pathspl[pathspl.length - 1];
 
@@ -2519,7 +2528,7 @@ ${eLine.line}`);
             this.isGeneric = true;
             name = this.name;
           } catch (e) {
-            log(chalk`{yellow Warning}: ${path$1} does not have a readable metadata file! Looking for ${this.localmetadatapath}`);
+            log(chalk`{yellow Warning}: ${path$$1} does not have a readable metadata file! Looking for ${this.localmetadatapath}`);
             this.data = Preset.newShell(name);
             this.isGeneric = false;
           }
@@ -2541,11 +2550,11 @@ ${eLine.line}`);
     } //Given a metadata file, get its actual file
 
 
-    static async fromMetadata(path, subproject) {
+    static async fromMetadata(path$$1, subproject) {
       let data;
 
       try {
-        data = JSON.parse(readFileSync(path));
+        data = JSON.parse(readFileSync(path$$1));
       } catch (e) {
         if (e.code === "ENOENT" && exports.configObject.ignoreMissing) {
           return null;
@@ -2559,7 +2568,7 @@ ${eLine.line}`);
 
       if (!provider) {
         log(chalk`{red The provider type {green ${providerType}} does not exist}`);
-        log(chalk`{red Skipping {green ${path}}.}`);
+        log(chalk`{red Skipping {green ${path$$1}}.}`);
         return null;
       }
 
@@ -2768,7 +2777,7 @@ ${eLine.line}`);
     }
 
     static getLocalPath(name, ext, subproject) {
-      return this._localpath || path__default["default"].join(exports.configObject.repodir, subproject || "", "silo-presets", name + "." + ext);
+      return this._localpath || path__default.join(exports.configObject.repodir, subproject || "", "silo-presets", name + "." + ext);
     }
 
     get localpath() {
@@ -2805,7 +2814,7 @@ ${eLine.line}`);
         return this.path.replace("silo-presets", "silo-metadata").replace(new RegExp(this.ext + "$"), "json");
       }
 
-      return path__default["default"].join(exports.configObject.repodir, this.subproject || "", "silo-metadata", this.name + ".json");
+      return path__default.join(exports.configObject.repodir, this.subproject || "", "silo-metadata", this.name + ".json");
     }
 
     get immutable() {
@@ -2857,7 +2866,7 @@ ${eLine.line}`);
             stdout: headerText
           } = await spawn({
             noecho: true
-          }, "sh", [path__default["default"].join(exports.configObject.repodir, `bin/header.sh`), moment__default["default"](Date.now()).format("ddd YYYY/MM/DD hh:mm:ssa"), localpath]);
+          }, "sh", [path__default.join(exports.configObject.repodir, `bin/header.sh`), moment(Date.now()).format("ddd YYYY/MM/DD hh:mm:ssa"), localpath]);
           code = headerText + code;
           write(chalk`header ok, `);
         } catch (e) {
@@ -3053,9 +3062,9 @@ ${eLine.line}`);
         let date;
 
         if (isUTC) {
-          date = moment__default["default"].utc(abs.built, format);
+          date = moment.utc(abs.built, format);
         } else {
-          date = moment__default["default"](abs.built, format);
+          date = moment(abs.built, format);
         }
 
         if (!date.isValid()) continue;
@@ -3114,7 +3123,7 @@ ${eLine.line}`);
 
 
       if (!locals) {
-        locals = new Collection$1((await loadLocals("silo-presets", Preset)));
+        locals = new Collection((await loadLocals("silo-presets", Preset)));
       }
 
       log(Array(indent + 1).join(" ") + "- " + this.name);
@@ -3197,7 +3206,7 @@ ${eLine.line}`);
       if (!this.startingRule) {
         this.rules = this.allRules;
         this.presets = this.allPresets;
-        this.notifications = new Collection$1([]);
+        this.notifications = new Collection([]);
         await this.downloadPresetCode();
         return;
       } else {
@@ -3266,10 +3275,10 @@ ${eLine.line}`);
       }
 
       log("Done!");
-      this.rules = new Collection$1(ruleQueue);
-      this.presets = new Collection$1(presetQueue);
+      this.rules = new Collection(ruleQueue);
+      this.presets = new Collection(presetQueue);
       requiredNotifications.delete(undefined);
-      this.notifications = new Collection$1([...requiredNotifications]);
+      this.notifications = new Collection([...requiredNotifications]);
     }
 
     async log() {
@@ -3465,7 +3474,7 @@ ${eLine.line}`);
 
   let stagingEmsg = chalk`Not currently on a clean staging branch. Please move to staging or resolve the commits.
 Try {red git status} or {red rally stage edit --verbose} for more info.`;
-  let Stage = {
+  let Stage$$1 = {
     async before(args) {
       this.env = args.env;
       this.args = args;
@@ -3735,9 +3744,9 @@ Try {red git status} or {red rally stage edit --verbose} for more info.`;
           return;
         }
       } else {
-        let asarray = arg => {
-          if (!arg) return [];
-          return Array.isArray(arg) ? arg : [arg];
+        let asarray = arg$$1 => {
+          if (!arg$$1) return [];
+          return Array.isArray(arg$$1) ? arg$$1 : [arg$$1];
         };
 
         for (let branch of [...asarray(this.args.a), ...asarray(this.args.add)]) {
@@ -3915,9 +3924,9 @@ nothing to commit, working tree clean`;
             branch,
             msg: a
           });
-          await this.runGit([0, 1], "reset", "--hard", "HEAD");
+          let [c, d] = await this.runGit([0, 1], "reset", "--hard", "HEAD");
         } else {
-          await this.runGit([0, 1], "commit", "-m", `asdf`);
+          let [c, d] = await this.runGit([0, 1], "commit", "-m", `asdf`);
         }
       }
 
@@ -4028,9 +4037,9 @@ nothing to commit, working tree clean`;
       let files = [...set];
       files = files.filter(f => f && !f.missing);
       let chain = new SupplyChain();
-      chain.rules = new Collection$1(files.filter(f => f instanceof Rule));
-      chain.presets = new Collection$1(files.filter(f => f instanceof Preset));
-      chain.notifications = new Collection$1([]);
+      chain.rules = new Collection(files.filter(f => f instanceof Rule));
+      chain.presets = new Collection(files.filter(f => f instanceof Preset));
+      chain.notifications = new Collection([]);
 
       if (chain.rules.arr.length + chain.presets.arr.length === 0) {
         log(chalk`{blue Info:} No changed prests, nothing to deploy`);
@@ -4058,8 +4067,8 @@ nothing to commit, working tree clean`;
       await chain.syncTo(this.env);
     },
 
-    async unknown(arg, args) {
-      log(chalk`Unknown action {red ${arg}} try '{white rally help stage}'`);
+    async unknown(arg$$1, args) {
+      log(chalk`Unknown action {red ${arg$$1}} try '{white rally help stage}'`);
     }
 
   };
@@ -4214,10 +4223,10 @@ nothing to commit, working tree clean`;
 
   var Hook_1 = Hook;
   var Singular = Hook.Singular;
-  var Collection = Hook.Collection;
+  var Collection$1 = Hook.Collection;
   beforeAfterHook.Hook = Hook_1;
   beforeAfterHook.Singular = Singular;
-  beforeAfterHook.Collection = Collection;
+  beforeAfterHook.Collection = Collection$1;
 
   /*!
    * is-plain-object <https://github.com/jonschlinkert/is-plain-object>
@@ -4597,19 +4606,19 @@ nothing to commit, working tree clean`;
     return parse(merge(defaults, route, options));
   }
 
-  function withDefaults$2(oldDefaults, newDefaults) {
+  function withDefaults(oldDefaults, newDefaults) {
     const DEFAULTS = merge(oldDefaults, newDefaults);
     const endpoint = endpointWithDefaults.bind(null, DEFAULTS);
     return Object.assign(endpoint, {
       DEFAULTS,
-      defaults: withDefaults$2.bind(null, DEFAULTS),
+      defaults: withDefaults.bind(null, DEFAULTS),
       merge: merge.bind(null, DEFAULTS),
       parse
     });
   }
 
-  const VERSION$7 = "6.0.12";
-  const userAgent = `octokit-endpoint.js/${VERSION$7} ${getUserAgent()}`; // DEFAULTS has all properties set that EndpointOptions has, except url.
+  const VERSION = "6.0.12";
+  const userAgent = `octokit-endpoint.js/${VERSION} ${getUserAgent()}`; // DEFAULTS has all properties set that EndpointOptions has, except url.
   // So we use RequestParameters and add method as additional required property.
 
   const DEFAULTS = {
@@ -4624,7 +4633,7 @@ nothing to commit, working tree clean`;
       previews: []
     }
   };
-  const endpoint = withDefaults$2(null, DEFAULTS);
+  const endpoint = withDefaults(null, DEFAULTS);
 
   class Deprecation extends Error {
     constructor(message) {
@@ -4781,7 +4790,7 @@ nothing to commit, working tree clean`;
 
   }
 
-  const VERSION$6 = "5.6.3";
+  const VERSION$1 = "5.6.3";
 
   function getBufferResponse(response) {
     return response.arrayBuffer();
@@ -4797,8 +4806,8 @@ nothing to commit, working tree clean`;
     let headers = {};
     let status;
     let url;
-    const fetch = requestOptions.request && requestOptions.request.fetch || fetch__default["default"];
-    return fetch(requestOptions.url, Object.assign({
+    const fetch$$1 = requestOptions.request && requestOptions.request.fetch || fetch;
+    return fetch$$1(requestOptions.url, Object.assign({
       method: requestOptions.method,
       body: requestOptions.body,
       headers: requestOptions.headers,
@@ -4912,48 +4921,48 @@ nothing to commit, working tree clean`;
   }
 
   function withDefaults$1(oldEndpoint, newDefaults) {
-    const endpoint = oldEndpoint.defaults(newDefaults);
+    const endpoint$$1 = oldEndpoint.defaults(newDefaults);
 
     const newApi = function (route, parameters) {
-      const endpointOptions = endpoint.merge(route, parameters);
+      const endpointOptions = endpoint$$1.merge(route, parameters);
 
       if (!endpointOptions.request || !endpointOptions.request.hook) {
-        return fetchWrapper(endpoint.parse(endpointOptions));
+        return fetchWrapper(endpoint$$1.parse(endpointOptions));
       }
 
       const request = (route, parameters) => {
-        return fetchWrapper(endpoint.parse(endpoint.merge(route, parameters)));
+        return fetchWrapper(endpoint$$1.parse(endpoint$$1.merge(route, parameters)));
       };
 
       Object.assign(request, {
-        endpoint,
-        defaults: withDefaults$1.bind(null, endpoint)
+        endpoint: endpoint$$1,
+        defaults: withDefaults$1.bind(null, endpoint$$1)
       });
       return endpointOptions.request.hook(request, endpointOptions);
     };
 
     return Object.assign(newApi, {
-      endpoint,
-      defaults: withDefaults$1.bind(null, endpoint)
+      endpoint: endpoint$$1,
+      defaults: withDefaults$1.bind(null, endpoint$$1)
     });
   }
 
   const request = withDefaults$1(endpoint, {
     headers: {
-      "user-agent": `octokit-request.js/${VERSION$6} ${getUserAgent()}`
+      "user-agent": `octokit-request.js/${VERSION$1} ${getUserAgent()}`
     }
   });
 
-  const VERSION$5 = "4.8.0";
+  const VERSION$2 = "4.8.0";
 
   function _buildMessageForResponseErrors(data) {
     return `Request failed due to following response errors:\n` + data.errors.map(e => ` - ${e.message}`).join("\n");
   }
 
   class GraphqlResponseError extends Error {
-    constructor(request, headers, response) {
+    constructor(request$$1, headers, response) {
       super(_buildMessageForResponseErrors(response));
-      this.request = request;
+      this.request = request$$1;
       this.headers = headers;
       this.response = response;
       this.name = "GraphqlResponseError"; // Expose the errors and response data in their shorthand properties.
@@ -4974,7 +4983,7 @@ nothing to commit, working tree clean`;
   const FORBIDDEN_VARIABLE_OPTIONS = ["query", "method", "url"];
   const GHES_V3_SUFFIX_REGEX = /\/api\/v3\/?$/;
 
-  function graphql(request, query, options) {
+  function graphql(request$$1, query, options) {
     if (options) {
       if (typeof query === "string" && "query" in options) {
         return Promise.reject(new Error(`[@octokit/graphql] "query" cannot be used as variable name`));
@@ -5004,13 +5013,13 @@ nothing to commit, working tree clean`;
     }, {}); // workaround for GitHub Enterprise baseUrl set with /api/v3 suffix
     // https://github.com/octokit/auth-app.js/issues/111#issuecomment-657610451
 
-    const baseUrl = parsedOptions.baseUrl || request.endpoint.DEFAULTS.baseUrl;
+    const baseUrl = parsedOptions.baseUrl || request$$1.endpoint.DEFAULTS.baseUrl;
 
     if (GHES_V3_SUFFIX_REGEX.test(baseUrl)) {
       requestOptions.url = baseUrl.replace(GHES_V3_SUFFIX_REGEX, "/api/graphql");
     }
 
-    return request(requestOptions).then(response => {
+    return request$$1(requestOptions).then(response => {
       if (response.data.errors) {
         const headers = {};
 
@@ -5025,7 +5034,7 @@ nothing to commit, working tree clean`;
     });
   }
 
-  function withDefaults(request$1, newDefaults) {
+  function withDefaults$2(request$1, newDefaults) {
     const newRequest = request$1.defaults(newDefaults);
 
     const newApi = (query, options) => {
@@ -5033,21 +5042,21 @@ nothing to commit, working tree clean`;
     };
 
     return Object.assign(newApi, {
-      defaults: withDefaults.bind(null, newRequest),
+      defaults: withDefaults$2.bind(null, newRequest),
       endpoint: request.endpoint
     });
   }
 
-  withDefaults(request, {
+  const graphql$1 = withDefaults$2(request, {
     headers: {
-      "user-agent": `octokit-graphql.js/${VERSION$5} ${getUserAgent()}`
+      "user-agent": `octokit-graphql.js/${VERSION$2} ${getUserAgent()}`
     },
     method: "POST",
     url: "/graphql"
   });
 
   function withCustomRequest(customRequest) {
-    return withDefaults(customRequest, {
+    return withDefaults$2(customRequest, {
       method: "POST",
       url: "/graphql"
     });
@@ -5104,11 +5113,11 @@ nothing to commit, working tree clean`;
     });
   };
 
-  const VERSION$4 = "3.6.0";
+  const VERSION$3 = "3.6.0";
 
-  class Octokit$1 {
+  class Octokit {
     constructor(options = {}) {
-      const hook = new Collection();
+      const hook = new Collection$1();
       const requestDefaults = {
         baseUrl: request.endpoint.DEFAULTS.baseUrl,
         headers: {},
@@ -5122,7 +5131,7 @@ nothing to commit, working tree clean`;
         }
       }; // prepend default user agent with `options.userAgent` if set
 
-      requestDefaults.headers["user-agent"] = [options.userAgent, `octokit-core.js/${VERSION$4} ${getUserAgent()}`].filter(Boolean).join(" ");
+      requestDefaults.headers["user-agent"] = [options.userAgent, `octokit-core.js/${VERSION$3} ${getUserAgent()}`].filter(Boolean).join(" ");
 
       if (options.baseUrl) {
         requestDefaults.baseUrl = options.baseUrl;
@@ -5228,10 +5237,10 @@ nothing to commit, working tree clean`;
 
   }
 
-  Octokit$1.VERSION = VERSION$4;
-  Octokit$1.plugins = [];
+  Octokit.VERSION = VERSION$3;
+  Octokit.plugins = [];
 
-  const VERSION$3 = "1.0.4";
+  const VERSION$4 = "1.0.4";
   /**
    * @param octokit Octokit instance
    * @param options Options passed to Octokit constructor
@@ -5242,20 +5251,20 @@ nothing to commit, working tree clean`;
       octokit.log.debug("request", options);
       const start = Date.now();
       const requestOptions = octokit.request.endpoint.parse(options);
-      const path = requestOptions.url.replace(options.baseUrl, "");
+      const path$$1 = requestOptions.url.replace(options.baseUrl, "");
       return request(options).then(response => {
-        octokit.log.info(`${requestOptions.method} ${path} - ${response.status} in ${Date.now() - start}ms`);
+        octokit.log.info(`${requestOptions.method} ${path$$1} - ${response.status} in ${Date.now() - start}ms`);
         return response;
       }).catch(error => {
-        octokit.log.info(`${requestOptions.method} ${path} - ${error.status} in ${Date.now() - start}ms`);
+        octokit.log.info(`${requestOptions.method} ${path$$1} - ${error.status} in ${Date.now() - start}ms`);
         throw error;
       });
     });
   }
 
-  requestLog.VERSION = VERSION$3;
+  requestLog.VERSION = VERSION$4;
 
-  const VERSION$2 = "2.17.0";
+  const VERSION$5 = "2.17.0";
   /**
    * Some “list” response that can be paginated have a different response structure
    *
@@ -5382,7 +5391,7 @@ nothing to commit, working tree clean`;
     });
   }
 
-  Object.assign(paginate, {
+  const composePaginateRest = Object.assign(paginate, {
     iterator
   });
   /**
@@ -5399,7 +5408,7 @@ nothing to commit, working tree clean`;
     };
   }
 
-  paginateRest.VERSION = VERSION$2;
+  paginateRest.VERSION = VERSION$5;
 
   const Endpoints = {
     actions: {
@@ -6267,7 +6276,7 @@ nothing to commit, working tree clean`;
       updateAuthenticated: ["PATCH /user"]
     }
   };
-  const VERSION$1 = "5.13.0";
+  const VERSION$6 = "5.13.0";
 
   function endpointsToMethods(octokit, endpointsMap) {
     const newMethods = {};
@@ -6357,11 +6366,11 @@ nothing to commit, working tree clean`;
     };
   }
 
-  legacyRestEndpointMethods.VERSION = VERSION$1;
+  legacyRestEndpointMethods.VERSION = VERSION$6;
 
-  const VERSION = "18.12.0";
-  const Octokit = Octokit$1.plugin(requestLog, legacyRestEndpointMethods, paginateRest).defaults({
-    userAgent: `octokit-rest.js/${VERSION}`
+  const VERSION$7 = "18.12.0";
+  const Octokit$1 = Octokit.plugin(requestLog, legacyRestEndpointMethods, paginateRest).defaults({
+    userAgent: `octokit-rest.js/${VERSION$7}`
   });
 
   let okit = null;
@@ -6380,7 +6389,7 @@ nothing to commit, working tree clean`;
 
     get octokit() {
       if (okit) return okit;
-      return okit = new Octokit({
+      return okit = new Octokit$1({
         auth: exports.configObject.deploy.github,
         userAgent: `rally-tools deploy ${exports.configObject.appName}`
       });
@@ -6437,7 +6446,7 @@ nothing to commit, working tree clean`;
         log(chalk`Checking jira board: {green ${this.printJiraTicket(issue)}}.`);
       }
 
-      let response = await fetch__default["default"](cardLink, requestOptions);
+      let response = await fetch(cardLink, requestOptions);
       let jiraInfo = await response.json();
       let parsedInfo = {
         assignee_qa: jiraInfo.fields.customfield_17250,
@@ -6466,7 +6475,7 @@ nothing to commit, working tree clean`;
     async printIssue(issue) {
       if (!issue.jira) return;
       let j = issue.jira;
-      issue.jiraInfoFull;
+      let f = issue.jiraInfoFull;
       let format = chalk`PR #${issue.number}: ${issue.title}
     Dev: ${this.name(j.assignee_dev)}
     QA: ${this.name(j.assignee_qa)}
@@ -6572,6 +6581,40 @@ nothing to commit, working tree clean`;
       }
 
       await runGit([0], "pull");
+    },
+
+    async stageSlackMsg(args) {
+      let requiredPresetsRules = await runCommand(`git diff staging...${args.branch} --name-only | rally @`);
+      let currentStage = await runCommand("rally stage info");
+      let msgBody = {
+        "blocks": [{
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": `@here The release branch has been staged by <@${exports.configObject.slackId}>`
+          }
+        }, {
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": "```" + currentStage.replace(/.*Stage loaded: .*\n/, "") + "```"
+          }
+        }, {
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": "```" + requiredPresetsRules.replace("Reading from stdin\n", "") + "```"
+          }
+        }]
+      };
+      response = await rp({
+        method: "POST",
+        body: JSON.stringify(msgBody),
+        headers: {
+          "Content-Type": "application/json"
+        },
+        uri: exports.configObject.deploy.slackWebhooks.air_supply_release_staging
+      });
     }
 
   };
@@ -6630,7 +6673,7 @@ nothing to commit, working tree clean`;
     }
 
     async linkRequest(url, method, headers, body) {
-      let response = await fetch__default["default"](url, {
+      let response = await fetch(url, {
         method,
         headers,
         body
@@ -6676,7 +6719,6 @@ nothing to commit, working tree clean`;
   }
 
   var lint = /*#__PURE__*/Object.freeze({
-    __proto__: null,
     defaultLinter: defaultLinter,
     LintResults: LintResults,
     Lint: Lint
@@ -6734,7 +6776,7 @@ nothing to commit, working tree clean`;
 
     async unitTestRequest(url, method, headers, body) {
       try {
-        let response = await fetch__default["default"](url, {
+        let response = await fetch(url, {
           method,
           headers,
           body
@@ -6796,7 +6838,6 @@ nothing to commit, working tree clean`;
   }
 
   var unitTest = /*#__PURE__*/Object.freeze({
-    __proto__: null,
     defaultUnitTester: defaultUnitTester,
     UnitTestResults: UnitTestResults,
     UnitTest: UnitTest
@@ -6809,7 +6850,7 @@ nothing to commit, working tree clean`;
 
       for (let i = 10; i <= 30; i += 5) {
         console.time("test with " + i);
-        await lib.indexPathFast("DEV", `/workflowRules?page=1p${i}`);
+        let dl = await lib.indexPathFast("DEV", `/workflowRules?page=1p${i}`);
         console.timeEnd("test with " + i);
       }
     },
@@ -6827,7 +6868,7 @@ nothing to commit, working tree clean`;
 
         if (repodir) {
           try {
-            fs__default["default"].lstatSync(repodir).isDirectory();
+            fs__default.lstatSync(repodir).isDirectory();
             return [true, 0];
           } catch (e) {
             return [false, 0];
@@ -6892,41 +6933,41 @@ nothing to commit, working tree clean`;
     }
   }
 
-  exports.APIError = APIError;
-  exports.AbortError = AbortError;
-  exports.Asset = Asset;
-  exports.Collection = Collection$1;
-  exports.Deploy = Deploy;
-  exports.FileTooLargeError = FileTooLargeError;
-  exports.IndexObject = IndexObject;
   exports.Lint = lint;
-  exports.Notification = Notification;
-  exports.Preset = Preset;
-  exports.ProtectedEnvError = ProtectedEnvError;
-  exports.Provider = Provider;
-  exports.RallyBase = RallyBase;
-  exports.ResoultionError = ResoultionError;
-  exports.Rule = Rule;
-  exports.Stage = Stage;
-  exports.SupplyChain = SupplyChain;
-  exports.Tag = Tag;
-  exports.Trace = Trace;
-  exports.UnconfiguredEnvError = UnconfiguredEnvError;
   exports.UnitTest = unitTest;
-  exports.User = User;
+  exports.rallyFunctions = rallyFunctions;
   exports.categorizeString = categorizeString;
-  exports.lib = lib;
+  exports.SupplyChain = SupplyChain;
+  exports.Preset = Preset;
+  exports.Rule = Rule;
+  exports.Provider = Provider;
+  exports.Notification = Notification;
+  exports.Asset = Asset;
+  exports.User = User;
+  exports.Tag = Tag;
+  exports.Stage = Stage$$1;
+  exports.Deploy = Deploy;
+  exports.Trace = Trace;
   exports.loadConfig = loadConfig;
   exports.loadConfigFromArgs = loadConfigFromArgs;
-  exports.orderedObjectKeys = orderedObjectKeys;
-  exports.rallyFunctions = rallyFunctions;
-  exports.range = range;
   exports.setConfig = setConfig;
+  exports.lib = lib;
+  exports.AbortError = AbortError;
+  exports.APIError = APIError;
+  exports.UnconfiguredEnvError = UnconfiguredEnvError;
+  exports.ProtectedEnvError = ProtectedEnvError;
+  exports.FileTooLargeError = FileTooLargeError;
+  exports.ResoultionError = ResoultionError;
+  exports.Collection = Collection;
+  exports.RallyBase = RallyBase;
   exports.sleep = sleep;
-  exports.unordered = unordered;
   exports.zip = zip;
+  exports.unordered = unordered;
+  exports.range = range;
+  exports.IndexObject = IndexObject;
+  exports.orderedObjectKeys = orderedObjectKeys;
 
   Object.defineProperty(exports, '__esModule', { value: true });
 
-}));
+})));
 //# sourceMappingURL=web.js.map

@@ -1,6 +1,7 @@
 import {RallyBase, lib, AbortError, Collection, sleep, zip} from  "./rally-tools.js";
 import {configObject} from "./config.js";
-import {spawn, runGit} from "./decorators.js";
+import {spawn, runGit, runCommand} from "./decorators.js";
+import rp from "request-promise";
 
 import fetch from "node-fetch";
 import {Octokit} from "@octokit/rest";
@@ -207,7 +208,39 @@ let Deploy = {
         }
 
         await runGit([0], "pull");
+    },
+
+    async stageSlackMsg(args){
+        let requiredPresetsRules = await runCommand(`git diff staging...${args.branch} --name-only | rally @`);
+        let currentStage = await runCommand("rally stage info");
+        let msgBody = {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": `@here The release branch has been staged by ${configObject.slackId ? `<@${configObject.slackId}>` : configObject.ownerName}`
+                    }
+                },
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "```"+currentStage.replace(/.*Stage loaded: .*\n/,"")+"```"
+                    }
+                },
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "```"+requiredPresetsRules.replace("Reading from stdin\n","")+"```"
+                    }
+                }
+            ]
+        }
+        response = await rp({method: "POST", body: JSON.stringify(msgBody), headers: {"Content-Type": "application/json"}, uri: configObject.deploy.slackWebhooks.air_supply_release_staging});
     }
+
 };
 
 export default Deploy;

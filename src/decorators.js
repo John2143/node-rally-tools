@@ -126,8 +126,16 @@ export function defineAssoc(classname, shortname, path){
     });
 }
 
-import {spawn as cp_spawn} from "child_process";
+import {spawn as cp_spawn, exec} from "child_process";
 import {performance} from "perf_hooks";
+
+export function runCommand(command){
+    return new Promise(function(resolve,reject){
+        exec(command, { maxBuffer: Infinity }, async function(err, stdout, stderr) {
+            resolve(stdout)
+        })
+    })
+};
 
 //Spawn promise decorator, based on https://gist.github.com/Stuk/6226938
 export function spawn(options, ...args){

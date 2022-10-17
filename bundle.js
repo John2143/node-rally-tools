@@ -6624,6 +6624,7 @@ const Octokit$1 = Octokit.plugin(requestLog, legacyRestEndpointMethods, paginate
 let okit = null;
 const prodReadyLabel = "Ready For Release";
 const prodManualLabel = "Ready For Release (manual)";
+const prodHotfixLabel = "hotfix";
 /* The deployment process is separated into two different parts:
  * `rally deploy prep` Links jira tickets to PRs and assigns labels based on their status
  * `rally deploy merge` Takes all the labeled PRs, changes their base branch to the release, and merges them
@@ -6839,19 +6840,7 @@ let Deploy = {
         "type": "section",
         "text": {
           "type": "mrkdwn",
-          "text": `@here The release branch has been staged by <@${configObject.slackId}>`
-        }
-      }, {
-        "type": "section",
-        "text": {
-          "type": "mrkdwn",
-          "text": "```" + currentStage.replace(/.*Stage loaded: .*\n/, "") + "```"
-        }
-      }, {
-        "type": "section",
-        "text": {
-          "type": "mrkdwn",
-          "text": "```" + requiredPresetsRules.replace("Reading from stdin\n", "") + "```"
+          "text": `@here The release branch has been staged by ${configObject.slackId ? `<@${configObject.slackId}>` : configObject.ownerName}` + `\n${"```" + currentStage.replace(/.*Stage loaded: .*\n/, "") + "```"}` + `\n${"```" + requiredPresetsRules.replace("Reading from stdin\n", "") + "```"}`
         }
       }]
     };
@@ -6863,6 +6852,51 @@ let Deploy = {
       },
       uri: configObject.deploy.slackWebhooks.air_supply_release_staging
     });
+  },
+
+  async deploySlackMessage(args) {
+    let today = new Date();
+    today = String(today.getMonth() + 1).padStart(2, '0') + '/' + String(today.getDate()).padStart(2, '0') + '/' + today.getFullYear();
+    let pull_request_descriptions = [];
+    let requiredPresetsRules = await runCommand(`git diff staging...${args.branch} --name-only | rally @`);
+    let issues = await this.getIssues();
+
+    for (let issue of issues) {
+      let labels = new Set(issue.labels.map(x => x.name));
+
+      if (args.hotfix) {
+        if (!labels.has(prodHotfixLabel)) continue;
+      } else if (!labels.has(prodReadyLabel) && !labels.has(prodManualLabel)) continue;
+
+      let config = this.getOctokitConfig();
+      config.pull_number = issue.number;
+      let pull_request = await this.octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}", config);
+      let pull_request_description = pull_request.data.body.replace("Description (user facing release note):", "").replace(/Dev comments:[\s\S]*/, "").trim();
+      pull_request_descriptions.push(pull_request_description);
+    }
+
+    if (pull_request_descriptions.length == 0) {
+      log(chalk`{red Error:} Pull requests have not been tagged`);
+    } else {
+      pull_request_descriptions = pull_request_descriptions.filter(d => d.length != 0).map(d => `• ${d}`);
+      let msgBody = {
+        "blocks": [{
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": `@here ${args.hotfix ? "*HOTFIX*" : `*DEPLOY ${today}*`}` + `\nDeployer: ${configObject.slackId ? `<@${configObject.slackId}>` : configObject.ownerName}` + `\n${pull_request_descriptions.join("\n") || " "}` + `\n${"```" + requiredPresetsRules.replace("Reading from stdin\n", "") + "```"}`
+          }
+        }]
+      };
+      response = await rp({
+        method: "POST",
+        body: JSON.stringify(msgBody),
+        headers: {
+          "Content-Type": "application/json"
+        },
+        uri: configObject.deploy.slackWebhooks.rally_deployments
+      });
+    }
   }
 
 };
@@ -7708,6 +7742,10 @@ let deploysub = {
 
   async $stageMsg(args) {
     await Deploy.stageSlackMsg(args);
+  },
+
+  async $deployMsg(args) {
+    await Deploy.deploySlackMessage(args);
   },
 
   async unknown(arg$$1, args) {

@@ -14,7 +14,6 @@ import {categorizeString} from "./index.js";
 import {writeFileSync, readFileSync, pathTransform} from "./fswrap.js";
 import path from "path";
 import moment from "moment";
-import { env } from "process";
 
 let exists = {};
 let stagingEmsg = chalk`Not currently on a clean staging branch. Please move to staging or resolve the commits.

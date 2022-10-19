@@ -4321,15 +4321,12 @@ let Stage$$1 = {
 
     let newStagedBranches = new Set();
     let oldStagedBranches = new Set();
-    let storedStagedBranches = new Set();
 
     for (let {
       branch
     } of this.stageData.stage) {
       if (!clean) {
         newStagedBranches.add(branch);
-      } else {
-        storedStagedBranches.add(branch);
       }
 
       oldStagedBranches.add(branch);
@@ -4398,7 +4395,6 @@ let Stage$$1 = {
     if (!ok) return; //just to make sure commits/branches don't get out of order
 
     newStagedBranches = Array.from(newStagedBranches);
-    storedStagedBranches = Array.from(storedStagedBranches);
 
     try {
       let [diffText, newStagedCommits] = await this.doGit(newStagedBranches, this.stageData.stage.map(x => x.commit));

@@ -226,7 +226,7 @@ let Deploy = {
     },
 
     async stageSlackMsg(args){
-        Stage.env = "UAT";
+        Stage.env = args.env || "UAT";
         Stage.skipLoadMsg = true;
         if (!args.branch) {
             log(chalk`{red Error:} Please provide a branch`); return

@@ -284,11 +284,15 @@ let Stage = {
             }
             oldStagedBranches.add(branch);
         }
+
         if (restore) {
             for(let {branch} of this.stageData.storedStage){
                 newStagedBranches.add(branch);
-                oldStagedBranches.add(branch);
             }
+        }
+        
+        if (clean) {
+            this.stageData.storedStage = this.stageData.stage;
         }
 
         if(needsInput) {
@@ -341,12 +345,6 @@ let Stage = {
             let [diffText, newStagedCommits] = await this.doGit(newStagedBranches, this.stageData.stage.map(x => x.commit));
             await this.runRally(diffText);
             this.stageData.stage = Array.from(zip(newStagedBranches, newStagedCommits)).map(([branch, commit]) => ({branch, commit}));
-
-            if (clean) {
-                let [diffText, storedStagedCommits] = await this.doGit(storedStagedBranches, this.stageData.storedStage.map(x => x.commit));
-                await this.runRally(diffText);
-                this.stageData.storedStage = Array.from(zip(storedStagedBranches, storedStagedCommits)).map(([branch, commit]) => ({branch, commit}));
-            }
 
             await this.uploadStage();
         }catch(e){

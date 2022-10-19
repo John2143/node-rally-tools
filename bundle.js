@@ -4340,8 +4340,11 @@ let Stage$$1 = {
         branch
       } of this.stageData.storedStage) {
         newStagedBranches.add(branch);
-        oldStagedBranches.add(branch);
       }
+    }
+
+    if (clean) {
+      this.stageData.storedStage = this.stageData.stage;
     }
 
     if (needsInput) {
@@ -4404,17 +4407,6 @@ let Stage$$1 = {
         branch,
         commit
       }));
-
-      if (clean) {
-        let [diffText, storedStagedCommits] = await this.doGit(storedStagedBranches, this.stageData.storedStage.map(x => x.commit));
-        log(diffText);
-        await this.runRally(diffText);
-        this.stageData.storedStage = Array.from(zip(storedStagedBranches, storedStagedCommits)).map(([branch, commit]) => ({
-          branch,
-          commit
-        }));
-      }
-
       await this.uploadStage();
     } catch (e) {
       if (e instanceof AbortError) {

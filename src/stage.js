@@ -259,6 +259,7 @@ let Stage = {
     async $edit(){
         let needsInput = !this.args.a && !this.args.r && !this.args.add && !this.args.remove;
         let clean = this.args.clean;
+        let restore = this.args.restore;
 
         let [branches, stage, _] = await Promise.all([
             this.getBranches(),
@@ -273,11 +274,21 @@ let Stage = {
         //copy the branches we started with
         let newStagedBranches = new Set();
         let oldStagedBranches = new Set();
+        let storedStagedBranches = new Set();
         for(let {branch} of this.stageData.stage){
             if(!clean) {
                 newStagedBranches.add(branch);
             }
+            else {
+                storedStagedBranches.add(branch);
+            }
             oldStagedBranches.add(branch);
+        }
+        if (restore) {
+            for(let {branch} of this.stageData.storedStage){
+                newStagedBranches.add(branch);
+                oldStagedBranches.add(branch);
+            }
         }
 
         if(needsInput) {
@@ -324,15 +335,20 @@ let Stage = {
 
         //just to make sure commits/branches don't get out of order
         newStagedBranches = Array.from(newStagedBranches);
+        storedStagedBranches = Array.from(storedStagedBranches);
 
         try {
             let [diffText, newStagedCommits] = await this.doGit(newStagedBranches, this.stageData.stage.map(x => x.commit));
-
             await this.runRally(diffText);
-
             this.stageData.stage = Array.from(zip(newStagedBranches, newStagedCommits)).map(([branch, commit]) => ({branch, commit}));
 
-             await this.uploadStage();
+            if (clean) {
+                let [diffText, storedStagedCommits] = await this.doGit(storedStagedBranches, this.stageData.storedStage.map(x => x.commit));
+                await this.runRally(diffText);
+                this.stageData.storedStage = Array.from(zip(storedStagedBranches, storedStagedCommits)).map(([branch, commit]) => ({branch, commit}));
+            }
+
+            await this.uploadStage();
         }catch(e){
             if(e instanceof AbortError) {
                 await this.runGit([0], "reset", "--hard", "HEAD");

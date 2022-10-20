@@ -8483,6 +8483,16 @@ let supplysub = {
             log("-------");
           } else {
             log("Code Different");
+
+            if (configObject.diffCommand) {
+              let tempfile = require("tempy").file;
+
+              let temp = tempfile({
+                extension: `${env}.${preset.ext}`
+              });
+              fs.writeFileSync(temp, otherPreset.code);
+              runCommand(`${configObject.diffCommand} "${preset.path}" "${temp}"`);
+            }
           }
 
           anyDifferent = true;

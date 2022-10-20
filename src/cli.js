@@ -15,7 +15,7 @@ import {readFileSync, writeFileSync} from "fs";
 
 import {printOutLine, parseTrace, findLineInFile, getInfo as getTraceInfo} from "./trace.js";
 
-import {helpText, arg, param, usage, helpEntries, spawn} from "./decorators.js";
+import {helpText, arg, param, usage, helpEntries, spawn, runCommand} from "./decorators.js";
 
 import baseCode from "./baseCode.js";
 import {sep as pathSeperator} from "path";
@@ -496,6 +496,12 @@ let supplysub = {
                         log("-------");
                     }else{
                         log("Code Different");
+                        if (configObject.diffCommand){
+                            let tempfile = require("tempy").file;
+                            let temp = tempfile({extension: `${env}.${preset.ext}`});
+                            writeFileSync(temp, otherPreset.code);
+                            runCommand(`${configObject.diffCommand} "${preset.path}" "${temp}"`);
+                        }
                     }
 
                     anyDifferent = true

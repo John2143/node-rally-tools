@@ -260,6 +260,7 @@ let Stage = {
         let needsInput = !this.args.a && !this.args.r && !this.args.add && !this.args.remove;
         let clean = this.args.clean;
         let restore = this.args.restore;
+        let storeStage = this.args["store-stage"];
 
         let [branches, stage, _] = await Promise.all([
             this.getBranches(),
@@ -286,9 +287,10 @@ let Stage = {
             for(let {branch} of this.stageData.storedStage){
                 newStagedBranches.add(branch);
             }
+            this.stageData.storedStage = [];
         }
 
-        if (clean) {
+        if (storeStage) {
             this.stageData.storedStage = this.stageData.stage;
         }
 

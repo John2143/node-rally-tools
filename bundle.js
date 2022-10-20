@@ -4315,6 +4315,7 @@ let Stage$$1 = {
     let needsInput = !this.args.a && !this.args.r && !this.args.add && !this.args.remove;
     let clean = this.args.clean;
     let restore = this.args.restore;
+    let storeStage = this.args["store-stage"];
     let [branches, stage, _] = await Promise.all([this.getBranches(), this.downloadStage(), !needsInput || addAutoCompletePrompt()]);
     if (stage) return;
     if (!branches) return; //copy the branches we started with
@@ -4338,9 +4339,11 @@ let Stage$$1 = {
       } of this.stageData.storedStage) {
         newStagedBranches.add(branch);
       }
+
+      this.stageData.storedStage = [];
     }
 
-    if (clean) {
+    if (storeStage) {
       this.stageData.storedStage = this.stageData.stage;
     }
 
@@ -7926,7 +7929,7 @@ require("source-map-support").install();
 let argv = argparse(process.argv.slice(2), {
   string: ["file", "env"],
   //boolean: ["no-protect"],
-  boolean: ["anon"],
+  boolean: ["anon", "store-stage"],
   default: {
     protect: true
   },

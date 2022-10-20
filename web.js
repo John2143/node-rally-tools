@@ -4067,6 +4067,7 @@ Try {red git status} or {red rally stage edit --verbose} for more info.`;
       let needsInput = !this.args.a && !this.args.r && !this.args.add && !this.args.remove;
       let clean = this.args.clean;
       let restore = this.args.restore;
+      let storeStage = this.args["store-stage"];
       let [branches, stage, _] = await Promise.all([this.getBranches(), this.downloadStage(), !needsInput || addAutoCompletePrompt()]);
       if (stage) return;
       if (!branches) return; //copy the branches we started with
@@ -4090,9 +4091,11 @@ Try {red git status} or {red rally stage edit --verbose} for more info.`;
         } of this.stageData.storedStage) {
           newStagedBranches.add(branch);
         }
+
+        this.stageData.storedStage = [];
       }
 
-      if (clean) {
+      if (storeStage) {
         this.stageData.storedStage = this.stageData.stage;
       }
 

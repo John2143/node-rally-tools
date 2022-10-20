@@ -287,7 +287,6 @@ let Stage = {
             for(let {branch} of this.stageData.storedStage){
                 newStagedBranches.add(branch);
             }
-            this.stageData.storedStage = [];
         }
 
         if (storeStage) {

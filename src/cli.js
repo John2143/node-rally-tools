@@ -1393,6 +1393,10 @@ async function $main(){
         global.write = ()=>{};
     }
 
+    if(argv["store-stage"]){
+        configObject.storeStage = true;
+    }
+
     if(argv["script"]){
         configObject.script = true;
     }

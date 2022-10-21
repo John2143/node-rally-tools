@@ -20,7 +20,6 @@ var path = require('path');
 var path__default = _interopDefault(path);
 var moment = _interopDefault(require('moment'));
 var fetch = _interopDefault(require('node-fetch'));
-require('tempy');
 var argparse = _interopDefault(require('minimist'));
 
 function _asyncIterator(iterable) {
@@ -7381,10 +7380,10 @@ let Deploy = {
       method: "GET",
       path: jobPath
     });
-    let errorCount = result.data.length == 0 ? chalk`{green 0}` : chalk`{red ${result.data.length}}`;
+    let errorCountMsg = result.data.length == 0 ? chalk`{green 0}` : result.data.length > 100 ? chalk`{red ${result.data.length}+}` : chalk`{red ${result.data.length}}`;
     let host = ["dev", "qa", "uat"].includes(args.env.toLowerCase()) ? `https://discovery-${args.env.toLowerCase()}.sdvi.com` : "https://discovery.sdvi.com";
     let jobsPageLink = `${host}${jobPath}`;
-    log(chalk`Errors Found: ${errorCount}\n--------------------\n{blue ${jobsPageLink}}`);
+    log(chalk`Errors Found: ${errorCountMsg}\n--------------------\n{blue ${jobsPageLink}}`);
   }
 
 };

@@ -1,8 +1,8 @@
 (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('os'), require('fs'), require('child_process'), require('perf_hooks'), require('chalk'), require('request-promise'), require('path'), require('moment'), require('node-fetch'), require('tempy')) :
-  typeof define === 'function' && define.amd ? define(['exports', 'os', 'fs', 'child_process', 'perf_hooks', 'chalk', 'request-promise', 'path', 'moment', 'node-fetch', 'tempy'], factory) :
-  (factory((global.RallyTools = {}),global.os,global.fs,global.child_process,global.perf_hooks,global.chalk$1,global.rp,global.path,global.moment,global.fetch,global.tempy));
-}(this, (function (exports,os,fs,child_process,perf_hooks,chalk$1,rp,path,moment,fetch,tempy) { 'use strict';
+  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('os'), require('fs'), require('child_process'), require('perf_hooks'), require('chalk'), require('request-promise'), require('path'), require('moment'), require('node-fetch')) :
+  typeof define === 'function' && define.amd ? define(['exports', 'os', 'fs', 'child_process', 'perf_hooks', 'chalk', 'request-promise', 'path', 'moment', 'node-fetch'], factory) :
+  (factory((global.RallyTools = {}),global.os,global.fs,global.child_process,global.perf_hooks,global.chalk$1,global.rp,global.path,global.moment,global.fetch));
+}(this, (function (exports,os,fs,child_process,perf_hooks,chalk$1,rp,path,moment,fetch) { 'use strict';
 
   var fs__default = 'default' in fs ? fs['default'] : fs;
   chalk$1 = chalk$1 && chalk$1.hasOwnProperty('default') ? chalk$1['default'] : chalk$1;
@@ -7132,10 +7132,10 @@ nothing to commit, working tree clean`;
         method: "GET",
         path: jobPath
       });
-      let errorCount = result.data.length == 0 ? chalk`{green 0}` : chalk`{red ${result.data.length}}`;
+      let errorCountMsg = result.data.length == 0 ? chalk`{green 0}` : result.data.length > 100 ? chalk`{red ${result.data.length}+}` : chalk`{red ${result.data.length}}`;
       let host = ["dev", "qa", "uat"].includes(args.env.toLowerCase()) ? `https://discovery-${args.env.toLowerCase()}.sdvi.com` : "https://discovery.sdvi.com";
       let jobsPageLink = `${host}${jobPath}`;
-      log(chalk`Errors Found: ${errorCount}\n--------------------\n{blue ${jobsPageLink}}`);
+      log(chalk`Errors Found: ${errorCountMsg}\n--------------------\n{blue ${jobsPageLink}}`);
     }
 
   };

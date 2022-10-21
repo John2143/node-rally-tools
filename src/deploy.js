@@ -300,10 +300,10 @@ let Deploy = {
         }
         let jobPath = `/jobs?perPage=100&page=1&filter=%7B%22completedSince%22%3A${mostRecentModifyTime},%22state%22%3A%5B%22Error%22%5D,%22presetId%22%3A%5B${presetIds.map(d=>`%22${d}%22`).join(",")}%5D%7D&sort=-completedAt`;
         let result = await lib.makeAPIRequest({env: args.env, method: "GET", path: jobPath});
-        let errorCount = result.data.length == 0 ? chalk`{green 0}` : chalk`{red ${result.data.length}}`;
+        let errorCountMsg = result.data.length == 0 ? chalk`{green 0}` : result.data.length > 100 ? chalk`{red ${result.data.length}+}` : chalk`{red ${result.data.length}}`;
         let host = ["dev","qa","uat"].includes(args.env.toLowerCase()) ? `https://discovery-${args.env.toLowerCase()}.sdvi.com` : "https://discovery.sdvi.com";
         let jobsPageLink = `${host}${jobPath}`;
-        log(chalk`Errors Found: ${errorCount}\n--------------------\n{blue ${jobsPageLink}}`);
+        log(chalk`Errors Found: ${errorCountMsg}\n--------------------\n{blue ${jobsPageLink}}`);
     }
 
 };

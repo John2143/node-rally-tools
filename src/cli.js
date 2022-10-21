@@ -341,6 +341,9 @@ let deploysub = {
     async $deployMsg(args) {
         await Deploy.deploySlackMessage(args);
     },
+    async $errors(args) {
+        await Deploy.getDeploymentErrors(args);
+    },
     async unknown(arg, args){
         log(chalk`Unknown action {red ${arg}} try '{white rally help rule}'`);
     },

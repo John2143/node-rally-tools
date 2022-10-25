@@ -21,6 +21,7 @@ var path__default = _interopDefault(path);
 var moment = _interopDefault(require('moment'));
 var fetch = _interopDefault(require('node-fetch'));
 var argparse = _interopDefault(require('minimist'));
+var redis = require('redis');
 
 function _asyncIterator(iterable) {
   var method;
@@ -7343,47 +7344,6 @@ let Deploy = {
         uri: configObject.deploy.slackWebhooks.rally_deployments
       });
     }
-  },
-
-  async getDeploymentErrors(args) {
-    if (!args.branch) throw new AbortError(chalk`{red Error}: Please supply a branch name`);
-    if (!args.env) throw new AbortError(chalk`{red Error}: Please specify an environment`);
-    await runCommand(`git checkout ${args.branch}`);
-    let changedFiles = await runCommand(`git diff staging...HEAD --name-only`);
-    changedFiles = changedFiles.split("\n").filter(d => d.length > 0);
-    await runCommand(`git checkout staging`);
-    let presetIds = [];
-    let mostRecentModifyTime = 0;
-
-    for (f of changedFiles) {
-      var _preset, _preset$data, _preset$data$attribut;
-
-      let preset = new Preset({
-        path: f,
-        remote: false
-      });
-      preset = await Preset.getByName(args.env, preset.name);
-
-      if (!preset) {
-        log(chalk`No preset found with name {red ${preset.name}} on {blue ${args.env}}`);
-        continue;
-      }
-
-      presetIds.push(preset.data.id);
-      let updateTime = ((_preset = preset) === null || _preset === void 0 ? void 0 : (_preset$data = _preset.data) === null || _preset$data === void 0 ? void 0 : (_preset$data$attribut = _preset$data.attributes) === null || _preset$data$attribut === void 0 ? void 0 : _preset$data$attribut.updatedAt) || 0;
-      mostRecentModifyTime = updateTime > mostRecentModifyTime ? updateTime : mostRecentModifyTime;
-    }
-
-    let jobPath = `/jobs?perPage=100&page=1&filter=%7B%22completedSince%22%3A${mostRecentModifyTime},%22state%22%3A%5B%22Error%22%5D,%22presetId%22%3A%5B${presetIds.map(d => `%22${d}%22`).join(",")}%5D%7D&sort=-completedAt`;
-    let result = await lib.makeAPIRequest({
-      env: args.env,
-      method: "GET",
-      path: jobPath
-    });
-    let errorCountMsg = result.data.length == 0 ? chalk`{green 0}` : result.data.length > 100 ? chalk`{red ${result.data.length}+}` : chalk`{red ${result.data.length}}`;
-    let host = ["dev", "qa", "uat"].includes(args.env.toLowerCase()) ? `https://discovery-${args.env.toLowerCase()}.sdvi.com` : "https://discovery.sdvi.com";
-    let jobsPageLink = `${host}${jobPath}`;
-    log(chalk`Errors Found: ${errorCountMsg}\n--------------------\n{blue ${jobsPageLink}}`);
   }
 
 };
@@ -8358,10 +8318,6 @@ let deploysub = {
     await Deploy.deploySlackMessage(args);
   },
 
-  async $errors(args) {
-    await Deploy.getDeploymentErrors(args);
-  },
-
   async unknown(arg$$1, args) {
     log(chalk`Unknown action {red ${arg$$1}} try '{white rally help rule}'`);
   }
@@ -8552,6 +8508,56 @@ let supplysub = {
       await this.chain.lint(defaultLinter(args));
     } else if (args["unitTest"]) {
       await this.chain.unitTest(defaultUnitTester(args));
+    } else if (args["monitor"]) {
+      let env = args["monitor"];
+      let presets = await Promise.all(this.chain.presets.arr.map(obj => Preset.getByName(env, obj.name)));
+      let presetMapping = {};
+
+      for (let preset of presets) {
+        presetMapping[preset.data.id] = preset.name;
+      }
+      let host = ["dev", "qa", "uat"].includes(env.toLowerCase()) ? `https://discovery-${env.toLowerCase()}.sdvi.com` : "https://discovery.sdvi.com";
+      let errors = new Set();
+      let passes = new Set();
+      if (!(configObject === null || configObject === void 0 ? void 0 : configObject.redis[env])) throw new AbortError("Configure redis in your rally tools config");
+      const redisClient = redis.createClient({
+        url: `rediss://127.0.0.1:${configObject.redis[env]}`,
+        socket: {
+          tls: true,
+          rejectUnauthorized: false
+        }
+      });
+      await redisClient.connect();
+      log(chalk`{blue {bold Listening...}}`);
+      await redisClient.subscribe('messagebus', message => {
+        let data = JSON.parse(message);
+        let messageType = data.resourceType;
+        let messageEvent = data.event;
+
+        if (messageType == "jobs" && messageEvent == "update") {
+          var _data$resourceState, _data$resourceState$d, _data$resourceState$d2, _data$resourceState$d3, _data$resourceState$d4;
+
+          let presetId = data === null || data === void 0 ? void 0 : (_data$resourceState = data.resourceState) === null || _data$resourceState === void 0 ? void 0 : (_data$resourceState$d = _data$resourceState.data) === null || _data$resourceState$d === void 0 ? void 0 : (_data$resourceState$d2 = _data$resourceState$d.relationships) === null || _data$resourceState$d2 === void 0 ? void 0 : (_data$resourceState$d3 = _data$resourceState$d2.preset) === null || _data$resourceState$d3 === void 0 ? void 0 : (_data$resourceState$d4 = _data$resourceState$d3.data) === null || _data$resourceState$d4 === void 0 ? void 0 : _data$resourceState$d4.id;
+
+          if (presetMapping[presetId]) {
+            var _data$resourceState2, _data$resourceState2$, _data$resourceState2$2;
+
+            let result = data === null || data === void 0 ? void 0 : (_data$resourceState2 = data.resourceState) === null || _data$resourceState2 === void 0 ? void 0 : (_data$resourceState2$ = _data$resourceState2.data) === null || _data$resourceState2$ === void 0 ? void 0 : (_data$resourceState2$2 = _data$resourceState2$.attributes) === null || _data$resourceState2$2 === void 0 ? void 0 : _data$resourceState2$2.result;
+
+            if (result == "Error" && !errors.has(data.resourceId)) {
+              log(chalk`{bold {red Error:} ${presetMapping[presetId]}}    {bold {red Url: }} ${host}/jobs/${data.resourceId}`);
+              errors.add(data.resourceId);
+            } else if (result == "Pass" && !passes.has(data.resourceId)) {
+              log(chalk`{bold {green Passed:} ${presetMapping[presetId]}}`);
+              passes.add(data.resourceId);
+            }
+          }
+        }
+      });
+
+      for (;;) {
+        await sleep(1000);
+      }
     } else {
       return await this.chain.log();
     }

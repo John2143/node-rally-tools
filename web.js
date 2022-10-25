@@ -7095,47 +7095,6 @@ nothing to commit, working tree clean`;
           uri: exports.configObject.deploy.slackWebhooks.rally_deployments
         });
       }
-    },
-
-    async getDeploymentErrors(args) {
-      if (!args.branch) throw new AbortError(chalk`{red Error}: Please supply a branch name`);
-      if (!args.env) throw new AbortError(chalk`{red Error}: Please specify an environment`);
-      await runCommand(`git checkout ${args.branch}`);
-      let changedFiles = await runCommand(`git diff staging...HEAD --name-only`);
-      changedFiles = changedFiles.split("\n").filter(d => d.length > 0);
-      await runCommand(`git checkout staging`);
-      let presetIds = [];
-      let mostRecentModifyTime = 0;
-
-      for (f of changedFiles) {
-        var _preset, _preset$data, _preset$data$attribut;
-
-        let preset = new Preset({
-          path: f,
-          remote: false
-        });
-        preset = await Preset.getByName(args.env, preset.name);
-
-        if (!preset) {
-          log(chalk`No preset found with name {red ${preset.name}} on {blue ${args.env}}`);
-          continue;
-        }
-
-        presetIds.push(preset.data.id);
-        let updateTime = ((_preset = preset) === null || _preset === void 0 ? void 0 : (_preset$data = _preset.data) === null || _preset$data === void 0 ? void 0 : (_preset$data$attribut = _preset$data.attributes) === null || _preset$data$attribut === void 0 ? void 0 : _preset$data$attribut.updatedAt) || 0;
-        mostRecentModifyTime = updateTime > mostRecentModifyTime ? updateTime : mostRecentModifyTime;
-      }
-
-      let jobPath = `/jobs?perPage=100&page=1&filter=%7B%22completedSince%22%3A${mostRecentModifyTime},%22state%22%3A%5B%22Error%22%5D,%22presetId%22%3A%5B${presetIds.map(d => `%22${d}%22`).join(",")}%5D%7D&sort=-completedAt`;
-      let result = await lib.makeAPIRequest({
-        env: args.env,
-        method: "GET",
-        path: jobPath
-      });
-      let errorCountMsg = result.data.length == 0 ? chalk`{green 0}` : result.data.length > 100 ? chalk`{red ${result.data.length}+}` : chalk`{red ${result.data.length}}`;
-      let host = ["dev", "qa", "uat"].includes(args.env.toLowerCase()) ? `https://discovery-${args.env.toLowerCase()}.sdvi.com` : "https://discovery.sdvi.com";
-      let jobsPageLink = `${host}${jobPath}`;
-      log(chalk`Errors Found: ${errorCountMsg}\n--------------------\n{blue ${jobsPageLink}}`);
     }
 
   };

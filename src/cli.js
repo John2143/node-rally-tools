@@ -550,9 +550,7 @@ let supplysub = {
             log(chalk`{blue {bold Listening...}}`);
             await redisClient.subscribe('messagebus', (message) => {
                 let data = JSON.parse(message);
-                let messageType = data.resourceType;
-                let messageEvent = data.event;
-                if (messageType == "jobs" && messageEvent == "update") {
+                if (data.resourceType == "jobs" && data.event == "update") {
                     let presetId = data?.resourceState?.data?.relationships?.preset?.data?.id;
                     if (presetMapping[presetId]) {
                         let result = data?.resourceState?.data?.attributes?.result;

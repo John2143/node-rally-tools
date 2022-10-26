@@ -15,7 +15,7 @@ import {readFileSync, writeFileSync} from "fs";
 
 import {printOutLine, parseTrace, findLineInFile, getInfo as getTraceInfo} from "./trace.js";
 
-import {helpText, arg, param, usage, helpEntries, spawn} from "./decorators.js";
+import {helpText, arg, param, usage, helpEntries, spawn, runCommand} from "./decorators.js";
 
 import baseCode from "./baseCode.js";
 import {sep as pathSeperator} from "path";
@@ -23,6 +23,8 @@ import {sep as pathSeperator} from "path";
 import moment from "moment";
 
 import { createClient } from 'redis';
+
+const notifier = require('node-notifier');
 
 import * as configHelpers from "./config-create.js";
 const False = false; const True = true; const None = null;
@@ -557,6 +559,10 @@ let supplysub = {
                         if (result == "Error" && !errors.has(data.resourceId)) {
                             log(chalk`{bold {red Error:} ${presetMapping[presetId]}}    {bold {red Url: }} ${host}/jobs/${data.resourceId}`)
                             errors.add(data.resourceId)
+                            notifier.notify({
+                                title: 'Error Found!',
+                                message: presetMapping[presetId]
+                            });
                         }
                         else if (result == "Pass" && !passes.has(data.resourceId)) {
                             log(chalk`{bold {green Passed:} ${presetMapping[presetId]}}`)

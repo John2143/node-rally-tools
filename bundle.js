@@ -8548,8 +8548,8 @@ let supplysub = {
               log(chalk`{bold {red Error:} ${presetMapping[presetId]}}    {bold {red Url: }} ${host}/jobs/${data.resourceId}`);
               errors.add(data.resourceId);
               notifier.notify({
-                title: 'Error Found!',
-                message: `Preset: ${presetMapping[presetId]}`
+                title: `Preset failure in ${env}`,
+                message: presetMapping[presetId]
               });
             } else if (result == "Pass" && !passes.has(data.resourceId)) {
               log(chalk`{bold {green Passed:} ${presetMapping[presetId]}}`);

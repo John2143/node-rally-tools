@@ -560,7 +560,7 @@ let supplysub = {
                             log(chalk`{bold {red Error:} ${presetMapping[presetId]}}    {bold {red Url: }} ${host}/jobs/${data.resourceId}`)
                             errors.add(data.resourceId)
                             notifier.notify({
-                                title: `Preset failure in ${env}`,
+                                title: `Failure in ${env}`,
                                 message: presetMapping[presetId]
                             });
                         }

@@ -15,7 +15,7 @@ import {readFileSync, writeFileSync} from "fs";
 
 import {printOutLine, parseTrace, findLineInFile, getInfo as getTraceInfo} from "./trace.js";
 
-import {helpText, arg, param, usage, helpEntries, spawn, runCommand} from "./decorators.js";
+import {helpText, arg, param, usage, helpEntries, spawn} from "./decorators.js";
 
 import baseCode from "./baseCode.js";
 import {sep as pathSeperator} from "path";
@@ -33,7 +33,7 @@ let argv = argparse(process.argv.slice(2), {
     string: ["file", "env"],
     //boolean: ["no-protect"],
     boolean: ["anon"],
-    default: { protect: true },
+    default: {protect: true},
     alias: {
         f: "file", e: "env",
     }

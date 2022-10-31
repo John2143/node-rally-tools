@@ -28,7 +28,7 @@ const False = false; const True = true; const None = null;
 let argv = argparse(process.argv.slice(2), {
     string: ["file", "env"],
     //boolean: ["no-protect"],
-    boolean: ["anon"],
+    boolean: ["anon","store-stage"],
     default: {protect: true},
     alias: {
         f: "file", e: "env",
@@ -1391,6 +1391,10 @@ async function $main(){
         global.log = ()=>{};
         global.errorLog = ()=>{};
         global.write = ()=>{};
+    }
+
+    if(argv["store-stage"]){
+        configObject.storeStage = true;
     }
 
     if(argv["script"]){

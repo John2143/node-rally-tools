@@ -260,6 +260,8 @@ let Stage = {
     async $edit(){
         let needsInput = !this.args.a && !this.args.r && !this.args.add && !this.args.remove;
         let clean = this.args.clean;
+        let restore = this.args.restore;
+        let storeStage = this.args["store-stage"];
 
         let [branches, stage, _] = await Promise.all([
             this.getBranches(),
@@ -274,11 +276,22 @@ let Stage = {
         //copy the branches we started with
         let newStagedBranches = new Set();
         let oldStagedBranches = new Set();
+
         for(let {branch} of this.stageData.stage){
             if(!clean) {
                 newStagedBranches.add(branch);
             }
             oldStagedBranches.add(branch);
+        }
+
+        if (restore) {
+            for(let {branch} of this.stageData.storedStage){
+                newStagedBranches.add(branch);
+            }
+        }
+
+        if (storeStage) {
+            this.stageData.storedStage = this.stageData.stage;
         }
 
         if(needsInput) {
@@ -328,12 +341,10 @@ let Stage = {
 
         try {
             let [diffText, newStagedCommits] = await this.doGit(newStagedBranches, this.stageData.stage.map(x => x.commit));
-
             await this.runRally(diffText);
-
             this.stageData.stage = Array.from(zip(newStagedBranches, newStagedCommits)).map(([branch, commit]) => ({branch, commit}));
 
-             await this.uploadStage();
+            await this.uploadStage();
         }catch(e){
             if(e instanceof AbortError) {
                 await this.runGit([0], "reset", "--hard", "HEAD");

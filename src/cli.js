@@ -22,6 +22,10 @@ import {sep as pathSeperator} from "path";
 
 import moment from "moment";
 
+import { createClient } from 'redis';
+
+const notifier = require('node-notifier');
+
 import * as configHelpers from "./config-create.js";
 const False = false; const True = true; const None = null;
 
@@ -532,7 +536,51 @@ let supplysub = {
         } else if(args["unitTest"]) {
             await this.chain.unitTest(UnitTest.defaultUnitTester(args));
 
-        }else{
+        } else if(args["monitor"]) {
+            let env = args["monitor"];
+            let presets = await Promise.all(this.chain.presets.arr.map(obj => Preset.getByName(env, obj.name)));
+            let presetMapping = {};
+            for (let preset of presets) {
+                presetMapping[preset.data.id] = preset.name;
+            };
+            let host = ["dev","qa","uat"].includes(env.toLowerCase()) ? `https://discovery-${env.toLowerCase()}.sdvi.com` : "https://discovery.sdvi.com";
+            let errors = new Set();
+            let passes = new Set();
+            if (!configObject?.redis[env]) throw new AbortError("Configure redis in your rally tools config");
+            const redisClient = createClient({ 
+                url: `rediss://127.0.0.1:${configObject.redis[env]}`,
+                socket: {
+                    tls: true,
+                    rejectUnauthorized: false
+                }
+            });
+            await redisClient.connect();
+            log(chalk`{blue {bold Listening...}}`);
+            await redisClient.subscribe('messagebus', (message) => {
+                let data = JSON.parse(message);
+                if (data.resourceType == "jobs" && data.event == "update") {
+                    let presetId = data?.resourceState?.data?.relationships?.preset?.data?.id;
+                    if (presetMapping[presetId]) {
+                        let result = data?.resourceState?.data?.attributes?.result;
+                        if (result == "Error" && !errors.has(data.resourceId)) {
+                            log(chalk`{bold {red Error:} ${presetMapping[presetId]}}    {bold {red Url: }} ${host}/jobs/${data.resourceId}`)
+                            errors.add(data.resourceId)
+                            notifier.notify({
+                                title: `Failure in ${env}`,
+                                message: presetMapping[presetId]
+                            });
+                        }
+                        else if (result == "Pass" && !passes.has(data.resourceId)) {
+                            log(chalk`{bold {green Passed:} ${presetMapping[presetId]}}`)
+                            passes.add(data.resourceId)
+                        }
+                    }
+                }
+            });
+            for(;;){
+                await allIndexBundle.sleep(1000);
+            }
+        } else {
             return await this.chain.log();
         }
 

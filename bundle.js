@@ -22,6 +22,7 @@ var moment = _interopDefault(require('moment'));
 require('process');
 var fetch = _interopDefault(require('node-fetch'));
 var argparse = _interopDefault(require('minimist'));
+var redis = require('redis');
 
 function _asyncIterator(iterable) {
   var method;
@@ -7959,6 +7960,8 @@ def eval_main(context):
 var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _dec10, _dec11, _dec12, _dec13, _dec14, _dec15, _dec16, _dec17, _dec18, _dec19, _dec20, _dec21, _dec22, _dec23, _dec24, _dec25, _dec26, _dec27, _dec28, _dec29, _dec30, _dec31, _dec32, _dec33, _dec34, _dec35, _dec36, _dec37, _dec38, _dec39, _dec40, _dec41, _dec42, _dec43, _dec44, _dec45, _dec46, _dec47, _dec48, _dec49, _dec50, _dec51, _dec52, _dec53, _dec54, _dec55, _dec56, _dec57, _dec58, _dec59, _dec60, _dec61, _dec62, _dec63, _dec64, _dec65, _dec66, _dec67, _obj;
 
 require("source-map-support").install();
+
+const notifier = require('node-notifier');
 let argv = argparse(process.argv.slice(2), {
   string: ["file", "env"],
   //boolean: ["no-protect"],
@@ -8566,6 +8569,58 @@ let supplysub = {
       await this.chain.lint(defaultLinter(args));
     } else if (args["unitTest"]) {
       await this.chain.unitTest(defaultUnitTester(args));
+    } else if (args["monitor"]) {
+      let env = args["monitor"];
+      let presets = await Promise.all(this.chain.presets.arr.map(obj => Preset.getByName(env, obj.name)));
+      let presetMapping = {};
+
+      for (let preset of presets) {
+        presetMapping[preset.data.id] = preset.name;
+      }
+      let host = ["dev", "qa", "uat"].includes(env.toLowerCase()) ? `https://discovery-${env.toLowerCase()}.sdvi.com` : "https://discovery.sdvi.com";
+      let errors = new Set();
+      let passes = new Set();
+      if (!(configObject === null || configObject === void 0 ? void 0 : configObject.redis[env])) throw new AbortError("Configure redis in your rally tools config");
+      const redisClient = redis.createClient({
+        url: `rediss://127.0.0.1:${configObject.redis[env]}`,
+        socket: {
+          tls: true,
+          rejectUnauthorized: false
+        }
+      });
+      await redisClient.connect();
+      log(chalk`{blue {bold Listening...}}`);
+      await redisClient.subscribe('messagebus', message => {
+        let data = JSON.parse(message);
+
+        if (data.resourceType == "jobs" && data.event == "update") {
+          var _data$resourceState, _data$resourceState$d, _data$resourceState$d2, _data$resourceState$d3, _data$resourceState$d4;
+
+          let presetId = data === null || data === void 0 ? void 0 : (_data$resourceState = data.resourceState) === null || _data$resourceState === void 0 ? void 0 : (_data$resourceState$d = _data$resourceState.data) === null || _data$resourceState$d === void 0 ? void 0 : (_data$resourceState$d2 = _data$resourceState$d.relationships) === null || _data$resourceState$d2 === void 0 ? void 0 : (_data$resourceState$d3 = _data$resourceState$d2.preset) === null || _data$resourceState$d3 === void 0 ? void 0 : (_data$resourceState$d4 = _data$resourceState$d3.data) === null || _data$resourceState$d4 === void 0 ? void 0 : _data$resourceState$d4.id;
+
+          if (presetMapping[presetId]) {
+            var _data$resourceState2, _data$resourceState2$, _data$resourceState2$2;
+
+            let result = data === null || data === void 0 ? void 0 : (_data$resourceState2 = data.resourceState) === null || _data$resourceState2 === void 0 ? void 0 : (_data$resourceState2$ = _data$resourceState2.data) === null || _data$resourceState2$ === void 0 ? void 0 : (_data$resourceState2$2 = _data$resourceState2$.attributes) === null || _data$resourceState2$2 === void 0 ? void 0 : _data$resourceState2$2.result;
+
+            if (result == "Error" && !errors.has(data.resourceId)) {
+              log(chalk`{bold {red Error:} ${presetMapping[presetId]}}    {bold {red Url: }} ${host}/jobs/${data.resourceId}`);
+              errors.add(data.resourceId);
+              notifier.notify({
+                title: `Preset failure in ${env}`,
+                message: presetMapping[presetId]
+              });
+            } else if (result == "Pass" && !passes.has(data.resourceId)) {
+              log(chalk`{bold {green Passed:} ${presetMapping[presetId]}}`);
+              passes.add(data.resourceId);
+            }
+          }
+        }
+      });
+
+      for (;;) {
+        await sleep(1000);
+      }
     } else {
       return await this.chain.log();
     }

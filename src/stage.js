@@ -47,6 +47,7 @@ let Stage = {
         this.stageData = JSON.parse(preset.code);
         this.stagePreset = preset;
 
+        if (this.skipLoadMsg) return;
         log(chalk`Stage loaded: {green ${this.env}}/{green ${this.stagePreset.name}}`);
     },
 

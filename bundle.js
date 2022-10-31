@@ -19,6 +19,7 @@ var rp = _interopDefault(require('request-promise'));
 var path = require('path');
 var path__default = _interopDefault(path);
 var moment = _interopDefault(require('moment'));
+require('process');
 var fetch = _interopDefault(require('node-fetch'));
 var argparse = _interopDefault(require('minimist'));
 
@@ -4094,6 +4095,7 @@ let Stage$$1 = {
     await preset.downloadCode();
     this.stageData = JSON.parse(preset.code);
     this.stagePreset = preset;
+    if (this.skipLoadMsg) return;
     log(chalk`Stage loaded: {green ${this.env}}/{green ${this.stagePreset.name}}`);
   },
 
@@ -7080,7 +7082,6 @@ const Octokit$1 = Octokit.plugin(requestLog, legacyRestEndpointMethods, paginate
 let okit = null;
 const prodReadyLabel = "Ready For Release";
 const prodManualLabel = "Ready For Release (manual)";
-const prodHotfixLabel = "hotfix";
 /* The deployment process is separated into two different parts:
  * `rally deploy prep` Links jira tickets to PRs and assigns labels based on their status
  * `rally deploy merge` Takes all the labeled PRs, changes their base branch to the release, and merges them
@@ -7271,6 +7272,7 @@ let Deploy = {
       await runGit([0], "push", "-u", "origin", "HEAD");
     }
 
+    let pull_request_descriptions = [];
     let issues = await this.getIssues();
 
     for (let issue of issues) {
@@ -7285,24 +7287,64 @@ let Deploy = {
       }
 
       let config = this.getOctokitConfig();
-      config.merge_method = "squash";
       config.pull_number = issue.number;
+      let pull_request = await this.octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}", config);
+      let pull_request_description = pull_request.data.body.replace("Description (user facing release note):", "").replace(/Dev comments:[\s\S]*/, "").trim();
+      pull_request_descriptions.push(pull_request_description);
+      config.merge_method = "squash";
       await this.octokit.request("PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge", config);
       log(chalk`Merged.`);
     }
 
+    let config = this.getOctokitConfig();
+    config.title = releaseBranchName.split("-").join(" ");
+    config.head = releaseBranchName;
+    config.base = "staging";
+    config.body = pull_request_descriptions.filter(d => d.length != 0).map(d => `• ${d}`).join("\n");
+    await this.octokit.request("POST /repos/{owner}/{repo}/pulls", config);
     await runGit([0], "pull");
   },
 
   async stageSlackMsg(args) {
-    let requiredPresetsRules = await runCommand(`git diff staging...${args.branch} --name-only | rally @`);
-    let currentStage = await runCommand("rally stage info");
+    Stage$$1.env = "UAT";
+    Stage$$1.skipLoadMsg = true;
+
+    if (!args.branch) {
+      log(chalk`{red Error:} Please provide a branch`);
+      return;
+    }
+
+    await runCommand(`git checkout ${args.branch}`);
+    let requiredPresetsRules = await runCommand(`git diff staging...HEAD --name-only | rally @`);
+    await runCommand(`git checkout staging`);
+    requiredPresetsRules = requiredPresetsRules.replace("Reading from stdin\n", "");
+
+    if (await Stage$$1.downloadStage()) {
+      log(chalk`{red Error:} Could not load stage`);
+      return;
+    }
+
+    let currentStage = `Currently Staged Branches: ${Stage$$1.stageData.stage.length}`;
+
+    for (let {
+      branch,
+      commit
+    } of Stage$$1.stageData.stage) {
+      currentStage += `\n    ${branch} ${commit}`;
+    }
+
+    currentStage += `\nCurrently Claimed Presets: ${Stage$$1.stageData.claimedPresets.length}`;
+
+    for (let preset of Stage$$1.stageData.claimedPresets) {
+      currentStage += `\n    ${preset.name} ${preset.owner}`;
+    }
+
     let msgBody = {
       "blocks": [{
         "type": "section",
         "text": {
           "type": "mrkdwn",
-          "text": `@here The release branch has been staged by ${configObject.slackId ? `<@${configObject.slackId}>` : configObject.ownerName}` + `\n${"```" + currentStage.replace(/.*Stage loaded: .*\n/, "") + "```"}` + `\n${"```" + requiredPresetsRules.replace("Reading from stdin\n", "") + "```"}`
+          "text": `@here The release branch has been staged by ${configObject.slackId ? `<@${configObject.slackId}>` : configObject.ownerName}` + (currentStage.length != 0 ? `\n${"```" + currentStage + "```"}` : "") + (requiredPresetsRules.length != 0 ? `\n${"```" + requiredPresetsRules + "```"}` : "")
         }
       }]
     };
@@ -7317,48 +7359,39 @@ let Deploy = {
   },
 
   async deploySlackMessage(args) {
+    if (!args.pr) {
+      log(chalk`{red Error:} Please provide a pr number`);
+      return;
+    }
+
     let today = new Date();
     today = String(today.getMonth() + 1).padStart(2, '0') + '/' + String(today.getDate()).padStart(2, '0') + '/' + today.getFullYear();
-    let pull_request_descriptions = [];
-    let requiredPresetsRules = await runCommand(`git diff staging...${args.branch} --name-only | rally @`);
-    let issues = await this.getIssues();
-
-    for (let issue of issues) {
-      let labels = new Set(issue.labels.map(x => x.name));
-
-      if (args.hotfix) {
-        if (!labels.has(prodHotfixLabel)) continue;
-      } else if (!labels.has(prodReadyLabel) && !labels.has(prodManualLabel)) continue;
-
-      let config = this.getOctokitConfig();
-      config.pull_number = issue.number;
-      let pull_request = await this.octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}", config);
-      let pull_request_description = pull_request.data.body.replace("Description (user facing release note):", "").replace(/Dev comments:[\s\S]*/, "").trim();
-      pull_request_descriptions.push(pull_request_description);
-    }
-
-    if (pull_request_descriptions.length == 0) {
-      log(chalk`{red Error:} Pull requests have not been tagged`);
-    } else {
-      pull_request_descriptions = pull_request_descriptions.filter(d => d.length != 0).map(d => `• ${d}`);
-      let msgBody = {
-        "blocks": [{
-          "type": "section",
-          "text": {
-            "type": "mrkdwn",
-            "text": `@here ${args.hotfix ? "*HOTFIX*" : `*DEPLOY ${today}*`}` + `\nDeployer: ${configObject.slackId ? `<@${configObject.slackId}>` : configObject.ownerName}` + `\n${pull_request_descriptions.join("\n") || " "}` + `\n${"```" + requiredPresetsRules.replace("Reading from stdin\n", "") + "```"}`
-          }
-        }]
-      };
-      response = await rp({
-        method: "POST",
-        body: JSON.stringify(msgBody),
-        headers: {
-          "Content-Type": "application/json"
-        },
-        uri: configObject.deploy.slackWebhooks.rally_deployments
-      });
-    }
+    let config = this.getOctokitConfig();
+    config.pull_number = args.pr;
+    let pull_request = await this.octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}", config);
+    let branch = pull_request.data.head.ref;
+    let pull_request_descriptions = pull_request.data.body.replace("Description (user facing release note):", "").replace(/Dev comments:[\s\S]*/, "").trim();
+    await runCommand(`git checkout ${branch}`);
+    let requiredPresetsRules = await runCommand(`git diff staging...HEAD --name-only | rally @`);
+    await runCommand(`git checkout staging`);
+    requiredPresetsRules = requiredPresetsRules.replace("Reading from stdin\n", "");
+    let msgBody = {
+      "blocks": [{
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": `@here ${args.hotfix ? "*HOTFIX*" : `*DEPLOY ${today}*`}` + `\nDeployer: ${configObject.slackId ? `<@${configObject.slackId}>` : configObject.ownerName}` + (pull_request_descriptions.length != 0 ? `\n${pull_request_descriptions}` : "") + (requiredPresetsRules.length != 0 ? `\n${"```" + requiredPresetsRules + "```"}` : "")
+        }
+      }]
+    };
+    response = await rp({
+      method: "POST",
+      body: JSON.stringify(msgBody),
+      headers: {
+        "Content-Type": "application/json"
+      },
+      uri: configObject.deploy.slackWebhooks.rally_deployments
+    });
   }
 
 };

@@ -15,7 +15,7 @@ import {readFileSync, writeFileSync} from "fs";
 
 import {printOutLine, parseTrace, findLineInFile, getInfo as getTraceInfo} from "./trace.js";
 
-import {helpText, arg, param, usage, helpEntries, spawn} from "./decorators.js";
+import {helpText, arg, param, usage, helpEntries, spawn, runCommand} from "./decorators.js";
 
 import baseCode from "./baseCode.js";
 import {sep as pathSeperator} from "path";
@@ -32,7 +32,7 @@ const False = false; const True = true; const None = null;
 let argv = argparse(process.argv.slice(2), {
     string: ["file", "env"],
     //boolean: ["no-protect"],
-    boolean: ["anon"],
+    boolean: ["anon","store-stage"],
     default: {protect: true},
     alias: {
         f: "file", e: "env",
@@ -500,6 +500,12 @@ let supplysub = {
                         log("-------");
                     }else{
                         log("Code Different");
+                        if (configObject.diffCommand){
+                            let tempfile = require("tempy").file;
+                            let temp = tempfile({extension: `${env}.${preset.ext}`});
+                            writeFileSync(temp, otherPreset.code);
+                            runCommand(`${configObject.diffCommand} "${preset.path}" "${temp}"`);
+                        }
                     }
 
                     anyDifferent = true
@@ -1439,6 +1445,10 @@ async function $main(){
         global.log = ()=>{};
         global.errorLog = ()=>{};
         global.write = ()=>{};
+    }
+
+    if(argv["store-stage"]){
+        configObject.storeStage = true;
     }
 
     if(argv["script"]){

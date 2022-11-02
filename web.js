@@ -1,8 +1,8 @@
 (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('os'), require('fs'), require('child_process'), require('perf_hooks'), require('chalk'), require('request-promise'), require('path'), require('moment'), require('process'), require('node-fetch')) :
-  typeof define === 'function' && define.amd ? define(['exports', 'os', 'fs', 'child_process', 'perf_hooks', 'chalk', 'request-promise', 'path', 'moment', 'process', 'node-fetch'], factory) :
-  (factory((global.RallyTools = {}),global.os,global.fs,global.child_process,global.perf_hooks,global.chalk$1,global.rp,global.path,global.moment,global.process$1,global.fetch));
-}(this, (function (exports,os,fs,child_process,perf_hooks,chalk$1,rp,path,moment,process$1,fetch) { 'use strict';
+  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('os'), require('fs'), require('child_process'), require('perf_hooks'), require('chalk'), require('request-promise'), require('path'), require('moment'), require('node-fetch')) :
+  typeof define === 'function' && define.amd ? define(['exports', 'os', 'fs', 'child_process', 'perf_hooks', 'chalk', 'request-promise', 'path', 'moment', 'node-fetch'], factory) :
+  (factory((global.RallyTools = {}),global.os,global.fs,global.child_process,global.perf_hooks,global.chalk$1,global.rp,global.path,global.moment,global.fetch));
+}(this, (function (exports,os,fs,child_process,perf_hooks,chalk$1,rp,path,moment,fetch) { 'use strict';
 
   var fs__default = 'default' in fs ? fs['default'] : fs;
   chalk$1 = chalk$1 && chalk$1.hasOwnProperty('default') ? chalk$1['default'] : chalk$1;
@@ -4092,8 +4092,6 @@ Try {red git status} or {red rally stage edit --verbose} for more info.`;
         } of this.stageData.storedStage) {
           newStagedBranches.add(branch);
         }
-
-        this.stageData.storedStage = [];
       }
 
       if (storeStage) {
@@ -7057,7 +7055,7 @@ nothing to commit, working tree clean`;
     },
 
     async stageSlackMsg(args) {
-      Stage$$1.env = "UAT";
+      Stage$$1.env = args.env || "UAT";
       Stage$$1.skipLoadMsg = true;
 
       if (!args.branch) {

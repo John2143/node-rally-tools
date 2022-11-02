@@ -1,8 +1,8 @@
 (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('os'), require('fs'), require('child_process'), require('perf_hooks'), require('chalk'), require('request-promise'), require('path'), require('moment'), require('process'), require('node-fetch')) :
-  typeof define === 'function' && define.amd ? define(['exports', 'os', 'fs', 'child_process', 'perf_hooks', 'chalk', 'request-promise', 'path', 'moment', 'process', 'node-fetch'], factory) :
-  (factory((global.RallyTools = {}),global.os,global.fs,global.child_process,global.perf_hooks,global.chalk$1,global.rp,global.path,global.moment,global.process$1,global.fetch));
-}(this, (function (exports,os,fs,child_process,perf_hooks,chalk$1,rp,path,moment,process$1,fetch) { 'use strict';
+  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('os'), require('fs'), require('child_process'), require('perf_hooks'), require('chalk'), require('request-promise'), require('path'), require('moment'), require('node-fetch')) :
+  typeof define === 'function' && define.amd ? define(['exports', 'os', 'fs', 'child_process', 'perf_hooks', 'chalk', 'request-promise', 'path', 'moment', 'node-fetch'], factory) :
+  (factory((global.RallyTools = {}),global.os,global.fs,global.child_process,global.perf_hooks,global.chalk$1,global.rp,global.path,global.moment,global.fetch));
+}(this, (function (exports,os,fs,child_process,perf_hooks,chalk$1,rp,path,moment,fetch) { 'use strict';
 
   var fs__default = 'default' in fs ? fs['default'] : fs;
   chalk$1 = chalk$1 && chalk$1.hasOwnProperty('default') ? chalk$1['default'] : chalk$1;
@@ -4092,8 +4092,6 @@ Try {red git status} or {red rally stage edit --verbose} for more info.`;
         } of this.stageData.storedStage) {
           newStagedBranches.add(branch);
         }
-
-        this.stageData.storedStage = [];
       }
 
       if (storeStage) {
@@ -7056,8 +7054,75 @@ nothing to commit, working tree clean`;
       await runGit([0], "pull");
     },
 
+    async sendSlackMsg(msgItems, slackChannel) {
+      let msgPayload = {
+        "blocks": []
+      };
+
+      for (let item of msgItems) {
+        if (Array.isArray(item.content)) {
+          let characterCount = 0;
+          let subMsg = [];
+
+          for (let subItem of item.content) {
+            subMsg.push(subItem);
+            characterCount += subItem.length;
+
+            if (characterCount > 2000) {
+              characterCount = 0;
+              let block = {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": " "
+                }
+              };
+              block.text.text = item.type == "code" ? "```" + subMsg.join("\n") + "```" : subMsg.join("\n");
+              msgPayload.blocks.push(block);
+              subMsg = [];
+            }
+          }
+
+          if (subMsg.length != 0) {
+            let block = {
+              "type": "section",
+              "text": {
+                "type": "mrkdwn",
+                "text": " "
+              }
+            };
+            block.text.text = item.type == "code" ? "```" + subMsg.join("\n") + "```" : subMsg.join("\n");
+            msgPayload.blocks.push(block);
+          }
+        } else {
+          let block = {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": " "
+            }
+          };
+          block.text.text = item.type == "code" ? "```" + item.content + "```" : item.content;
+          msgPayload.blocks.push(block);
+        }
+      }
+
+      for (let block of msgPayload.blocks) {
+        response = await rp({
+          method: "POST",
+          body: JSON.stringify({
+            "blocks": [block]
+          }),
+          headers: {
+            "Content-Type": "application/json"
+          },
+          uri: slackChannel
+        });
+      }
+    },
+
     async stageSlackMsg(args) {
-      Stage$$1.env = "UAT";
+      Stage$$1.env = args.env || "UAT";
       Stage$$1.skipLoadMsg = true;
 
       if (!args.branch) {
@@ -7075,38 +7140,18 @@ nothing to commit, working tree clean`;
         return;
       }
 
-      let currentStage = `Currently Staged Branches: ${Stage$$1.stageData.stage.length}`;
-
-      for (let {
-        branch,
-        commit
-      } of Stage$$1.stageData.stage) {
-        currentStage += `\n    ${branch} ${commit}`;
-      }
-
-      currentStage += `\nCurrently Claimed Presets: ${Stage$$1.stageData.claimedPresets.length}`;
-
-      for (let preset of Stage$$1.stageData.claimedPresets) {
-        currentStage += `\n    ${preset.name} ${preset.owner}`;
-      }
-
-      let msgBody = {
-        "blocks": [{
-          "type": "section",
-          "text": {
-            "type": "mrkdwn",
-            "text": `@here The release branch has been staged by ${exports.configObject.slackId ? `<@${exports.configObject.slackId}>` : exports.configObject.ownerName}` + (currentStage.length != 0 ? `\n${"```" + currentStage + "```"}` : "") + (requiredPresetsRules.length != 0 ? `\n${"```" + requiredPresetsRules + "```"}` : "")
-          }
-        }]
-      };
-      response = await rp({
-        method: "POST",
-        body: JSON.stringify(msgBody),
-        headers: {
-          "Content-Type": "application/json"
-        },
-        uri: exports.configObject.deploy.slackWebhooks.air_supply_release_staging
-      });
+      let stagedBranchesMsg = [`Currently Staged Presets: ${Stage$$1.stageData.stage.length}`].concat(Stage$$1.stageData.stage.map(d => `    ${d.branch} ${d.commit}`));
+      let msgItems = [{
+        type: "normal",
+        content: `@here The release branch has been staged by ${exports.configObject.slackId ? `<@${exports.configObject.slackId}>` : exports.configObject.ownerName}`
+      }, {
+        type: "code",
+        content: stagedBranchesMsg
+      }, {
+        type: "code",
+        content: requiredPresetsRules.split("\n")
+      }];
+      await this.sendSlackMsg(msgItems, exports.configObject.deploy.slackWebhooks.air_supply_release_staging);
     },
 
     async deploySlackMessage(args) {
@@ -7126,23 +7171,20 @@ nothing to commit, working tree clean`;
       let requiredPresetsRules = await runCommand(`git diff staging...HEAD --name-only | rally @`);
       await runCommand(`git checkout staging`);
       requiredPresetsRules = requiredPresetsRules.replace("Reading from stdin\n", "");
-      let msgBody = {
-        "blocks": [{
-          "type": "section",
-          "text": {
-            "type": "mrkdwn",
-            "text": `@here ${args.hotfix ? "*HOTFIX*" : `*DEPLOY ${today}*`}` + `\nDeployer: ${exports.configObject.slackId ? `<@${exports.configObject.slackId}>` : exports.configObject.ownerName}` + (pull_request_descriptions.length != 0 ? `\n${pull_request_descriptions}` : "") + (requiredPresetsRules.length != 0 ? `\n${"```" + requiredPresetsRules + "```"}` : "")
-          }
-        }]
-      };
-      response = await rp({
-        method: "POST",
-        body: JSON.stringify(msgBody),
-        headers: {
-          "Content-Type": "application/json"
-        },
-        uri: exports.configObject.deploy.slackWebhooks.rally_deployments
-      });
+      let msgItems = [{
+        type: "normal",
+        content: `@here ${args.hotfix ? "*HOTFIX*" : `*DEPLOY ${today}*`}`
+      }, {
+        type: "normal",
+        content: `\nDeployer: ${exports.configObject.slackId ? `<@${exports.configObject.slackId}>` : exports.configObject.ownerName}`
+      }, {
+        type: "normal",
+        content: pull_request_descriptions.split("\n")
+      }, {
+        type: "code",
+        content: requiredPresetsRules.split("\n")
+      }];
+      await this.sendSlackMsg(msgItems, exports.configObject.deploy.slackWebhooks.rally_deployments);
     }
 
   };

@@ -3834,7 +3834,7 @@ Try {red git status} or {red rally stage edit --verbose} for more info.`;
     },
 
     // This returns true if the stage failed to load
-    async downloadStage() {
+    async downloadStage(skipLoadMsg = false) {
       this.setStageId();
 
       if (!this.stageid) {
@@ -3845,8 +3845,9 @@ Try {red git status} or {red rally stage edit --verbose} for more info.`;
       let preset = await Preset.getById(this.env, this.stageid);
       await preset.downloadCode();
       this.stageData = JSON.parse(preset.code);
+      this.stageData.persist = this.stageData.persist || [];
       this.stagePreset = preset;
-      if (this.skipLoadMsg) return;
+      if (this.skipLoadMsg || skipLoadMsg) return;
       log(chalk`Stage loaded: {green ${this.env}}/{green ${this.stagePreset.name}}`);
     },
 
@@ -3880,19 +3881,37 @@ Try {red git status} or {red rally stage edit --verbose} for more info.`;
     async $info() {
       if (await this.downloadStage()) return;
       if (exports.configObject.rawOutput) return this.stageData;
+      return await this.printInfo();
+    },
+
+    async printInfo() {
+      let persist = new Set(this.stageData.persist);
       log(chalk`Currently Staged Branches: ${this.stageData.stage.length}`);
 
       for (let {
         branch,
         commit
       } of this.stageData.stage) {
-        log(chalk`    ${branch} {gray ${commit}}`);
+        if (persist.has(branch)) {
+          log(chalk`    {green ${branch}}* {gray ${commit}} (persist)`);
+          persist.delete(branch);
+        } else {
+          log(chalk`    ${branch} {gray ${commit}}`);
+        }
       }
 
       log(chalk`Currently Claimed Presets: ${this.stageData.claimedPresets.length}`);
 
       for (let preset of this.stageData.claimedPresets) {
         log(chalk`    {blue ${preset.name}} {gray ${preset.owner}}`);
+      }
+
+      if (persist.size > 0) {
+        log(chalk`Persisting unstaged branches:`);
+
+        for (let branch of persist) {
+          log(chalk`    {red ${branch}}`);
+        }
       }
     },
 
@@ -4004,6 +4023,19 @@ Try {red git status} or {red rally stage edit --verbose} for more info.`;
       };
     },
 
+    async chooseSingleBranch(allBranches, text = "What branch do you want to add?") {
+      let qqs = allBranches.slice(0); //copy the branches
+
+      qqs.push("None");
+      let q = await inquirer.prompt([{
+        type: "autocomplete",
+        name: "branch",
+        message: `What branch do you want to add?`,
+        source: this.filterwith(qqs)
+      }]);
+      return q.branch;
+    },
+
     //finite state machine for inputting branch changes
     async editFSM(allBranches, newStagedBranches) {
       let q;
@@ -4030,15 +4062,7 @@ Try {red git status} or {red rally stage edit --verbose} for more info.`;
         }]);
 
         if (q.type === "add") {
-          let qqs = allBranches.slice(0); //copy the branches
-
-          qqs.push("None");
-          q = await inquirer.prompt([{
-            type: "autocomplete",
-            name: "branch",
-            message: `What branch do you want to add?`,
-            source: this.filterwith(qqs)
-          }]);
+          q.branch = await this.chooseSingleBranch(allBranches);
 
           if (q.branch !== "None") {
             newStagedBranches.add(q.branch);
@@ -4066,7 +4090,7 @@ Try {red git status} or {red rally stage edit --verbose} for more info.`;
 
     async $edit() {
       let needsInput = !this.args.a && !this.args.r && !this.args.add && !this.args.remove;
-      let clean = this.args.clean;
+      let clean = this.args.clean || this.args["full-clean"];
       let restore = this.args.restore;
       let storeStage = this.args["store-stage"];
       let [branches, stage, _] = await Promise.all([this.getBranches(), this.downloadStage(), !needsInput || addAutoCompletePrompt()]);
@@ -4084,6 +4108,10 @@ Try {red git status} or {red rally stage edit --verbose} for more info.`;
         }
 
         oldStagedBranches.add(branch);
+      }
+
+      if (clean && !this.args["full-clean"]) {
+        newStagedBranches = new Set(this.stageData.persist);
       }
 
       if (restore) {
@@ -4242,6 +4270,25 @@ Try {red git status} or {red rally stage edit --verbose} for more info.`;
     async $gitFix() {
       await this.runGit([0], "reset", "--hard", "HEAD");
       await this.runGit([0], "checkout", "staging");
+    },
+
+    async $persist() {
+      let [branches, stage, _] = await Promise.all([this.getBranches(), this.downloadStage(), addAutoCompletePrompt()]);
+      if (stage) return;
+      if (!branches) return;
+      let b = await this.chooseSingleBranch(branches, "What branch should be added/removed?"); //toggle persist status
+
+      let s = new Set(this.stageData.persist);
+
+      if (s.has(b)) {
+        s.delete(b);
+      } else {
+        s.add(b);
+      }
+
+      this.stageData.persist = [...s];
+      await this.printInfo();
+      await this.uploadStage();
     },
 
     logProgress(cur, len, name, clearSpace) {
@@ -7055,9 +7102,7 @@ nothing to commit, working tree clean`;
     },
 
     async sendSlackMsg(msgItems, slackChannel) {
-      let msgPayload = {
-        "blocks": []
-      };
+      let blocks = [];
 
       for (let item of msgItems) {
         if (Array.isArray(item.content)) {
@@ -7078,7 +7123,7 @@ nothing to commit, working tree clean`;
                 }
               };
               block.text.text = item.type == "code" ? "```" + subMsg.join("\n") + "```" : subMsg.join("\n");
-              msgPayload.blocks.push(block);
+              blocks.push(block);
               subMsg = [];
             }
           }
@@ -7092,7 +7137,7 @@ nothing to commit, working tree clean`;
               }
             };
             block.text.text = item.type == "code" ? "```" + subMsg.join("\n") + "```" : subMsg.join("\n");
-            msgPayload.blocks.push(block);
+            blocks.push(block);
           }
         } else {
           let block = {
@@ -7103,11 +7148,11 @@ nothing to commit, working tree clean`;
             }
           };
           block.text.text = item.type == "code" ? "```" + item.content + "```" : item.content;
-          msgPayload.blocks.push(block);
+          blocks.push(block);
         }
       }
 
-      for (let block of msgPayload.blocks) {
+      for (let block of blocks) {
         response = await rp({
           method: "POST",
           body: JSON.stringify({
@@ -7176,7 +7221,7 @@ nothing to commit, working tree clean`;
         content: `@here ${args.hotfix ? "*HOTFIX*" : `*DEPLOY ${today}*`}`
       }, {
         type: "normal",
-        content: `\nDeployer: ${exports.configObject.slackId ? `<@${exports.configObject.slackId}>` : exports.configObject.ownerName}`
+        content: `Deployer: ${exports.configObject.slackId ? `<@${exports.configObject.slackId}>` : exports.configObject.ownerName}`
       }, {
         type: "normal",
         content: pull_request_descriptions.split("\n")

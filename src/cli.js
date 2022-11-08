@@ -26,6 +26,8 @@ import { createClient } from 'redis';
 
 const notifier = require('node-notifier');
 
+import fetch from "node-fetch";
+
 import * as configHelpers from "./config-create.js";
 const False = false; const True = true; const None = null;
 
@@ -580,6 +582,19 @@ let supplysub = {
             for(;;){
                 await allIndexBundle.sleep(1000);
             }
+        } else if(args["alerts"]) {
+            let env = args["alerts"];
+            let duration = parseInt(args["duration"]) || 24;
+            if (!configObject?.deploymentAlerts?.[env]) {log(chalk`{red Deployment alerts service url not configured}`); return};
+            let presets = await Promise.all(this.chain.presets.arr.map(obj => Preset.getByName(env, obj.name)));
+            let presetIds = presets.map(d => d.data.id);
+            let response = await fetch(configObject.deploymentAlerts[env],{
+                method: "post",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({presets:presetIds,duration:duration})
+            });
+            let result = await response.text();
+            log(result);
         } else {
             return await this.chain.log();
         }

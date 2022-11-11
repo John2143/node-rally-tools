@@ -8712,6 +8712,7 @@ let supplysub = {
 
       let env = args["alerts"];
       let duration = parseInt(args["duration"]) || 24;
+      let channel = args["channel"];
 
       if (!(configObject === null || configObject === void 0 ? void 0 : (_configObject$deploym = configObject.deploymentAlerts) === null || _configObject$deploym === void 0 ? void 0 : _configObject$deploym[env])) {
         log(chalk`{red Deployment alerts service url not configured}`);
@@ -8726,7 +8727,8 @@ let supplysub = {
         },
         body: JSON.stringify({
           presets: presetIds,
-          duration: duration
+          duration: duration,
+          channel: channel
         })
       });
       let result = await response.text();

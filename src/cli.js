@@ -585,11 +585,11 @@ let supplysub = {
         } else if(args["alerts"]) {
             let env = args["alerts"];
             let duration = parseInt(args["duration"]) || 24;
-            let channel = args["channel"];
-            if (!configObject?.deploymentAlerts?.[env]) {log(chalk`{red Deployment alerts service url not configured}`); return};
+            let channel = args["channel"] || configObject.defaultChannel;
+            if (!configObject?.deploymentAlerts?.serviceUrls?.[env]) {log(chalk`{red Deployment alerts service url not configured}`); return};
             let presets = await Promise.all(this.chain.presets.arr.map(obj => Preset.getByName(env, obj.name)));
             let presetIds = presets.map(d => d.data.id);
-            let response = await fetch(configObject.deploymentAlerts[env],{
+            let response = await fetch(configObject.deploymentAlerts.serviceUrls?.[env],{
                 method: "post",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify({presets:presetIds,duration:duration,channel:channel})

@@ -7406,7 +7406,7 @@ let Deploy = {
             "text": " "
           }
         };
-        block.text.text = item.type == "code" ? item.content.length != 0 ? "```" + item.content + "```" : " " : item.content;
+        block.text.text = item.type == "code" ? "```" + item.content + "```" : item.content;
 
         if (item.content.length != 0) {
           blocks.push(block);

@@ -584,7 +584,7 @@ let supplysub = {
             }
         } else if(args["alerts"]) {
             let env = args["alerts"];
-            let duration = parseInt(args["duration"]) || 24;
+            let duration = parseFloat(args["duration"]) || 24;
             let channel = args["channel"] || configObject.defaultChannel;
             if (!configObject?.deploymentAlerts?.serviceUrls?.[env]) {log(chalk`{red Deployment alerts service url not configured}`); return};
             let presets = await Promise.all(this.chain.presets.arr.map(obj => Preset.getByName(env, obj.name)));

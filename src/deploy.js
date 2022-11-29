@@ -194,6 +194,7 @@ let Deploy = {
         }
 
         let pull_request_descriptions = [];
+        let pull_request_dev_comments = [];
         let issues = await this.getIssues();
         for(let issue of issues){
             let labels = new Set(issue.labels.map(x => x.name));
@@ -210,7 +211,9 @@ let Deploy = {
 
             let pull_request = await this.octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}", config);
             let pull_request_description = pull_request.data.body.replace("Description (user facing release note):","").replace(/Dev comments:[\s\S]*/,"").trim()
+            let pull_request_dev_comment = pull_request.data.body.replace(/[\s\S]*Dev comments:/,"").trim()
             pull_request_descriptions.push(pull_request_description);
+            pull_request_dev_comments.push(pull_request_dev_comment);
 
             config.merge_method = "squash";
             await this.octokit.request("PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge", config);
@@ -220,7 +223,7 @@ let Deploy = {
         config.title = releaseBranchName.split("-").join(" ");
         config.head = releaseBranchName;
         config.base = "staging";
-        config.body = pull_request_descriptions.filter(d => d.length != 0).map(d => `• ${d}`).join("\n")
+        config.body = "Description:\n"+pull_request_descriptions.filter(d => d.length != 0).map(d => `• ${d}`).join("\n") + "\n\nDev comments:\n" + pull_request_dev_comments.filter(d => d.length != 0).map(d => `• ${d}`).join("\n")
         await this.octokit.request("POST /repos/{owner}/{repo}/pulls", config);
         await runGit([0], "pull");
     },
@@ -238,20 +241,26 @@ let Deploy = {
                         characterCount = 0;
                         let block = {"type": "section","text": {"type": "mrkdwn","text": " "}};
                         block.text.text = item.type == "code" ? ("```"+subMsg.join("\n")+"```") : subMsg.join("\n");
-                        blocks.push(block);
+                        if ((subMsg.join("\n")).length != 0) {
+                            blocks.push(block)
+                        }
                         subMsg = [];
                     }
                 }
                 if (subMsg.length != 0){
                     let block = {"type": "section","text": {"type": "mrkdwn","text": " "}};
                     block.text.text = item.type == "code" ? ("```"+subMsg.join("\n")+"```") : subMsg.join("\n");
-                    blocks.push(block);
+                    if ((subMsg.join("\n")).length != 0) {
+                        blocks.push(block)
+                    }
                 }
             }
             else {
                 let block = {"type": "section","text": {"type": "mrkdwn","text": " "}};
                 block.text.text = item.type == "code" ? ("```"+item.content+"```") : item.content;
-                blocks.push(block)
+                if (item.content.length != 0) {
+                    blocks.push(block)
+                }
             }
         }
         for (let block of blocks) {
@@ -291,7 +300,7 @@ let Deploy = {
         config.pull_number = args.pr;
         let pull_request = await this.octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}", config);
         let branch = pull_request.data.head.ref;
-        let pull_request_descriptions = pull_request.data.body.replace("Description (user facing release note):","").replace(/Dev comments:[\s\S]*/,"").trim();
+        let pull_request_descriptions = pull_request.data.body.replace("Description (user facing release note):","").replace("Description:","").replace(/Dev comments:[\s\S]*/,"").trim();
         await runCommand(`git checkout ${branch}`);
         let requiredPresetsRules = await runCommand(`git diff staging...HEAD --name-only | rally @`);
         await runCommand(`git checkout staging`);

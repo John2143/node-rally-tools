@@ -8720,6 +8720,32 @@ let supplysub = {
       for (;;) {
         await sleep(1000);
       }
+    } else if (args["alerts"]) {
+      var _configObject$deploym, _configObject$deploym2, _configObject$deploym3, _configObject$deploym4;
+
+      let env = args["alerts"];
+      let duration = parseFloat(args["duration"]) || 24;
+      let channel = args["channel"] || (configObject === null || configObject === void 0 ? void 0 : (_configObject$deploym = configObject.deploymentAlerts) === null || _configObject$deploym === void 0 ? void 0 : _configObject$deploym.defaultChannel);
+
+      if (!(configObject === null || configObject === void 0 ? void 0 : (_configObject$deploym2 = configObject.deploymentAlerts) === null || _configObject$deploym2 === void 0 ? void 0 : (_configObject$deploym3 = _configObject$deploym2.serviceUrls) === null || _configObject$deploym3 === void 0 ? void 0 : _configObject$deploym3[env])) {
+        log(chalk`{red Deployment alerts service url not configured}`);
+        return;
+      }
+      let presets = await Promise.all(this.chain.presets.arr.map(obj => Preset.getByName(env, obj.name)));
+      let presetIds = presets.map(d => d.data.id);
+      let response = await fetch((_configObject$deploym4 = configObject.deploymentAlerts.serviceUrls) === null || _configObject$deploym4 === void 0 ? void 0 : _configObject$deploym4[env], {
+        method: "post",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          presets: presetIds,
+          duration: duration,
+          channel: channel
+        })
+      });
+      let result = await response.text();
+      log(result);
     } else {
       return await this.chain.log();
     }

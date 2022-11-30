@@ -9519,6 +9519,44 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
     let files = await getFilesFromArgs(args);
   },
 
+  async elastic(args) {
+    let search = args._.join(" ");
+
+    let firstObserve = false;
+
+    let observe = json => {
+      if (!firstObserve) {
+        log("Collecing assets...");
+        firstObserve = true;
+      } else {
+        write(".");
+      }
+
+      return json;
+    };
+
+    log("Starting Query...");
+    let apr = await lib.indexPathFast({
+      env: args.env,
+      path: `/assets`,
+      observe,
+      qs: {
+        elasticsearch: search
+      },
+      pageSize: 100
+    });
+    log();
+    log(chalk`Done collecting. Total count: {blue ${apr.length}}`);
+
+    if (configObject.raw) {
+      return apr;
+    }
+
+    for (let a of apr) {
+      log(a.id);
+    }
+  },
+
   async ["@"](args) {
     args._.unshift("-");
 

@@ -29,7 +29,6 @@ const notifier = require('node-notifier');
 import fetch from "node-fetch";
 
 import * as configHelpers from "./config-create.js";
-const False = false; const True = true; const None = null;
 
 let argv = argparse(process.argv.slice(2), {
     string: ["file", "env"],
@@ -1356,6 +1355,41 @@ let cli = {
 
     async analyzeAll(args){
         let files = await getFilesFromArgs(args);
+    },
+
+    async elastic(args) {
+        let search = args._.join(" ");
+        let firstObserve = false;
+        let observe = json => {
+            if(!firstObserve) {
+                log("Collecing assets...");
+                firstObserve = true;
+            }else{
+                write(".");
+            }
+
+            return json
+        };
+
+        log("Starting Query...");
+        let apr = await allIndexBundle.lib.indexPathFast({
+            env: args.env,
+            path: `/assets`,
+            observe,
+            qs: {
+                elasticsearch: search,
+            },
+            pageSize: 100,
+        });
+
+        log();
+        log(chalk`Done collecting. Total count: {blue ${apr.length}}`);
+        if(configObject.raw) {
+            return apr;
+        }
+        for(let a of apr){
+            log(a.id);
+        }
     },
 
     async ["@"](args){

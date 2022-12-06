@@ -4798,19 +4798,25 @@ nothing to commit, working tree clean`;
     }
 
     chain.log();
-    let hasClaimed = false;
+    let claimedLog = [];
+    let claimedPresets = this.stageData.claimedPresets;
+    chain.presets.arr = chain.presets.arr.filter(x => {
+      let matching_claim = claimedPresets.find(k => k.name == x.name);
 
-    for (let preset of chain.presets) {
-      for (let claim of this.stageData.claimedPresets) {
-        if (preset.name == claim.name) {
-          hasClaimed = true;
-          log(chalk`{yellow Claimed preset}: {blue ${claim.name}} (owner {green ${claim.owner}})`);
-        }
+      if (matching_claim) {
+        claimedLog.push(chalk`{blue ${x.chalkPrint(false)}} (owner {green ${matching_claim.owner}})`);
+      } //keep if unclaimed
+
+
+      return !matching_claim;
+    });
+
+    if (claimedLog) {
+      log(chalk`{yellow Warning}: The following presets will be {red skipped} during deployment, because they are claimed:`);
+
+      for (let l of claimedLog) {
+        log(`Claimed: ${l}`);
       }
-    }
-
-    if (hasClaimed) {
-      throw new AbortError("Someone has a claimed preset in the deploy");
     }
 
     let ok = this.args.y || (await askQuestion("Deploy now?"));
@@ -7970,7 +7976,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   orderedObjectKeys: orderedObjectKeys
 });
 
-var version = "7.3.0";
+var version = "7.3.2";
 
 var baseCode = {
   SdviContentMover: `{
@@ -9554,6 +9560,33 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
 
     for (let a of apr) {
       log(a.id);
+    }
+  },
+
+  async parseElastic(args) {
+    let f = require("fs").readFileSync("./files.txt", "utf8");
+
+    for (let assetid of f.split("\n").filter(x => x)) {
+      let out = {};
+      let a = await Asset.getById("PROD", assetid);
+      let md = await a.getMetadata();
+      let files = await a.getFiles(); //log(md.Metadata.userMetaData);
+
+      out.files = [];
+
+      for (let file of files) {
+        out.files.push({
+          label: file.label,
+          content: file.contentLink,
+          instances: file.instancesList.map(({
+            uri
+          }) => uri)
+        });
+      }
+
+      out.metadata = md;
+      out.assetInfo = a.data;
+      log(JSON.stringify(out));
     }
   },
 

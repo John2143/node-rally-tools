@@ -1392,6 +1392,29 @@ let cli = {
         }
     },
 
+    async parseElastic(args) {
+        let f = require("fs").readFileSync("./files.txt", "utf8");
+        for (let assetid of f.split("\n").filter(x=>x)) {
+            let out = {};
+
+            let a = await Asset.getById("PROD", assetid);
+            let md = await a.getMetadata();
+            let files = await a.getFiles();
+            //log(md.Metadata.userMetaData);
+            out.files = [];
+            for(let file of files){
+                out.files.push({
+                    label: file.label,
+                    content: file.contentLink,
+                    instances: file.instancesList.map(({uri}) => uri),
+                });
+            }
+            out.metadata = md;
+            out.assetInfo = a.data;
+            log(JSON.stringify(out));
+        }
+    },
+
     async ["@"](args){
         args._.unshift("-");
         args._.unshift("make");

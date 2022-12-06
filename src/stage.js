@@ -743,18 +743,24 @@ nothing to commit, working tree clean`;
 
         chain.log();
 
-        let hasClaimed = false;
-        for(let preset of chain.presets) {
-            for(let claim of this.stageData.claimedPresets){
-                if(preset.name == claim.name) {
-                    hasClaimed = true;
-                    log(chalk`{yellow Claimed preset}: {blue ${claim.name}} (owner {green ${claim.owner}})`);
-                }
-            }
-        }
 
-        if(hasClaimed){
-            throw new AbortError("Someone has a claimed preset in the deploy");
+        let claimedLog = [];
+        let claimedPresets = this.stageData.claimedPresets;
+        chain.presets.arr = chain.presets.arr.filter(x => {
+            let matching_claim = claimedPresets.find(k => k.name == x.name);
+            if(matching_claim) {
+                claimedLog.push(chalk`{blue ${x.chalkPrint(false)}} (owner {green ${matching_claim.owner}})`);
+            }
+
+            //keep if unclaimed
+            return !matching_claim;
+        })
+
+        if(claimedLog){
+            log(chalk`{yellow Warning}: The following presets will be {red skipped} during deployment, because they are claimed:`)
+            for(let l of claimedLog) {
+                log(`Claimed: ${l}`);
+            }
         }
 
 

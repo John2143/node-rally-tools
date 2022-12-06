@@ -4811,7 +4811,7 @@ nothing to commit, working tree clean`;
       return !matching_claim;
     });
 
-    if (claimedLog) {
+    if (claimedLog.length > 0) {
       log(chalk`{yellow Warning}: The following presets will be {red skipped} during deployment, because they are claimed:`);
 
       for (let l of claimedLog) {
@@ -7976,7 +7976,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   orderedObjectKeys: orderedObjectKeys
 });
 
-var version = "7.3.2";
+var version = "7.4.0";
 
 var baseCode = {
   SdviContentMover: `{

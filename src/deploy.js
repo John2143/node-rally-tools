@@ -6,6 +6,7 @@ import Stage from "./stage.js";
 
 import fetch from "node-fetch";
 import {Octokit} from "@octokit/rest";
+import { config } from "chai";
 
 let okit = null;
 
@@ -82,6 +83,10 @@ let Deploy = {
 
         let response = await fetch(cardLink, requestOptions);
         let jiraInfo = await response.json();
+        if(configObject.vverbose){
+            log(jiraInfo);
+        }
+
         let parsedInfo = {
             assignee_dev: jiraInfo.fields.assignee,
             reporter: jiraInfo.fields.reporter,

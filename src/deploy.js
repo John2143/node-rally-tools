@@ -70,9 +70,6 @@ let Deploy = {
         }
 
         let cardLink = `${configObject.deploy.board}/issue/${parsedTitle[1]}-${parsedTitle[2]}`;
-        if(configObject.vvverbose){
-            log(cardLink);
-        }
 
 
         let requestOptions = {
@@ -88,7 +85,10 @@ let Deploy = {
         let response = await fetch(cardLink, requestOptions);
         let jiraInfo = await response.json();
 
+
         if(configObject.vvverbose){
+            log();
+            log(cardLink);
             log(jiraInfo);
         }
 

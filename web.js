@@ -17093,11 +17093,6 @@ nothing to commit, working tree clean`;
       }
 
       let cardLink = `${exports.configObject.deploy.board}/issue/${parsedTitle[1]}-${parsedTitle[2]}`;
-
-      if (exports.configObject.vvverbose) {
-        log(cardLink);
-      }
-
       let requestOptions = {
         method: "GET",
         headers: {
@@ -17113,6 +17108,8 @@ nothing to commit, working tree clean`;
       let jiraInfo = await response.json();
 
       if (exports.configObject.vvverbose) {
+        log();
+        log(cardLink);
         log(jiraInfo);
       }
 

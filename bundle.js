@@ -17342,11 +17342,6 @@ let Deploy = {
     }
 
     let cardLink = `${configObject.deploy.board}/issue/${parsedTitle[1]}-${parsedTitle[2]}`;
-
-    if (configObject.vvverbose) {
-      log(cardLink);
-    }
-
     let requestOptions = {
       method: "GET",
       headers: {
@@ -17362,6 +17357,8 @@ let Deploy = {
     let jiraInfo = await response.json();
 
     if (configObject.vvverbose) {
+      log();
+      log(cardLink);
       log(jiraInfo);
     }
 

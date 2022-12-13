@@ -6957,12 +6957,10 @@ nothing to commit, working tree clean`;
       let response = await fetch(cardLink, requestOptions);
       let jiraInfo = await response.json();
       let parsedInfo = {
-        assignee_qa: jiraInfo.fields.customfield_17250,
         assignee_dev: jiraInfo.fields.assignee,
         reporter: jiraInfo.fields.reporter,
         labels: jiraInfo.fields.labels,
         creator: jiraInfo.fields.creator,
-        points: jiraInfo.fields.customfield_18350,
         status: jiraInfo.fields.status
       };
       issue.jiraInfoFull = jiraInfo;
@@ -6986,7 +6984,6 @@ nothing to commit, working tree clean`;
       let f = issue.jiraInfoFull;
       let format = chalk`PR #${issue.number}: ${issue.title}
     Dev: ${this.name(j.assignee_dev)}
-    QA: ${this.name(j.assignee_qa)}
     Status: ${j.status.name}
     URL: ${issue.pull_request.html_url}
         `;

@@ -92,6 +92,12 @@ let Deploy = {
             log(jiraInfo);
         }
 
+        if(jiraInfo.errorMessages) {
+            log(cardLink);
+            log(jiraInfo.errorMessage);
+            return issue;
+        }
+
         let parsedInfo = {
             assignee_dev: jiraInfo.fields.assignee,
             reporter: jiraInfo.fields.reporter,

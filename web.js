@@ -3017,12 +3017,9 @@ ${eLine.line}`);
           }
 
           if (this.providerName === "SdviEvalPro") {
-            log("givin it a name,");
+            write("making ev2 importable, ");
             let oldName = this.attributes.providerDataFilename;
-
-            if (!oldName) {
-              this.attributes.providerDataFilename = this.name.replace(/ /g, "_") + ".py";
-            }
+            payload.data.attributes.providerDataFilename = oldName || this.name.replace(/ /g, "_") + ".py";
           }
 
           let res = await lib.makeAPIRequest({

@@ -13,14 +13,33 @@ export function loadConfig(file){
     if(!configFile) return;
 
     configObject = {hasConfig: true};
+    let json;
     try{
-        let json = readFileSync(configFile);
+        json = readFileSync(configFile);
         configObject = JSON.parse(json);
         configObject.hasConfig = true;
     }catch(e){
         if(e.code == "ENOENT"){
             configObject.hasConfig = false;
             //ok, they should probably make a config
+        }else if(e instanceof SyntaxError) {
+            configObject.hasConfig = false;
+            log(chalk`{red Error}: Syntax Error when loading {blue ${configFile}}`);
+            log(chalk`{red ${e.message}}`);
+            let charPos = /at position (\d+)/g.exec(e.message);
+            if(charPos) {
+                let lineNum = 1;
+                let charsLeft = Number(charPos[1]) + 1;
+                for(let line of json.toString("utf8").split("\n")) {
+                    if((line.length + 1) > charsLeft){
+                        break;
+                    }
+                    charsLeft -= line.length + 1; //+1 for newline
+                    lineNum++;
+                }
+
+                log(chalk`Approximate error loc: {green ${lineNum}:${charsLeft}}`);
+            }
         }else{
             throw e;
         }

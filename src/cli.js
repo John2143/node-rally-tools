@@ -1359,13 +1359,20 @@ let cli = {
 
     async elastic(args) {
         let search = args._.join(" ");
+        let subtle = args.quiet;
         let firstObserve = false;
         let observe = json => {
-            if(!firstObserve) {
-                log("Collecing assets...");
-                firstObserve = true;
+            if (subtle) {
+                if(!firstObserve) {
+                    log("Collecing assets...");
+                    firstObserve = true;
+                }else{
+                    write(".");
+                }
             }else{
-                write(".");
+                for(let a of json.data){
+                    log(a.id);
+                }
             }
 
             return json
@@ -1386,9 +1393,6 @@ let cli = {
         log(chalk`Done collecting. Total count: {blue ${apr.length}}`);
         if(configObject.raw) {
             return apr;
-        }
-        for(let a of apr){
-            log(a.id);
         }
     },
 

@@ -244,14 +244,37 @@ function loadConfig(file) {
   configObject = {
     hasConfig: true
   };
+  let json;
 
   try {
-    let json = fs.readFileSync(configFile);
+    json = fs.readFileSync(configFile);
     configObject = JSON.parse(json);
     configObject.hasConfig = true;
   } catch (e) {
     if (e.code == "ENOENT") {
       configObject.hasConfig = false; //ok, they should probably make a config
+    } else if (e instanceof SyntaxError) {
+      configObject.hasConfig = false;
+      log(chalk`{red Error}: Syntax Error when loading {blue ${configFile}}`);
+      log(chalk`{red ${e.message}}`);
+      let charPos = /at position (\d+)/g.exec(e.message);
+
+      if (charPos) {
+        let lineNum = 1;
+        let charsLeft = Number(charPos[1]) + 1;
+
+        for (let line of json.toString("utf8").split("\n")) {
+          if (line.length + 1 > charsLeft) {
+            break;
+          }
+
+          charsLeft -= line.length + 1; //+1 for newline
+
+          lineNum++;
+        }
+
+        log(chalk`Approximate error loc: {green ${lineNum}:${charsLeft}}`);
+      }
     } else {
       throw e;
     }
@@ -18133,7 +18156,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   orderedObjectKeys: orderedObjectKeys
 });
 
-var version = "7.4.3";
+var version = "7.4.4";
 
 var baseCode = {
   SdviContentMover: `{
@@ -18206,7 +18229,7 @@ name: {name}
 if ({{DYNAMIC_PRESET_DATA}}).get("uploadPresetName") == "{name}":
     # Unit test code here: This will run every time this preset is uploaded.
 
-    print("Unit tests for {name}"
+    print("Unit tests for {name}")
 
 `,
   SdviEvalPro: `'''
@@ -19685,14 +19708,21 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
   async elastic(args) {
     let search = args._.join(" ");
 
+    let subtle = args.quiet;
     let firstObserve = false;
 
     let observe = json => {
-      if (!firstObserve) {
-        log("Collecing assets...");
-        firstObserve = true;
+      if (subtle) {
+        if (!firstObserve) {
+          log("Collecing assets...");
+          firstObserve = true;
+        } else {
+          write(".");
+        }
       } else {
-        write(".");
+        for (let a of json.data) {
+          log(a.id);
+        }
       }
 
       return json;
@@ -19713,10 +19743,6 @@ let cli = (_dec = helpText(`Display the help menu`), _dec2 = usage(`rally help [
 
     if (configObject.raw) {
       return apr;
-    }
-
-    for (let a of apr) {
-      log(a.id);
     }
   },
 

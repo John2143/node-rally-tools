@@ -105,7 +105,7 @@ class Preset extends RallyBase{
             }
         }
         let providerType = data.relationships.providerType.data.name;
-        let provider = await Provider.getByName("DEV", providerType);
+        let provider = await Provider.getByName("DEV", providerType) || await Provider.getByName("UAT", providerType);
 
         if(!provider){
             log(chalk`{red The provider type {green ${providerType}} does not exist}`);

@@ -1042,13 +1042,18 @@
         getmap(key) {
           if (this.name === "Aurora") return "zip";
           if (this.name === "Vantage") return "zip";
-          if (this.name === "ffmpeg") return "txt";
+          if (this.name === "ffmpeg") return "txt"; //if(String(this.name).toLowerCase().startsWith("msc")) return "json";
+
           if (this[key]) return this[key];
           return key;
         }
 
       };
-      return map.getmap(config.lang);
+      let v = map.getmap(config.lang); //log(config)
+      //log(this.name)
+      //log(v)
+
+      return v;
     }
 
     chalkPrint(pad = true) {
@@ -2627,7 +2632,7 @@ ${eLine.line}`);
       }
 
       let providerType = data.relationships.providerType.data.name;
-      let provider = await Provider.getByName("DEV", providerType);
+      let provider = (await Provider.getByName("DEV", providerType)) || (await Provider.getByName("UAT", providerType));
 
       if (!provider) {
         log(chalk`{red The provider type {green ${providerType}} does not exist}`);

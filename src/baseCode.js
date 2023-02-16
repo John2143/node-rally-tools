@@ -74,8 +74,9 @@ if ({{DYNAMIC_PRESET_DATA}}).get("uploadPresetName") == "{name}":
 name: {name}
 '''
 
-import rally
+from e2_lib import traced, t, setup1, ContextData
 
-def eval_main(context):
-    # code here`,
+@setup1
+def eval_main(context: ContextData):
+    pass`,
 };

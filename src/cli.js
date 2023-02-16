@@ -133,7 +133,7 @@ let presetsub = {
         preset.name = name;
         preset.ext = ext;
         if(baseCode[provider.name]){
-            preset._code = baseCode[provider.name].replace("{name}", name);
+            preset._code = baseCode[provider.name].replaceAll("{name}", name);
         }else{
             preset._code = " ";
         }

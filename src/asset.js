@@ -167,12 +167,12 @@ class Asset extends RallyBase{
                                 id: this.id,
                                 "type": "movies"
                             }
-                        }, "rule": {
+                        }, "workflowRule": {
                             "data": {
                                 "attributes": {
                                     "name": jobName,
                                 },
-                                "type": "rules"
+                                "type": "workflowRules"
                             }
                         }
                     }
@@ -200,12 +200,12 @@ class Asset extends RallyBase{
                     "type": "workflows",
                     attributes,
                     "relationships": {
-                        "rule": {
+                        "workflowRule": {
                             "data": {
                                 "attributes": {
                                     "name": jobName,
                                 },
-                                "type": "rules"
+                                "type": "workflowRules"
                             }
                         }
                     }

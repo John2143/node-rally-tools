@@ -2268,12 +2268,12 @@ class Asset extends RallyBase {
                 "type": "movies"
               }
             },
-            "rule": {
+            "workflowRule": {
               "data": {
                 "attributes": {
                   "name": jobName
                 },
-                "type": "rules"
+                "type": "workflowRules"
               }
             }
           }
@@ -2308,12 +2308,12 @@ class Asset extends RallyBase {
           "type": "workflows",
           attributes,
           "relationships": {
-            "rule": {
+            "workflowRule": {
               "data": {
                 "attributes": {
                   "name": jobName
                 },
-                "type": "rules"
+                "type": "workflowRules"
               }
             }
           }
@@ -18161,7 +18161,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   orderedObjectKeys: orderedObjectKeys
 });
 
-var version = "7.4.6";
+var version = "7.4.7";
 
 var baseCode = {
   SdviContentMover: `{

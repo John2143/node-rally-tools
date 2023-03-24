@@ -2019,12 +2019,12 @@ ${eLine.line}`);
                   "type": "movies"
                 }
               },
-              "rule": {
+              "workflowRule": {
                 "data": {
                   "attributes": {
                     "name": jobName
                   },
-                  "type": "rules"
+                  "type": "workflowRules"
                 }
               }
             }
@@ -2059,12 +2059,12 @@ ${eLine.line}`);
             "type": "workflows",
             attributes,
             "relationships": {
-              "rule": {
+              "workflowRule": {
                 "data": {
                   "attributes": {
                     "name": jobName
                   },
-                  "type": "rules"
+                  "type": "workflowRules"
                 }
               }
             }

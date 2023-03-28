@@ -17349,7 +17349,7 @@ let Deploy = {
     }
   },
 
-  cardRegex: /\[(\w+)\-(\d+)\]/,
+  cardRegex: /\[(?:\w+\s*\-\s*)?(\w+)\s*\-\s*(\d+)\]/,
 
   async assembleIssue(issue, needsJira) {
     let parsedTitle = issue.parsedTitle = this.cardRegex.exec(issue.title);
@@ -18161,7 +18161,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   orderedObjectKeys: orderedObjectKeys
 });
 
-var version = "7.4.7";
+var version = "7.4.8";
 
 var baseCode = {
   SdviContentMover: `{

@@ -56,7 +56,7 @@ let Deploy = {
         }
     },
 
-    cardRegex: /\[(\w+)\-(\d+)\]/,
+    cardRegex: /\[(?:\w+\s*\-\s*)?(\w+)\s*\-\s*(\d+)\]/,
     async assembleIssue(issue, needsJira){
         let parsedTitle = issue.parsedTitle = this.cardRegex.exec(issue.title);
         if(configObject.verbose) {

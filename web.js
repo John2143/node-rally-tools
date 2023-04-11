@@ -1034,7 +1034,6 @@
     }
 
     async getFileExtension() {
-      let config = await this.getEditorConfig();
       let map = {
         python: "py",
         text: "txt",
@@ -1049,7 +1048,7 @@
         }
 
       };
-      let v = map.getmap(config.lang); //log(config)
+      let v = map.getmap(this.lang); //log(config)
       //log(this.name)
       //log(v)
 
@@ -1067,6 +1066,7 @@
   defineAssoc(Provider, "id", "data.id");
   defineAssoc(Provider, "name", "data.attributes.name");
   defineAssoc(Provider, "category", "data.attributes.category");
+  defineAssoc(Provider, "lang", "data.attributes.lang");
   defineAssoc(Provider, "remote", "meta.remote");
   defineAssoc(Provider, "editorConfig", "meta.editorConfig");
   Provider.endpoint = "providerTypes";

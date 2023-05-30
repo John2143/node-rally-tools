@@ -94,7 +94,7 @@ let Deploy = {
 
         if(jiraInfo.errorMessages) {
             log(cardLink);
-            log(jiraInfo.errorMessage);
+            log(jiraInfo.errorMessages);
             return issue;
         }
 

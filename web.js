@@ -17140,7 +17140,7 @@ nothing to commit, working tree clean`;
 
       if (jiraInfo.errorMessages) {
         log(cardLink);
-        log(jiraInfo.errorMessage);
+        log(jiraInfo.errorMessages);
         return issue;
       }
 

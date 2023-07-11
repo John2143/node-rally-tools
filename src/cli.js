@@ -465,8 +465,13 @@ let supplysub = {
 
             let otherPresets = await Promise.all(this.chain.presets.arr.map(obj => Preset.getByName(env, obj.name)));
             otherPresets = new Collection(otherPresets.filter(x => x));
-            await Promise.all(otherPresets.arr.map(obj => obj.downloadCode()));
-            await Promise.all(otherPresets.arr.map(obj => obj.resolve()));
+            for(let obj of otherPresets){
+                await obj.downloadCode();
+                await obj.resolve();
+            }
+            //await Promise.all(otherPresets.arr.map(obj => obj.downloadCode()));
+            //await Promise.all(otherPresets.arr.map(obj => obj.resolve()));
+            //log("test")
 
             const printPresets = (preset, otherPreset) => {
                 log(preset.chalkPrint(true));

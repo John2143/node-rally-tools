@@ -17088,7 +17088,13 @@ nothing to commit, working tree clean`;
     async getIssues(needsJira) {
       let base = this.getOctokitConfig();
       let pullList = await this.octokit.paginate("GET /repos/{owner}/{repo}/issues", base);
-      return await Promise.all(pullList.map(issue => this.assembleIssue(issue, needsJira)));
+      let s = [];
+
+      for (let issue in pullList) {
+        s.push((await this.assembleIssue(issue, needsJira)));
+      }
+
+      return s;
     },
 
     async gh() {

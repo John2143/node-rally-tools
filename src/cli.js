@@ -118,7 +118,7 @@ let presetsub = {
             ext = args.ext
         }else{
             provider = await configHelpers.selectProvider(await Provider.getAll(this.env));
-            ext = (await provider.getEditorConfig()).fileExt;
+            ext = await provider.getFileExtension();
         }
         if(args.name){
             name = args.name;

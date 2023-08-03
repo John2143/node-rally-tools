@@ -1023,7 +1023,6 @@
         env: this.remote,
         path_full: this.data.links.editorConfig
       });
-      this.editorConfig.fileExt = await this.getFileExtension();
       return this.editorConfig;
     }
 

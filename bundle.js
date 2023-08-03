@@ -1108,7 +1108,6 @@ class Provider extends RallyBase {
       env: this.remote,
       path_full: this.data.links.editorConfig
     });
-    this.editorConfig.fileExt = await this.getFileExtension();
     return this.editorConfig;
   }
 
@@ -18359,7 +18358,7 @@ let presetsub = {
       ext = args.ext;
     } else {
       provider = await selectProvider((await Provider.getAll(this.env)));
-      ext = (await provider.getEditorConfig()).fileExt;
+      ext = await provider.getFileExtension();
     }
 
     if (args.name) {

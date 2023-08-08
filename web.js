@@ -17089,7 +17089,7 @@ nothing to commit, working tree clean`;
       let pullList = await this.octokit.paginate("GET /repos/{owner}/{repo}/issues", base);
       let s = [];
 
-      for (let issue in pullList) {
+      for (let issue of pullList) {
         s.push((await this.assembleIssue(issue, needsJira)));
       }
 
@@ -17216,6 +17216,10 @@ nothing to commit, working tree clean`;
 
     async checkStatus(issue) {
       var _issue$parsedTitle;
+
+      if (exports.configObject.vvverbose) {
+        log(issue);
+      }
 
       let labels = new Set(issue.labels.map(x => x.name));
 

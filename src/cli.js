@@ -1024,6 +1024,15 @@ let cli = {
                 }
                 fileArg++;
                 await asset.downloadFile(label, args["to-folder"]);
+            }else if(arg === "presignfile") {
+                let label = arrayify(args["file-label"], fileArg)
+                if(!label){
+                    throw new AbortError("No label supplied");
+                }
+                fileArg++;
+
+                let file = await asset.getFileByLabel(label);
+                log(await file.getContent(false, true));
             }else if(arg === "deletefile" || arg === "deleteFile" || arg === "removefile" || arg === "removeFile") {
                 let label = arrayify(args["file-label"], fileArg)
                 if(!label){

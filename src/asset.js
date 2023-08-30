@@ -423,11 +423,14 @@ class Asset extends RallyBase{
         }
     }
 
-    async downloadFile(label, destFolder){
+    async getFileByLabel(label) {
         let files = await this.getFiles();
-
         let file = files.findByName(label)
+        return file;
+    }
 
+    async downloadFile(label, destFolder){
+        let file = this.getFileByLabel(label);
         let c = await file.getContent();
 
         if(destFolder){
@@ -437,6 +440,7 @@ class Asset extends RallyBase{
             console.log(c);
         }
     }
+
     async deleteFile(label){
         let files = await this.getFiles();
         let file = files.findByName(label);

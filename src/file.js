@@ -21,7 +21,7 @@ class File extends RallyBase{
     }
 
     async getContent(force = false, noRedirect = false){
-        if(!this.canBeDownloaded() && !force){
+        if(!this.canBeDownloaded() && !force && !noRedirect){
             throw new FileTooLargeError(this);
         }
 

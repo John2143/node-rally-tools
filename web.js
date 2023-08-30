@@ -1584,7 +1584,7 @@
     }
 
     async getContent(force = false, noRedirect = false) {
-      if (!this.canBeDownloaded() && !force) {
+      if (!this.canBeDownloaded() && !force && !noRedirect) {
         throw new FileTooLargeError(this);
       }
 
@@ -2286,9 +2286,14 @@ ${eLine.line}`);
       }
     }
 
-    async downloadFile(label, destFolder) {
+    async getFileByLabel(label) {
       let files = await this.getFiles();
       let file = files.findByName(label);
+      return file;
+    }
+
+    async downloadFile(label, destFolder) {
+      let file = this.getFileByLabel(label);
       let c = await file.getContent();
 
       if (destFolder) {

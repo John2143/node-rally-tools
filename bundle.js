@@ -18175,7 +18175,7 @@ var allIndexBundle = /*#__PURE__*/Object.freeze({
   orderedObjectKeys: orderedObjectKeys
 });
 
-var version = "8.2.1";
+var version = "8.2.2";
 
 var baseCode = {
   SdviContentMover: `{

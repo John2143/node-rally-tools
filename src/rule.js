@@ -4,6 +4,7 @@ import {configObject} from "./config.js";
 import Preset from "./preset.js";
 import Provider from "./providers.js";
 import Notification from "./notification.js";
+import Tag from "./tag.js";
 
 import {writeFileSync, readFileSync} from "./fswrap.js";
 import {join, resolve as pathResolve} from "path";
@@ -62,6 +63,12 @@ class Rule extends RallyBase{
         let pNext   = await this.resolveField(Rule, "passNext", false, "specific");
         let eNext   = await this.resolveField(Rule, "errorNext", false, "specific");
         let proType = await this.resolveField(Provider, "providerType", false, "specific");
+        let proTag  = await this.resolveField(Tag, "providerFilterTag", false, "specific");
+        if(proTag){
+            this.data.attributes.providerFilter = proTag.id;
+        }else{
+            this.data.attributes.providerFilter = null;
+        }
 
         let dynamicNexts = await this.resolveField(Rule, "dynamicNexts", true, "specific");
 
@@ -197,6 +204,10 @@ class Rule extends RallyBase{
         let pNext   = await this.resolveField(Rule, "passNext", false);
         let eNext   = await this.resolveField(Rule, "errorNext", false);
         let proType = await this.resolveField(Provider, "providerType", false);
+        let proTag  = await this.resolveField(Tag, "providerFilterTag", false);
+        if(proTag && this.data.attributes.providerFilter) {
+            delete this.data.attributes.providerFilter
+        }
 
         //log("Dynamic nexts")
         let dynamicNexts = await this.resolveField(Rule, "dynamicNexts", true);
@@ -213,7 +224,7 @@ class Rule extends RallyBase{
         this.isGeneric = true;
 
         return {
-            preset, proType,
+            preset, proType, proTag,
             pNext, eNext,
             dynamicNexts,
             errorNotif, enterNotif, passNotif,

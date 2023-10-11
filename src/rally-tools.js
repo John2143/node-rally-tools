@@ -506,7 +506,7 @@ export class IndexObject {
 
     async fullResults(){
         await this.initializeFirstRequest();
-        let maxParallelRequests = this.opts.maxParallelRequests || this.opts.chunksize || 20;
+        let maxParallelRequests = this.opts.maxParallelRequests || this.opts.chunksize || 5;
 
         let currentPromises = [];
 

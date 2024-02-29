@@ -876,6 +876,8 @@ let cli = {
     @arg(`~`,  `--init-data`,  chalk`Init data to use when launching job. can be string, or {white @path/to/file} for a file`)
     @arg(`~`,  `--file-label`, chalk`File label (used with addfile)`)
     @arg(`~`,  `--file-uri`,   chalk`File s3 uri. Can use multiple uri's for the same label (used with addfile)`)
+    @arg(`~`,  `--auto-analyze`, chalk`autoAnalyze? (default: true) (used with addfile)`)
+    @arg(`~`,  `--generate-md5`,   chalk`Generate md5 hash? (default: false) (used with addfile)`)
     @arg(`~`,  `--metadata`,   chalk`Metadata to use with patchMetadata. Can be string, or {white @path/to/file} for a file. Data must contain a top level key Metadata, or Workflow. Metadata will be pached into METADATA. Workflow will be patched into WORKFLOW_METADATA(not currently available)`)
     @arg(`~`,  `--priority`,   chalk`set the priority of all launched jobs`)
     @arg(`~`,  `--new-name`,   chalk`set the new name`)
@@ -988,7 +990,16 @@ let cli = {
                 if(label === undefined || !uri){
                     throw new AbortError("Number of file-label and file-uri does not match");
                 }
-                await asset.addFile(label, uri);
+
+                let genMd5 = args["generate-md5"];
+                if(genMd5 === undefined) {
+                    genMd5 = false;
+                }
+                let autoA = args["auto-analyze"];
+                if(autoA === undefined) {
+                    autoA = true;
+                }
+                await asset.addFile(label, uri, genMd5, autoA);
                 log(chalk`Added file ${label}`);
                 fileArg++;
             }else if(arg === "delete"){

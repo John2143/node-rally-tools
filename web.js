@@ -2035,7 +2035,7 @@ ${eLine.line}`);
       })));
     }
 
-    async addFile(label, fileuris) {
+    async addFile(label, fileuris, generateMd5 = false, autoAnalyze = true) {
       if (!Array.isArray(fileuris)) fileuris = [fileuris];
       let instances = {};
 
@@ -2053,7 +2053,9 @@ ${eLine.line}`);
           "data": {
             "attributes": {
               label,
-              instances
+              instances,
+              generateMd5,
+              autoAnalyze
             },
             "relationships": {
               "asset": {

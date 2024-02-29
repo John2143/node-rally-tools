@@ -112,7 +112,7 @@ class Asset extends RallyBase{
         return this._files = new Collection(req.map(x => new File({data: x, remote: this.remote, parent: this})));
     }
 
-    async addFile(label, fileuris){
+    async addFile(label, fileuris, generateMd5 = false, autoAnalyze = true){
         if(!Array.isArray(fileuris)) fileuris = [fileuris];
 
         let instances = {}
@@ -126,7 +126,7 @@ class Asset extends RallyBase{
             payload: {
                 "data": {
                     "attributes": {
-                        label, instances,
+                        label, instances, generateMd5, autoAnalyze,
                     },
                     "relationships": {
                         "asset": {

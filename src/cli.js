@@ -281,6 +281,8 @@ let rulesub = {
     async before(args){
         this.env = args.env;
         if(!this.env) throw new AbortError("No env supplied");
+
+        this.files = await getFilesFromArgs(args);
     },
     async $list(args){
         elog("Loading...");
@@ -337,6 +339,26 @@ let rulesub = {
 
         let rules = this.files.map(path => new Rule({path, remote: false}));
         await funcs.uploadRules(this.env, rules);
+    },
+    async $deleteRemote(args){
+        let file = this.files[0];
+        if(!this.files){
+            throw new AbortError("No files provided to diff (use --file argument)");
+        }
+
+        let rule = new Rule({path: file, remote: false});
+        if(!rule.name){
+            throw new AbortError(chalk`No rule header found. Cannot get name.`);
+        }
+
+        let rule2 = await Rule.getByName(this.env, rule.name);
+        if(!rule2){
+            throw new AbortError(chalk`No rule found with name {red ${rule.name}} on {blue ${this.env}}`);
+        }
+
+        log(chalk`Deleting ${rule2.chalkPrint(true)}.`);
+
+        log(await rule2.delete());
     },
     async unknown(arg, args){
         log(chalk`Unknown action {red ${arg}} try '{white rally help rule}'`);

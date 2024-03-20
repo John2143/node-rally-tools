@@ -90,7 +90,6 @@ class Rule extends RallyBase{
 
             writeFileSync(this.localpath, JSON.stringify(orderedObjectKeys(this.data), null, 4));
         }else{
-            await this.acclimatize(env);
             return await this.uploadRemote(env);
         }
     }
@@ -168,7 +167,16 @@ class Rule extends RallyBase{
             return;
         }
 
-        if(this.idMap[env]){
+        await this.acclimatize(env);
+
+        //First query the api to see if this already exists.
+        let remote = await Rule.getByName(env, this.name);
+
+        this.idMap = this.idMap || {};
+
+        if(remote) {
+            this.idMap[env] = remote.id;
+
             this.remote = env;
 
             await this.patchStrip();
@@ -189,9 +197,29 @@ class Rule extends RallyBase{
             if(res.statusCode > 210){
                 return `Failed to upload: ${res.body}`;
             }
-        }else{
-            throw Error("Bad idmap!");
+
+        } else {
+            await this.createIfNotExist(env);
         }
+    }
+
+    async deleteRemoteVersion(env, id=null){
+        if(lib.isLocalEnv(env)) return false;
+        if(!id){
+            let remote = await Rule.getByName(env, this.name);
+            id = remote.id;
+        }
+
+        return await lib.makeAPIRequest({
+            env, path: `/workflowRules/${id}`,
+            method: "DELETE",
+        });
+    }
+
+    async delete(){
+        if(lib.isLocalEnv(this.remote)) return false;
+
+        return await this.deleteRemoteVersion(this.remote, this.id);
     }
 
     get localpath(){

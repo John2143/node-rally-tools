@@ -1310,7 +1310,6 @@
         log(chalk`Saving rule {green ${this.name}} to {blue ${lib.envName(env)}}.`);
         writeFileSync(this.localpath, JSON.stringify(orderedObjectKeys(this.data), null, 4));
       } else {
-        await this.acclimatize(env);
         return await this.uploadRemote(env);
       }
     }
@@ -1396,7 +1395,13 @@
         return;
       }
 
-      if (this.idMap[env]) {
+      await this.acclimatize(env); //First query the api to see if this already exists.
+
+      let remote = await Rule.getByName(env, this.name);
+      this.idMap = this.idMap || {};
+
+      if (remote) {
+        this.idMap[env] = remote.id;
         this.remote = env;
         await this.patchStrip();
         this.data.id = this.idMap[env];
@@ -1420,8 +1425,28 @@
           return `Failed to upload: ${res.body}`;
         }
       } else {
-        throw Error("Bad idmap!");
+        await this.createIfNotExist(env);
       }
+    }
+
+    async deleteRemoteVersion(env, id = null) {
+      if (lib.isLocalEnv(env)) return false;
+
+      if (!id) {
+        let remote = await Rule.getByName(env, this.name);
+        id = remote.id;
+      }
+
+      return await lib.makeAPIRequest({
+        env,
+        path: `/workflowRules/${id}`,
+        method: "DELETE"
+      });
+    }
+
+    async delete() {
+      if (lib.isLocalEnv(this.remote)) return false;
+      return await this.deleteRemoteVersion(this.remote, this.id);
     }
 
     get localpath() {
@@ -17819,6 +17844,12 @@ nothing to commit, working tree clean`;
     async uploadPresets(env, presets, createFunc = () => false) {
       for (let preset of presets) {
         await preset.uploadCodeToEnv(env, createFunc);
+      }
+    },
+
+    async uploadRules(env, rules) {
+      for (let rule of rules) {
+        await rule.uploadRemote(env);
       }
     },
 

@@ -328,6 +328,16 @@ let rulesub = {
 
         rule.saveB()
     },
+    async $upload(args){
+        if(!this.files){
+            throw new AbortError("No files provided to upload (use --file argument)");
+        }
+
+        log(chalk`Uploading {green ${this.files.length}} rule(s) to {green ${this.env}}.`);
+
+        let rules = this.files.map(path => new Rule({path, remote: false}));
+        await funcs.uploadRules(this.env, rules);
+    },
     async unknown(arg, args){
         log(chalk`Unknown action {red ${arg}} try '{white rally help rule}'`);
     },

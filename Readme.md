@@ -326,7 +326,7 @@ will fail).
 `rally preset grab -f [preset]` will attempt to download the metadata file for
 this asset. The `--full` argument can be given to also download the `code`, too.
 
-`rally preset deleteRemote -e [env] -f [rule]` can be used to delete a preset in a
+`rally preset deleteRemote -e [env] -f [preset]` can be used to delete a preset in a
 remote env. You can specify one -f argument at a time.
 
 ## `rally rule`

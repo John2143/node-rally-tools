@@ -1361,10 +1361,6 @@ class Rule extends RallyBase {
 
   async acclimatize(env) {
     this.remote = env;
-    let preset = await this.resolveField(Preset, "preset", false, "specific");
-    let pNext = await this.resolveField(Rule, "passNext", false, "specific");
-    let eNext = await this.resolveField(Rule, "errorNext", false, "specific");
-    let proType = await this.resolveField(Provider, "providerType", false, "specific");
     let proTag = await this.resolveField(Tag, "providerFilterTag", false, "specific");
 
     if (proTag) {
@@ -1372,11 +1368,6 @@ class Rule extends RallyBase {
     } else {
       this.data.attributes.providerFilter = null;
     }
-
-    let dynamicNexts = await this.resolveField(Rule, "dynamicNexts", true, "specific");
-    let enterNotif = await this.resolveField(Notification, "enterNotifications", true, "specific");
-    let errorNotif = await this.resolveField(Notification, "errorNotifications", true, "specific");
-    let passNotif = await this.resolveField(Notification, "passNotifications", true, "specific");
   }
 
   async saveA(env) {

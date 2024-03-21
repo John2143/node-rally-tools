@@ -59,16 +59,26 @@ class Rule extends RallyBase{
     async acclimatize(env){
         this.remote = env;
 
+        let preset  = await this.resolveField(Preset, "preset", false, "specific");
+        let pNext   = await this.resolveField(Rule, "passNext", false, "specific");
+        let eNext   = await this.resolveField(Rule, "errorNext", false, "specific");
+        let proType = await this.resolveField(Provider, "providerType", false, "specific");
         let proTag  = await this.resolveField(Tag, "providerFilterTag", false, "specific");
         if(proTag){
             this.data.attributes.providerFilter = proTag.id;
         }else{
             this.data.attributes.providerFilter = null;
         }
+
+        let dynamicNexts = await this.resolveField(Rule, "dynamicNexts", true, "specific");
+
+        let enterNotif = await this.resolveField(Notification, "enterNotifications", true, "specific");
+        let errorNotif = await this.resolveField(Notification, "errorNotifications", true, "specific");
+        let passNotif  = await this.resolveField(Notification, "passNotifications", true, "specific");
     }
     async saveA(env){
         if(lib.isLocalEnv(env)) return;
-        return await this.createIfNotExist(env);
+        return await this.createOrUpdate(env);
     }
     async saveB(env){
         if(!this.isGeneric){
@@ -80,14 +90,16 @@ class Rule extends RallyBase{
 
             writeFileSync(this.localpath, JSON.stringify(orderedObjectKeys(this.data), null, 4));
         }else{
-            return await this.uploadRemote(env);
+            return await this.createOrUpdate(env);
         }
     }
     get immutable(){
         return false;
     }
-    async createIfNotExist(env){
+    async createOrUpdate(env){
         write(chalk`First pass rule {green ${this.name}} to {green ${env}}: `);
+
+        await this.acclimatize(env);
 
         if(this.immutable){
             log(chalk`{magenta IMMUTABLE}. Nothing to do.`);
@@ -98,21 +110,30 @@ class Rule extends RallyBase{
         let remote = await Rule.getByName(env, this.name);
 
         this.idMap = this.idMap || {};
+        
+        this.relationships.transitions = {
+            data: await this.constructWorkflowTransitions(),
+        };
 
         if(remote){
             this.idMap[env] = remote.id;
             log(chalk`exists ${remote.chalkPrint(false)}`);
-            return;
+
+            write("replace, ");
+            let res = await lib.makeAPIRequest({
+                env, path: `/workflowRules/${this.idMap[env]}`, method: "PUT",
+                payload: {data: this.data},
+            });
+        } else {
+            write("create, ");
+            let res = await lib.makeAPIRequest({
+                env, path: `/workflowRules`, method: "POST",
+                payload: {data: this.data},
+            });
+
+            this.idMap[env] = res.data.id;
         }
 
-        //If it exists we can replace it
-        write("create, ");
-        let res = await lib.makeAPIRequest({
-            env, path: `/workflowRules`, method: "POST",
-            payload: {data: {attributes: {name: this.name}, type: "workflowRules"}},
-        });
-        this.idMap = this.idMap || {};
-        this.idMap[env] = res.data.id;
         write("id ");
         log(this.idMap[env]);
     }
@@ -147,50 +168,6 @@ class Rule extends RallyBase{
                 //delete this.relationships[key];
             //}
         //}
-    }
-
-    async uploadRemote(env){
-        write(chalk`Uploading rule {green ${this.name}} to {green ${env}}: `);
-
-        if(this.immutable){
-            log(chalk`{magenta IMMUTABLE}. Nothing to do.`);
-            return;
-        }
-
-        await this.acclimatize(env);
-
-        //First query the api to see if this already exists.
-        let remote = await Rule.getByName(env, this.name);
-
-        this.idMap = this.idMap || {};
-
-        if(remote) {
-            this.idMap[env] = remote.id;
-
-            this.remote = env;
-
-            await this.patchStrip();
-            this.data.id = this.idMap[env];
-
-            this.relationships.transitions = {
-                data: await this.constructWorkflowTransitions(),
-            };
-
-            //If it exists we can replace it
-            write("replace, ");
-            let res = await lib.makeAPIRequest({
-                env, path: `/workflowRules/${this.idMap[env]}`, method: "PUT",
-                payload: {data: this.data}, fullResponse: true,
-            });
-
-            log(chalk`response {yellow ${res.statusCode}}`);
-            if(res.statusCode > 210){
-                return `Failed to upload: ${res.body}`;
-            }
-
-        } else {
-            await this.createIfNotExist(env);
-        }
     }
 
     async deleteRemoteVersion(env, id=null){

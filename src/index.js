@@ -48,7 +48,7 @@ export const rallyFunctions = {
     },
     async uploadRules(env, rules){
         for(let rule of rules){
-            await rule.uploadRemote(env);
+            await rule.createOrUpdate(env);
         }
     },
     //Dummy test access

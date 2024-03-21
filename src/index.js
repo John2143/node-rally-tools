@@ -46,6 +46,11 @@ export const rallyFunctions = {
             await preset.uploadCodeToEnv(env, createFunc);
         }
     },
+    async uploadRules(env, rules){
+        for(let rule of rules){
+            await rule.createOrUpdate(env);
+        }
+    },
     //Dummy test access
     async testAccess(env){
         if(lib.isLocalEnv(env)){

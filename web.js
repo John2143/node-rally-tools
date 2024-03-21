@@ -1296,7 +1296,7 @@
 
     async saveA(env) {
       if (lib.isLocalEnv(env)) return;
-      return await this.createIfNotExist(env);
+      return await this.createOrUpdate(env);
     }
 
     async saveB(env) {
@@ -1310,8 +1310,7 @@
         log(chalk`Saving rule {green ${this.name}} to {blue ${lib.envName(env)}}.`);
         writeFileSync(this.localpath, JSON.stringify(orderedObjectKeys(this.data), null, 4));
       } else {
-        await this.acclimatize(env);
-        return await this.uploadRemote(env);
+        return await this.createOrUpdate(env);
       }
     }
 
@@ -1319,8 +1318,9 @@
       return false;
     }
 
-    async createIfNotExist(env) {
+    async createOrUpdate(env) {
       write(chalk`First pass rule {green ${this.name}} to {green ${env}}: `);
+      await this.acclimatize(env);
 
       if (this.immutable) {
         log(chalk`{magenta IMMUTABLE}. Nothing to do.`);
@@ -1330,30 +1330,35 @@
 
       let remote = await Rule.getByName(env, this.name);
       this.idMap = this.idMap || {};
+      this.relationships.transitions = {
+        data: await this.constructWorkflowTransitions()
+      };
 
       if (remote) {
         this.idMap[env] = remote.id;
         log(chalk`exists ${remote.chalkPrint(false)}`);
-        return;
-      } //If it exists we can replace it
-
-
-      write("create, ");
-      let res = await lib.makeAPIRequest({
-        env,
-        path: `/workflowRules`,
-        method: "POST",
-        payload: {
-          data: {
-            attributes: {
-              name: this.name
-            },
-            type: "workflowRules"
+        write("replace, ");
+        let res = await lib.makeAPIRequest({
+          env,
+          path: `/workflowRules/${this.idMap[env]}`,
+          method: "PUT",
+          payload: {
+            data: this.data
           }
-        }
-      });
-      this.idMap = this.idMap || {};
-      this.idMap[env] = res.data.id;
+        });
+      } else {
+        write("create, ");
+        let res = await lib.makeAPIRequest({
+          env,
+          path: `/workflowRules`,
+          method: "POST",
+          payload: {
+            data: this.data
+          }
+        });
+        this.idMap[env] = res.data.id;
+      }
+
       write("id ");
       log(this.idMap[env]);
     }
@@ -1388,40 +1393,24 @@
       //}
     }
 
-    async uploadRemote(env) {
-      write(chalk`Uploading rule {green ${this.name}} to {green ${env}}: `);
+    async deleteRemoteVersion(env, id = null) {
+      if (lib.isLocalEnv(env)) return false;
 
-      if (this.immutable) {
-        log(chalk`{magenta IMMUTABLE}. Nothing to do.`);
-        return;
+      if (!id) {
+        let remote = await Rule.getByName(env, this.name);
+        id = remote.id;
       }
 
-      if (this.idMap[env]) {
-        this.remote = env;
-        await this.patchStrip();
-        this.data.id = this.idMap[env];
-        this.relationships.transitions = {
-          data: await this.constructWorkflowTransitions()
-        }; //If it exists we can replace it
+      return await lib.makeAPIRequest({
+        env,
+        path: `/workflowRules/${id}`,
+        method: "DELETE"
+      });
+    }
 
-        write("replace, ");
-        let res = await lib.makeAPIRequest({
-          env,
-          path: `/workflowRules/${this.idMap[env]}`,
-          method: "PUT",
-          payload: {
-            data: this.data
-          },
-          fullResponse: true
-        });
-        log(chalk`response {yellow ${res.statusCode}}`);
-
-        if (res.statusCode > 210) {
-          return `Failed to upload: ${res.body}`;
-        }
-      } else {
-        throw Error("Bad idmap!");
-      }
+    async delete() {
+      if (lib.isLocalEnv(this.remote)) return false;
+      return await this.deleteRemoteVersion(this.remote, this.id);
     }
 
     get localpath() {
@@ -17819,6 +17808,12 @@ nothing to commit, working tree clean`;
     async uploadPresets(env, presets, createFunc = () => false) {
       for (let preset of presets) {
         await preset.uploadCodeToEnv(env, createFunc);
+      }
+    },
+
+    async uploadRules(env, rules) {
+      for (let rule of rules) {
+        await rule.createOrUpdate(env);
       }
     },
 

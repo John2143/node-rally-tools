@@ -326,6 +326,9 @@ will fail).
 `rally preset grab -f [preset]` will attempt to download the metadata file for
 this asset. The `--full` argument can be given to also download the `code`, too.
 
+`rally preset deleteRemote -e [env] -f [preset]` can be used to delete a preset in a
+remote env. You can specify one -f argument at a time.
+
 ## `rally rule`
 
 This command is similar to `rally preset`, but for `Supply Chain Rules`.
@@ -333,6 +336,15 @@ This command is similar to `rally preset`, but for `Supply Chain Rules`.
 `rally rule create` can be used in the same fashion as `rally preset create`.
 To access the interactive rule creator, just run `rally rule create` with no
 arguments.
+
+`rally rule upload -e [env] -f [rule]` can be used to upload a file to a
+remote env. You can specify multiple -f arguments to upload multiple files.  If
+the - argument is given (`rally rule upload -`) then the files are read from
+stdin.  For example: `git diff HEAD..UAT --name-only | grep silo-rules |
+rally rule upload -` will upload all changed files using git as the reference.
+
+`rally rule deleteRemote -e [env] -f [rule]` can be used to delete a rule in a
+remote env. You can specify one -f argument at a time.
 
 To see all rules, use `rally rule list`. `--raw` available.
 

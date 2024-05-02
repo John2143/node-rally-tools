@@ -299,7 +299,7 @@ let rulesub = {
         let preset = await configHelpers.selectPreset({canSelectNone: false});
         let passNext = await configHelpers.selectRule({purpose: "'On Exit OK'"});
         let errorNext = await configHelpers.selectRule({purpose: "'On Exit Error'"});
-        let name = await configHelpers.askInput("Rule Name", "What is the rule name?");
+        let name = await configHelpers.askInput("Rule Name", "What is the rule name? ('@' to insert full preset name)");
         name = name.replace("@", preset.name);
         let desc = await configHelpers.askInput("Description", "Enter a description.");
 
@@ -343,7 +343,7 @@ let rulesub = {
     async $deleteRemote(args){
         let file = this.files[0];
         if(!this.files){
-            throw new AbortError("No files provided to diff (use --file argument)");
+            throw new AbortError("No files provided to delete (use --file argument)");
         }
 
         let rule = new Rule({path: file, remote: false});
@@ -1583,6 +1583,10 @@ async function $main(){
 
     if(argv["store-stage"]){
         configObject.storeStage = true;
+    }
+
+    if(argv["dry-run"]){
+        configObject.dryRun = true;
     }
 
     if(argv["script"]){

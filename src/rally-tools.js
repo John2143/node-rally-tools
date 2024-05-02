@@ -83,6 +83,10 @@ export class lib{
                 log("(No body")
             }
         }
+        if(configObject.dryRun && method !== "GET") {
+            log(chalk`{red Skipping ${method} request for dry run}`)
+            return null;
+        }
 
         let requestOptions = {
             method, body, qs, uri: path,

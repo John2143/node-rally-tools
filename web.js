@@ -463,6 +463,11 @@
         }
       }
 
+      if (exports.configObject.dryRun && method !== "GET") {
+        log(chalk$1`{red Skipping ${method} request for dry run}`);
+        return null;
+      }
+
       let requestOptions = {
         method,
         body,

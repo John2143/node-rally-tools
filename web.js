@@ -2985,7 +2985,9 @@ ${eLine.line}`);
     }
 
     async uploadPresetData(env, id) {
-      if (this.code.trim() === "NOUPLOAD") {
+      var _this$code;
+
+      if (((_this$code = this.code) === null || _this$code === void 0 ? void 0 : _this$code.trim()) === "NOUPLOAD") {
         write(chalk`code skipped {yellow :)}, `); // Not an error, so return null
 
         return null;

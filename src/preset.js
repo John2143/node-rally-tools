@@ -349,7 +349,7 @@ class Preset extends RallyBase{
     }
 
     async uploadPresetData(env, id){
-        if(this.code.trim() === "NOUPLOAD"){
+        if(this.code?.trim() === "NOUPLOAD"){
             write(chalk`code skipped {yellow :)}, `);
             // Not an error, so return null
             return null;

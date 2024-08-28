@@ -118,7 +118,8 @@ class Rule extends RallyBase{
             this.idMap[env] = remote.id;
             log(chalk`exists ${remote.chalkPrint(false)}`);
 
-            if (configObject.noStarred) {
+            if (configObject.skipStarred) {
+                write("no starred, ");
                 this.data.attributes.starred = undefined;
             }
 

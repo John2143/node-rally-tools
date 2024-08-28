@@ -1343,7 +1343,8 @@
         this.idMap[env] = remote.id;
         log(chalk`exists ${remote.chalkPrint(false)}`);
 
-        if (exports.configObject.noStarred) {
+        if (exports.configObject.skipStarred) {
+          write("no starred, ");
           this.data.attributes.starred = undefined;
         }
 

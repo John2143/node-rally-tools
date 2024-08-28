@@ -1608,10 +1608,12 @@ async function $main(){
     if(argv["no-replacer"]){
         configObject.noReplacer = true;
     }
-    a
-    if(argv["no-starred"]){
-        configObject.noStarred = true;
+
+    if(argv["skip-starred"]){
+        log("NO STARRED");
+        configObject.skipStarred = true;
     }
+    log("A");
 
     configObject.globalProgress = argv["show-progress"] || false;
 

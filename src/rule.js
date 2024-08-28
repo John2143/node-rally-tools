@@ -110,7 +110,6 @@ class Rule extends RallyBase{
         let remote = await Rule.getByName(env, this.name);
 
         this.idMap = this.idMap || {};
-        
         this.relationships.transitions = {
             data: await this.constructWorkflowTransitions(),
         };
@@ -118,6 +117,10 @@ class Rule extends RallyBase{
         if(remote){
             this.idMap[env] = remote.id;
             log(chalk`exists ${remote.chalkPrint(false)}`);
+
+            if (configObject.noStarred) {
+                this.data.attributes.starred = undefined;
+            }
 
             write("replace, ");
             let res = await lib.makeAPIRequest({

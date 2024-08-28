@@ -1342,7 +1342,11 @@
       if (remote) {
         this.idMap[env] = remote.id;
         log(chalk`exists ${remote.chalkPrint(false)}`);
-        this.data.attributes.starred = undefined;
+
+        if (exports.configObject.noStarred) {
+          this.data.attributes.starred = undefined;
+        }
+
         write("replace, ");
         let res = await lib.makeAPIRequest({
           env,

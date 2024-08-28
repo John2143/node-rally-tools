@@ -1427,7 +1427,11 @@ class Rule extends RallyBase {
     if (remote) {
       this.idMap[env] = remote.id;
       log(chalk`exists ${remote.chalkPrint(false)}`);
-      this.data.attributes.starred = undefined;
+
+      if (configObject.noStarred) {
+        this.data.attributes.starred = undefined;
+      }
+
       write("replace, ");
       let res = await lib.makeAPIRequest({
         env,
@@ -20025,6 +20029,10 @@ async function $main() {
 
   if (argv["no-replacer"]) {
     configObject.noReplacer = true;
+  }
+
+  if (argv["no-starred"]) {
+    configObject.noStarred = true;
   }
 
   configObject.globalProgress = argv["show-progress"] || false; //Default enviornment should normally be from config, but it can be

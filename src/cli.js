@@ -1618,7 +1618,6 @@ async function $main(){
         log("NO STARRED");
         configObject.skipStarred = true;
     }
-    log("A");
 
     configObject.globalProgress = argv["show-progress"] || false;
 

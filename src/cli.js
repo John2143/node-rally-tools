@@ -1075,7 +1075,12 @@ let cli = {
                 fileArg++;
 
                 let file = await asset.getFileByLabel(label);
-                log(await file.getContent(false, true));
+                let timeout = undefined;
+                if(args.timeout) {
+                    timeout = args.timeout;
+                }
+                log(await file.getContent(false, true, timeout));
+
             }else if(arg === "deletefile" || arg === "deleteFile" || arg === "removefile" || arg === "removeFile") {
                 let label = arrayify(args["file-label"], fileArg)
                 if(!label){

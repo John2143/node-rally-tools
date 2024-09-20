@@ -1666,7 +1666,7 @@
       return this.sizeGB <= .2;
     }
 
-    async getContent(force = false, noRedirect = false) {
+    async getContent(force = false, noRedirect = false, timeout = undefined) {
       if (!this.canBeDownloaded() && !force && !noRedirect) {
         throw new FileTooLargeError(this);
       }
@@ -1675,7 +1675,8 @@
         env: this.remote,
         fullPath: this.contentLink,
         qs: {
-          "no-redirect": noRedirect
+          "no-redirect": noRedirect,
+          timeout: timeout
         }
       });
 

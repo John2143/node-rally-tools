@@ -20,7 +20,7 @@ class File extends RallyBase{
         return this.sizeGB <= .2;
     }
 
-    async getContent(force = false, noRedirect = false){
+    async getContent(force = false, noRedirect = false, timeout = undefined){
         if(!this.canBeDownloaded() && !force && !noRedirect){
             throw new FileTooLargeError(this);
         }
@@ -29,6 +29,7 @@ class File extends RallyBase{
             env: this.remote, fullPath: this.contentLink,
             qs: {
                 "no-redirect": noRedirect,
+                timeout: timeout,
             }
         });
 

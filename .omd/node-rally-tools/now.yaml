@@ -1,0 +1,20 @@
+omd_service: rally
+
+omd_component:
+  name: node-rally-tools
+  omd_type: rally
+  description: rally
+  omd_compliance: none
+  omd_cell: rally
+  subdivision_strategy: product
+  omd_team: MSC DEVOPS Platform Eng
+  omd_sdm_owner_email: benazeer.saifee@wbd.com
+
+omd_jira_project:
+  name: MSC
+  jira_board: https://wbdstreaming.atlassian.net/jira/software/c/projects/MSC/boards/334
+
+omd_schema_version: v1.1.0
+
+# Used for tracking the repository in WBD inventory. Do not remove or alter the content.
+inventory_id: 980162270ee0cf69c2e3a0a0a87dd93d-e8e885e0931c2c609d3059f840c02b70
